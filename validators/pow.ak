@@ -38,10 +38,13 @@ type TargetState {
 fn own_validator_input(
   inputs: List<Input>,
   output_reference: OutputReference,
-) -> Option<Output> {
+) -> Output {
   inputs
   |> list.find(fn(input) { input.output_reference == output_reference })
-  |> option.map(fn(v) { v.output })
+  |> fn(a: Option<Input>) {
+    expect Some(b) = a
+    b.output
+  }
 }
 
 fn create_difficulty(position: Int, leading_zeros: Int) -> ByteArray {
@@ -61,6 +64,14 @@ fn create_difficulty(position: Int, leading_zeros: Int) -> ByteArray {
   }
 }
 
+fn two_exponential(exponent: Int) -> Int {
+  if exponent == 0 {
+    1
+  } else {
+    two_exponential(exponent - 1) * 2
+  }
+}
+
 const halving_number = 210000
 
 const epoch_number = 2016
@@ -68,18 +79,14 @@ const epoch_number = 2016
 // Should have 2 more zeros but I'm getting overflow
 const initial_payout = 50000000
 
+// fn (state: MintingState, ctx: ScriptContext)-> Bool {
+// Minting Active simply checks for spent input with same validator hash
+// TODO 
+// Minting Setup does the initial setup
+// TODO
+// }
 validator pow {
-  fn(
-    // fn (state: MintingState, ctx: ScriptContext)-> Bool {
-    // Minting Active simply checks for spent input with same validator hash
-    // TODO 
-    // Minting Setup does the initial setup
-    // TODO
-    // }
-    state: State,
-    input: InputNonce,
-    ctx: ScriptContext,
-  ) -> Bool {
+  fn(state: State, input: InputNonce, ctx: ScriptContext) -> Bool {
     // Access transaction information
     let State { block_number, current_hash, leading_zeros, epoch_time, .. } =
       state
@@ -87,8 +94,7 @@ validator pow {
 
     expect Spend(own_reference) = ctx.purpose
 
-    expect Some(own_input) =
-      own_validator_input(transaction.inputs, own_reference)
+    let own_input = own_validator_input(transaction.inputs, own_reference)
 
     let credential = own_input.address.payment_credential
 
@@ -150,15 +156,15 @@ validator pow {
 
     let has_input_token = has_input_token == 1
 
-    // Mint contains proper quantitiy of pow token
+    // Mint contains proper quantity of pow token
     let mints_token = when
       transaction.mint
       |> without_lovelace()
       |> flatten()
     is {
       [(policy, token_name, quantity)] ->
-        policy == own_validator_hash && token_name == "pow" && quantity == initial_payout / (
-          1 + block_number / halving_number
+        policy == own_validator_hash && token_name == "pow" && quantity == initial_payout / two_exponential(
+          block_number / halving_number,
         )
       _ -> False
     }
