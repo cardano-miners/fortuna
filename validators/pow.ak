@@ -1,7 +1,7 @@
 use aiken/builtin
 use aiken/bytearray
 use aiken/hash.{sha2_256}
-use aiken/interval.{Finite, Interval}
+use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/option
 use aiken/transaction.{
@@ -63,8 +63,23 @@ fn create_difficulty(position: Int, leading_zeros: Int) -> ByteArray {
 
 const halving_number = 210000
 
+const epoch_number = 2016
+
+// Should have 2 more zeros but I'm getting overflow
+const initial_payout = 50000000
+
 validator pow {
-  fn(state: State, input: InputNonce, ctx: ScriptContext) -> Bool {
+  fn(
+    // fn (state: MintingState, ctx: ScriptContext)-> Bool {
+    // Minting Active simply checks for spent input with same validator hash
+    // TODO 
+    // Minting Setup does the initial setup
+    // TODO
+    // }
+    state: State,
+    input: InputNonce,
+    ctx: ScriptContext,
+  ) -> Bool {
     // Access transaction information
     let State { block_number, current_hash, leading_zeros, epoch_time, .. } =
       state
@@ -90,14 +105,23 @@ validator pow {
     }
 
     // Time Range Span is 3 minutes or less 
-    let Interval { upper_bound, lower_bound } = transaction.validity_range
+    let Interval {
+      upper_bound: IntervalBound {
+        bound_type: upper_range,
+        is_inclusive: upper_is_inclusive,
+      },
+      lower_bound: IntervalBound {
+        bound_type: lower_range,
+        is_inclusive: lower_is_inclusive,
+      },
+    } = transaction.validity_range
 
-    expect Finite(upper_range) = upper_bound.bound_type
+    expect Finite(upper_range) = upper_range
 
-    expect Finite(lower_range) = lower_bound.bound_type
+    expect Finite(lower_range) = lower_range
 
     let time_range_check =
-      upper_bound.is_inclusive && lower_bound.is_inclusive && upper_range - lower_range <= 180
+      upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180
 
     let averaged_block_time = ( upper_range - lower_range ) / 2 + lower_range
 
@@ -133,7 +157,7 @@ validator pow {
       |> flatten()
     is {
       [(policy, token_name, quantity)] ->
-        policy == own_validator_hash && token_name == "pow" && quantity == 50 / (
+        policy == own_validator_hash && token_name == "pow" && quantity == initial_payout / (
           1 + block_number / halving_number
         )
       _ -> False
@@ -164,7 +188,7 @@ validator pow {
     }: State = output_datum
 
     let (expected_epoch_time, expected_leading_zeros) =
-      if block_number % 2016 == 0 {
+      if block_number % epoch_number == 0 {
         todo
       } else {
         (epoch_time + averaged_block_time, leading_zeros)
@@ -177,7 +201,4 @@ validator pow {
     // TODO
     mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid
   }
-  // fn (state: MintingState, ctx: ScriptContext)-> Bool {
-  // Minting simply checks for spent input with same validator hash
-  // }
 }
