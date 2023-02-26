@@ -140,10 +140,15 @@ validator pow {
     }
 
     // Own output contains master token
-    let has_output_token =
-      quantity_of(own_output.value, own_validator_hash, "Master")
-
-    let has_output_token = has_output_token == 1
+    let has_output_token = when
+      own_output.value
+      |> without_lovelace()
+      |> flatten()
+    is {
+      [(policy, token_name, quantity)] ->
+        policy == own_validator_hash && token_name == "Master" && quantity == 1
+      _ -> False
+    }
 
     // Check output datum contains correct epoch time, block number, hash, and leading zeros
     // Check for every divisible by 2016 block: 
