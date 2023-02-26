@@ -8,7 +8,7 @@ use aiken/transaction.{
   InlineDatum, Input, Output, OutputReference, ScriptContext, Spend,
 }
 use aiken/transaction/credential.{ScriptCredential}
-use aiken/transaction/value.{quantity_of}
+use aiken/transaction/value.{flatten, quantity_of, without_lovelace}
 
 type State {
   block_number: Int,
@@ -20,6 +20,11 @@ type State {
 
 type InputNonce {
   nonce: ByteArray,
+}
+
+type MintingState {
+  Active
+  Setup
 }
 
 type TargetState {
@@ -56,6 +61,8 @@ fn create_difficulty(position: Int, leading_zeros: Int) -> ByteArray {
   }
 }
 
+const halving_number = 210000
+
 validator pow {
   fn(state: State, input: InputNonce, ctx: ScriptContext) -> Bool {
     // Access transaction information
@@ -79,11 +86,10 @@ validator pow {
       )
     is {
       [o] -> o
-      _ -> error @"Should be only one output."
+      _ -> error @"Should be only one output back to validator."
     }
 
     // Time Range Span is 3 minutes or less 
-    // TODO: Compare intervals for valid from and until to ensure 3 minute gap or less
     let Interval { upper_bound, lower_bound } = transaction.validity_range
 
     expect Finite(upper_range) = upper_bound.bound_type
@@ -120,9 +126,18 @@ validator pow {
 
     let has_input_token = has_input_token == 1
 
-    // Mint contains greater than 1 quantity of pow token
-    let mints_token =
-      quantity_of(transaction.mint, own_validator_hash, "pow") > 1
+    // Mint contains proper quantitiy of pow token
+    let mints_token = when
+      transaction.mint
+      |> without_lovelace()
+      |> flatten()
+    is {
+      [(policy, token_name, quantity)] ->
+        policy == own_validator_hash && token_name == "pow" && quantity == 50 / (
+          1 + block_number / halving_number
+        )
+      _ -> False
+    }
 
     // Own output contains master token
     let has_output_token =
@@ -157,4 +172,7 @@ validator pow {
     // TODO
     mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid
   }
+  // fn (state: MintingState, ctx: ScriptContext)-> Bool {
+  // Minting simply checks for spent input with same validator hash
+  // }
 }
