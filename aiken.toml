@@ -1,0 +1,14 @@
+name = 'aiken-lang/pow'
+version = '0.0.0'
+license = 'Apache-2.0'
+description = "Aiken contracts for pow coin"
+
+[repository]
+user = 'aiken-lang'
+project = 'pow'
+platform = 'github'
+
+[[dependencies]]
+name = 'aiken-lang/stdlib'
+version = 'main'
+source = 'github'
