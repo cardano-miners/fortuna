@@ -1,13 +1,16 @@
 use aiken/builtin
 use aiken/bytearray
 use aiken/hash.{sha2_256}
+use aiken/interval.{Finite, Interval}
 use aiken/list
 use aiken/option
-use aiken/transaction.{Input, Output, OutputReference, ScriptContext, Spend}
+use aiken/transaction.{
+  InlineDatum, Input, Output, OutputReference, ScriptContext, Spend,
+}
 use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{quantity_of}
 
-pub type State {
+type State {
   block_number: Int,
   current_hash: ByteArray,
   leading_zeros: Int,
@@ -15,7 +18,7 @@ pub type State {
   extra: Data,
 }
 
-pub type InputNonce {
+type InputNonce {
   nonce: ByteArray,
 }
 
@@ -55,6 +58,7 @@ fn create_difficulty(position: Int, leading_zeros: Int) -> ByteArray {
 
 validator pow {
   fn(state: State, input: InputNonce, ctx: ScriptContext) -> Bool {
+    // Access transaction information
     let State { block_number, current_hash, leading_zeros, epoch_time, .. } =
       state
     let transaction = ctx.transaction
@@ -80,11 +84,21 @@ validator pow {
 
     // Time Range Span is 3 minutes or less 
     // TODO: Compare intervals for valid from and until to ensure 3 minute gap or less
+    let Interval { upper_bound, lower_bound } = transaction.validity_range
+
+    expect Finite(upper_range) = upper_bound.bound_type
+
+    expect Finite(lower_range) = lower_bound.bound_type
+
+    let time_range_check =
+      upper_bound.is_inclusive && lower_bound.is_inclusive && upper_range - lower_range <= 180
+
+    let averaged_block_time = ( upper_range - lower_range ) / 2 + lower_range
+
     // Mining Diffculty Met
     let target =
       TargetState {
         nonce: input.nonce,
-        //TODO
         epoch_time,
         block_number,
         current_hash,
@@ -120,9 +134,27 @@ validator pow {
     // Check for every divisible by 2016 block: 
     // - Epoch time resets
     // - leading zeros is adjusted based on percent of hardcoded target time for 2016 blocks vs epoch time
-    // TODO
+    expect InlineDatum(output_datum) = own_output.datum
+    expect State {
+      block_number: out_block_number,
+      current_hash: out_current_hash,
+      leading_zeros: out_leading_zeros,
+      epoch_time: out_epoch_time,
+      extra,
+    }: State = output_datum
+
+    let (expected_epoch_time, expected_leading_zeros) =
+      if block_number % 2016 == 0 {
+        todo
+      } else {
+        (epoch_time + averaged_block_time, leading_zeros)
+      }
+
+    let output_state_valid =
+      block_number + 1 == out_block_number && out_current_hash == target && expected_epoch_time == out_epoch_time && expected_leading_zeros == out_leading_zeros
+
     // Check output extra field is within a certain size
     // TODO
-    mining_check && has_input_token && mints_token && has_output_token
+    mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid
   }
 }
