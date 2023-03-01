@@ -3,7 +3,6 @@ use aiken/bytearray
 use aiken/hash.{sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
-use aiken/option
 use aiken/transaction.{
   InlineDatum, Input, Output, OutputReference, ScriptContext, Spend,
 }
@@ -15,7 +14,7 @@ type State {
   current_hash: ByteArray,
   leading_zeros: Int,
   epoch_time: Int,
-  extra: Data,
+  extra: ByteArray,
 }
 
 type InputNonce {
@@ -76,6 +75,8 @@ const halving_number = 210000
 
 const epoch_number = 2016
 
+const epoch_target = 1209600000
+
 // Should have 2 more zeros but I'm getting overflow
 const initial_payout = 50000000
 
@@ -85,11 +86,16 @@ const initial_payout = 50000000
 // Minting Setup does the initial setup
 // TODO
 // }
+
+// fn (state: MintingState, ctx: ScriptContext)-> Bool {
+//   // TODO 
+// }
 validator pow {
   fn(state: State, input: InputNonce, ctx: ScriptContext) -> Bool {
     // Access transaction information
     let State { block_number, current_hash, leading_zeros, epoch_time, .. } =
       state
+
     let transaction = ctx.transaction
 
     expect Spend(own_reference) = ctx.purpose
@@ -162,10 +168,16 @@ validator pow {
       |> without_lovelace()
       |> flatten()
     is {
-      [(policy, token_name, quantity)] ->
-        policy == own_validator_hash && token_name == "pow" && quantity == initial_payout / two_exponential(
-          block_number / halving_number,
-        )
+      [(policy, token_name, quantity)] -> {
+        let halving_exponent = block_number / halving_number
+        let expected_quantity =
+          if halving_exponent > 28 {
+            0
+          } else {
+            initial_payout / two_exponential(halving_exponent)
+          }
+        policy == own_validator_hash && token_name == "pow" && quantity == expected_quantity
+      }
       _ -> False
     }
 
@@ -195,7 +207,31 @@ validator pow {
 
     let (expected_epoch_time, expected_leading_zeros) =
       if block_number % epoch_number == 0 {
-        todo
+        // use total epoch time with target epoch time to get difficulty adjustment ratio
+        // ratio maxes out at 4/1 and mins to 1/4
+        let total_epoch_time = averaged_block_time + epoch_time
+        let (change_numerator, change_denominator) =
+          if epoch_target / total_epoch_time > 4 {
+            (4, 1)
+          } else if total_epoch_time / epoch_target > 4 {
+            (1, 4)
+          } else {
+            (epoch_target, total_epoch_time)
+          }
+
+        // Now use ratio to find new leading zeros difficulty
+        let padding = 1000
+        let new_leading_zeros_padded =
+          leading_zeros * change_numerator * padding / change_denominator
+        let new_leading_zeros =
+          if new_leading_zeros_padded % padding >= 500 {
+            new_leading_zeros_padded / padding + 1
+          } else {
+            new_leading_zeros_padded / padding
+          }
+
+        let final = (0, new_leading_zeros)
+        final
       } else {
         (epoch_time + averaged_block_time, leading_zeros)
       }
@@ -204,7 +240,8 @@ validator pow {
       block_number + 1 == out_block_number && out_current_hash == target && expected_epoch_time == out_epoch_time && expected_leading_zeros == out_leading_zeros
 
     // Check output extra field is within a certain size
-    // TODO
-    mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid
+    let extra_data_length_check =
+      builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 256
+    mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid && extra_data_length_check
   }
 }
