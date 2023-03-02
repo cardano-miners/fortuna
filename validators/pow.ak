@@ -14,7 +14,7 @@ type State {
   current_hash: ByteArray,
   leading_zeros: Int,
   epoch_time: Int,
-  extra: ByteArray,
+  extra: Data,
 }
 
 type InputNonce {
