@@ -6,7 +6,7 @@ use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/transaction.{
   InlineDatum, Input, Mint, Output, OutputReference, ScriptContext, Spend,
-  TransactionId,
+  Transaction, TransactionId,
 }
 use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId, Value, quantity_of, tokens}
@@ -257,10 +257,13 @@ validator {
           }
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
+
+        let Transaction { reference_inputs, outputs, mint, .. } =
+          tx
         // Add in entropy from a reference output
         expect Some(bootstrap_input) =
           list.find(
-            tx.reference_inputs,
+            reference_inputs,
             fn(input) { input.output_reference == utxo_ref },
           )
         expect InlineDatum(bootstrap_datum) =
@@ -274,13 +277,13 @@ validator {
         // Expect one ouput with payment credential matching policy id
         expect [Output { datum: InlineDatum(output_datum), value, .. }] =
           list.filter(
-            tx.outputs,
+            outputs,
             fn(output) {
               output.address.payment_credential == ScriptCredential(own_policy)
             },
           )
         let mints_token =
-          value_contains_master_token(tx.mint, own_policy)
+          value_contains_master_token(mint, own_policy)
         let has_output_token =
           value_contains_master_token(value, own_policy)
         expect output_state: State =
@@ -325,26 +328,34 @@ validator {
     } =
       state
 
-    let transaction =
-      ctx.transaction
-
+    let ScriptContext { transaction, purpose } =
+      ctx
     expect Spend(own_reference) =
-      ctx.purpose
+      purpose
+
+    let Transaction { inputs, outputs, mint, validity_range, .. } =
+      transaction
 
     let own_input =
-      own_validator_input_utxo(transaction.inputs, own_reference)
+      own_validator_input_utxo(inputs, own_reference)
+
+    let Output { address: in_address, value: in_value, .. } =
+      own_input
 
     let credential =
-      own_input.address.payment_credential
+      in_address.payment_credential
 
     expect ScriptCredential(own_validator_hash) =
       credential
 
     expect [own_output] =
       list.filter(
-        transaction.outputs,
+        outputs,
         fn(output: Output) { output.address.payment_credential == credential },
       )
+
+    let Output { datum: out_datum, value: out_value, .. } =
+      own_output
 
     // Time Range Span is 3 minutes or less 
     let Interval {
@@ -357,7 +368,7 @@ validator {
         is_inclusive: lower_is_inclusive,
       },
     } =
-      transaction.validity_range
+      validity_range
 
     expect Finite(upper_range) =
       upper_range
@@ -396,14 +407,14 @@ validator {
 
     // Input has master token
     let has_input_token =
-      quantity_of(own_input.value, own_validator_hash, "Master")
+      quantity_of(in_value, own_validator_hash, "Master")
 
     let has_input_token =
       has_input_token == 1
 
     // Mint contains proper quantity of pow token
     expect [(token_name, quantity)] =
-      transaction.mint
+      mint
         |> tokens(own_validator_hash)
         |> dict.to_list
 
@@ -421,14 +432,14 @@ validator {
       token_name == "pow" && quantity == expected_quantity
 
     let has_output_token =
-      value_contains_master_token(own_output.value, own_validator_hash)
+      value_contains_master_token(out_value, own_validator_hash)
 
     // Check output datum contains correct epoch time, block number, hash, and leading zeros
     // Check for every divisible by 2016 block: 
     // - Epoch time resets
     // - leading zeros is adjusted based on percent of hardcoded target time for 2016 blocks vs epoch time
     expect InlineDatum(output_datum) =
-      own_output.datum
+      out_datum
 
     expect State {
       block_number: out_block_number,
