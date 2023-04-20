@@ -1,5 +1,6 @@
 use aiken/builtin
 use aiken/bytearray
+use aiken/dict
 use aiken/hash.{sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
@@ -8,16 +9,16 @@ use aiken/transaction.{
   TransactionId,
 }
 use aiken/transaction/credential.{ScriptCredential}
-use aiken/transaction/value.{
-  PolicyId, Value, flatten, quantity_of, without_lovelace,
-}
+use aiken/transaction/value.{PolicyId, Value, quantity_of, tokens}
 
 type State {
   block_number: Int,
   current_hash: ByteArray,
   leading_zeros: Int,
+  difficulty_number: Int,
   epoch_time: Int,
   extra: Data,
+  interlink: List<ByteArray>,
 }
 
 type InputNonce {
@@ -33,6 +34,7 @@ type TargetState {
   block_number: Int,
   current_hash: ByteArray,
   leading_zeros: Int,
+  difficulty_number: Int,
   epoch_time: Int,
   nonce: ByteArray,
 }
@@ -46,60 +48,69 @@ fn own_validator_input_utxo(
   input.output
 }
 
-fn create_ff_byte(times: Int) -> ByteArray {
-  if times == 2 {
-    #"ff"
-  } else {
-    bytearray.concat(create_ff_byte(times - 2), #"ff")
-  }
-}
-
 fn create_00_byte(times: Int) -> ByteArray {
-  if times == 2 {
-    #"00"
+  if times <= 0 {
+    #""
   } else {
     bytearray.concat(create_00_byte(times - 2), #"00")
   }
 }
 
-fn create_difficulty(leading_zeros: Int) -> ByteArray {
-  if leading_zeros <= 0 {
-    #"ffffffffffffffffffffffffffffffff"
-  } else if leading_zeros >= 32 {
-    #"00000000000000000000000000000000"
-  } else {
-    if leading_zeros % 2 == 0 {
-      bytearray.concat(
-        create_00_byte(leading_zeros),
-        create_ff_byte(32 - leading_zeros),
+// Create a bytearray number that is based on leading zeros and a difficulty number that fits in 2 bytes
+fn create_difficulty(difficulty_number: Int, leading_zeros: Int) -> ByteArray {
+  if leading_zeros % 2 == 0 {
+    let difficulty_number_bytes =
+      builtin.cons_bytearray(
+        // 65536 is 256 * 256
+        difficulty_number % 65536 / 256,
+        builtin.cons_bytearray(difficulty_number % 256, #""),
       )
-    } else {
+
+    bytearray.concat(
+      bytearray.concat(create_00_byte(leading_zeros), difficulty_number_bytes),
+      // -2 bytes for difficulty number spot
+      create_00_byte(64 - leading_zeros - 4),
+    )
+  } else {
+    let difficulty_number_bytes =
+      builtin.cons_bytearray(
+        // 65536 is 256 * 256
+        difficulty_number % 65536 / 4096,
+        builtin.cons_bytearray(
+          difficulty_number % 4096 / 16,
+          builtin.cons_bytearray(difficulty_number % 16 * 16, #""),
+        ),
+      )
+
+    bytearray.concat(
       bytearray.concat(
         create_00_byte(leading_zeros - 1),
-        bytearray.concat(#"0f", create_ff_byte(32 - leading_zeros - 1)),
-      )
-    }
+        difficulty_number_bytes,
+      ),
+      // -3 bytes for difficulty number spot
+      create_00_byte(64 - leading_zeros + 1 - 6),
+    )
   }
 }
 
 test create_difficulty_1() {
-  create_difficulty(4) == #"0000ffffffffffffffffffffffffffff"
+  create_difficulty(50005, 5) == #"00000c3550000000000000000000000000000000000000000000000000000000"
 }
 
 test create_difficulty_2() {
-  create_difficulty(5) == #"00000fffffffffffffffffffffffffff"
+  create_difficulty(50000, 5) == #"00000c3500000000000000000000000000000000000000000000000000000000"
 }
 
 test create_difficulty_3() {
-  create_difficulty(17) == #"00000000000000000fffffffffffffff"
+  create_difficulty(257, 4) == #"0000010100000000000000000000000000000000000000000000000000000000"
 }
 
 test create_difficulty_4() {
-  create_difficulty(32) == #"00000000000000000000000000000000"
+  create_difficulty(257, 30) == #"0000000000000000000000000000000101000000000000000000000000000000"
 }
 
 test create_difficulty_5() {
-  create_difficulty(0) == #"ffffffffffffffffffffffffffffffff"
+  create_difficulty(65535, 0) == #"ffff000000000000000000000000000000000000000000000000000000000000"
 }
 
 fn two_exponential(exponent: Int) -> Int {
@@ -131,12 +142,12 @@ test two_exponential_5() {
 }
 
 fn value_contains_master_token(val: Value, own_policy: PolicyId) -> Bool {
-  expect [(policy, token_name, quantity)] =
+  expect [(token_name, quantity)] =
     val
-      |> without_lovelace()
-      |> flatten()
+      |> tokens(own_policy)
+      |> dict.to_list()
 
-  policy == own_policy && token_name == "Master" && quantity == 1
+  token_name == "Master" && quantity == 1
 }
 
 fn get_difficulty_adjustment(total_epoch_time: Int) -> (Int, Int) {
@@ -168,45 +179,56 @@ test get_difficulty_adjustment_4() {
 }
 
 fn get_new_difficulty(
+  difficulty_number: Int,
   current_leading_zeros: Int,
   adjustment_numerator: Int,
   adjustment_denominator: Int,
-) -> Int {
-  let new_leading_zeros_padded =
-    current_leading_zeros * adjustment_numerator * padding / adjustment_denominator
+) -> (Int, Int) {
+  let new_padded_difficulty =
+    difficulty_number * padding * adjustment_numerator / adjustment_denominator
 
-  let new_leading_zeros =
-    if new_leading_zeros_padded % padding >= 500 {
-      new_leading_zeros_padded / padding + 1
+  let new_difficulty =
+    new_padded_difficulty / padding
+
+  if new_padded_difficulty / 65536 == 0 {
+    if current_leading_zeros >= 30 {
+      (65535, 30)
     } else {
-      new_leading_zeros_padded / padding
+      (new_padded_difficulty, current_leading_zeros + 1)
     }
-
-  new_leading_zeros
+  } else if new_difficulty / 65536 > 0 {
+    if current_leading_zeros <= 2 {
+      (65535, 2)
+    } else {
+      (new_difficulty / padding, current_leading_zeros - 1)
+    }
+  } else {
+    (new_difficulty, current_leading_zeros)
+  }
 }
 
 test get_new_difficulty_1() {
-  get_new_difficulty(4, 4, 1) == 16
+  get_new_difficulty(20001, 4, 4, 1) == (5000, 3)
 }
 
 test get_new_difficulty_2() {
-  get_new_difficulty(8, 1, 4) == 2
+  get_new_difficulty(20001, 4, 1, 4) == (5000, 4)
 }
 
 test get_new_difficulty_3() {
-  get_new_difficulty(16, 56, 37) == 24
+  get_new_difficulty(5005, 4, 1, 4) == (20020, 5)
 }
 
 test get_new_difficulty_4() {
-  get_new_difficulty(16, 57, 37) == 25
+  get_new_difficulty(9000, 6, 57, 37) == (13864, 6)
 }
 
 test get_new_difficulty_5() {
-  get_new_difficulty(2, 1, 3) == 1
+  get_new_difficulty(30000, 4, 3, 1) == (5625, 3)
 }
 
 test get_new_difficulty_6() {
-  get_new_difficulty(1, 1, 3) == 0
+  get_new_difficulty(9000, 4, 1, 3) == (48000, 5)
 }
 
 const halving_number =
@@ -219,10 +241,10 @@ const epoch_target =
   1209600
 
 const initial_payout =
-  500000000
+  5000000
 
 const padding =
-  1000
+  16
 
 validator {
   fn mint(state: MintingState, ctx: ScriptContext) -> Bool {
@@ -269,8 +291,10 @@ validator {
             block_number: 0,
             current_hash: bootstrap_hash,
             leading_zeros: 4,
+            difficulty_number: 65535,
             epoch_time: 0,
             extra: 0,
+            interlink: [],
           }
         initial_state == output_state && has_output_token && mints_token
       }
@@ -291,7 +315,14 @@ validator {
 
   fn spend(state: State, input: InputNonce, ctx: ScriptContext) -> Bool {
     // Access transaction information
-    let State { block_number, current_hash, leading_zeros, epoch_time, .. } =
+    let State {
+      block_number,
+      current_hash,
+      leading_zeros,
+      difficulty_number,
+      epoch_time,
+      ..
+    } =
       state
 
     let transaction =
@@ -348,6 +379,7 @@ validator {
         block_number,
         current_hash,
         leading_zeros,
+        difficulty_number,
       }
 
     let target =
@@ -357,7 +389,7 @@ validator {
         |> sha2_256()
 
     let difficulty =
-      create_difficulty(leading_zeros)
+      create_difficulty(difficulty_number, leading_zeros)
 
     let mining_check =
       builtin.less_than_equals_bytearray(target, difficulty)
@@ -370,10 +402,10 @@ validator {
       has_input_token == 1
 
     // Mint contains proper quantity of pow token
-    expect [(policy, token_name, quantity)] =
+    expect [(token_name, quantity)] =
       transaction.mint
-        |> without_lovelace()
-        |> flatten()
+        |> tokens(own_validator_hash)
+        |> dict.to_list
 
     let halving_exponent =
       block_number / halving_number
@@ -386,7 +418,7 @@ validator {
       }
 
     let mints_token =
-      policy == own_validator_hash && token_name == "pow" && quantity == expected_quantity
+      token_name == "pow" && quantity == expected_quantity
 
     let has_output_token =
       value_contains_master_token(own_output.value, own_validator_hash)
@@ -403,7 +435,9 @@ validator {
       current_hash: out_current_hash,
       leading_zeros: out_leading_zeros,
       epoch_time: out_epoch_time,
+      interlink,
       extra,
+      difficulty_number: out_difficulty_number,
     }: State =
       output_datum
 
@@ -418,16 +452,19 @@ validator {
           get_difficulty_adjustment(total_epoch_time)
 
         // Now use ratio to find new leading zeros difficulty
-        let new_difficulty =
+        let (new_difficulty, new_leading_zeroes) =
           get_new_difficulty(
+            difficulty_number,
             leading_zeros,
             adjustment_numerator,
             adjustment_denominator,
           )
 
-        new_difficulty == out_leading_zeros && 0 == out_epoch_time
+        new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty
       } else {
-        leading_zeros == out_leading_zeros && averaged_block_time + epoch_time == out_epoch_time
+        let new_epoch_time =
+          averaged_block_time + epoch_time
+        leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time
       }
 
     let output_state_valid =
