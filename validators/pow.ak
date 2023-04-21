@@ -63,7 +63,7 @@ fn create_difficulty(difficulty_number: Int, leading_zeros: Int) -> ByteArray {
       builtin.cons_bytearray(
         // 65536 is 256 * 256
         difficulty_number % 65536 / 256,
-        builtin.cons_bytearray(difficulty_number % 256, #""),
+        builtin.cons_bytearray(difficulty_number, #""),
       )
 
     bytearray.concat(
@@ -87,8 +87,8 @@ fn create_difficulty(difficulty_number: Int, leading_zeros: Int) -> ByteArray {
         create_00_byte(leading_zeros - 1),
         difficulty_number_bytes,
       ),
-      // -3 bytes for difficulty number spot
-      create_00_byte(64 - leading_zeros + 1 - 6),
+      // -5 bytes for difficulty number spot
+      create_00_byte(64 - leading_zeros - 5),
     )
   }
 }
@@ -192,7 +192,7 @@ fn get_new_difficulty(
 
   if new_padded_difficulty / 65536 == 0 {
     if current_leading_zeros >= 30 {
-      (65535, 30)
+      (4096, 30)
     } else {
       (new_padded_difficulty, current_leading_zeros + 1)
     }
@@ -229,6 +229,37 @@ test get_new_difficulty_5() {
 
 test get_new_difficulty_6() {
   get_new_difficulty(9000, 4, 1, 3) == (48000, 5)
+}
+
+fn calculate_interlink(
+  interlink: List<ByteArray>,
+  current_hash: ByteArray,
+  difficulty_number: Int,
+  leading_zeros: Int,
+) -> List<ByteArray> {
+  let (halved_difficulty, halved_leading_zeroes) =
+    get_new_difficulty(difficulty_number, leading_zeros, 1, 2)
+  let half_target =
+    create_difficulty(halved_difficulty, halved_leading_zeroes)
+
+  if builtin.less_than_equals_bytearray(current_hash, half_target) {
+    when interlink is {
+      [] ->
+        [current_hash]
+      [_, ..rest] ->
+        [
+          current_hash,
+          ..calculate_interlink(
+            rest,
+            current_hash,
+            difficulty_number,
+            leading_zeros,
+          )
+        ]
+    }
+  } else {
+    interlink
+  }
 }
 
 const halving_number =
@@ -324,6 +355,7 @@ validator {
       leading_zeros,
       difficulty_number,
       epoch_time,
+      interlink,
       ..
     } =
       state
@@ -446,14 +478,14 @@ validator {
       current_hash: out_current_hash,
       leading_zeros: out_leading_zeros,
       epoch_time: out_epoch_time,
-      interlink,
+      interlink: out_interlink,
       extra,
       difficulty_number: out_difficulty_number,
     }: State =
       output_datum
 
     let difficulty_and_epoch_check =
-      if block_number % epoch_number == 0 && block_number != 0 {
+      if block_number % epoch_number == 0 && block_number > 0 {
         // use total epoch time with target epoch time to get difficulty adjustment ratio
         // ratio maxes out at 4/1 and mins to 1/4
         let total_epoch_time =
@@ -485,6 +517,14 @@ validator {
     let extra_data_length_check =
       builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512
 
-    mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid && extra_data_length_check
+    let interlink_check =
+      calculate_interlink(
+        interlink,
+        out_current_hash,
+        difficulty_number,
+        leading_zeros,
+      ) == out_interlink
+
+    mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid && extra_data_length_check && interlink_check
   }
 }
