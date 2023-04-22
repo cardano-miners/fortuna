@@ -56,6 +56,14 @@ fn create_00_byte(times: Int) -> ByteArray {
   }
 }
 
+fn create_00_byte_multiple(times: Int) -> ByteArray {
+  if times >= 10 {
+    bytearray.concat(create_00_byte_multiple(times - 10), #"0000000000")
+  } else {
+    create_00_byte(times)
+  }
+}
+
 // Create a bytearray number that is based on leading zeros and a difficulty number that fits in 2 bytes
 fn create_difficulty(difficulty_number: Int, leading_zeros: Int) -> ByteArray {
   if leading_zeros % 2 == 0 {
@@ -67,9 +75,12 @@ fn create_difficulty(difficulty_number: Int, leading_zeros: Int) -> ByteArray {
       )
 
     bytearray.concat(
-      bytearray.concat(create_00_byte(leading_zeros), difficulty_number_bytes),
+      bytearray.concat(
+        create_00_byte_multiple(leading_zeros),
+        difficulty_number_bytes,
+      ),
       // -2 bytes for difficulty number spot
-      create_00_byte(64 - leading_zeros - 4),
+      create_00_byte_multiple(64 - leading_zeros - 4),
     )
   } else {
     let difficulty_number_bytes =
@@ -84,11 +95,11 @@ fn create_difficulty(difficulty_number: Int, leading_zeros: Int) -> ByteArray {
 
     bytearray.concat(
       bytearray.concat(
-        create_00_byte(leading_zeros - 1),
+        create_00_byte_multiple(leading_zeros - 1),
         difficulty_number_bytes,
       ),
       // -5 bytes for difficulty number spot
-      create_00_byte(64 - leading_zeros - 5),
+      create_00_byte_multiple(64 - leading_zeros - 5),
     )
   }
 }
@@ -113,11 +124,27 @@ test create_difficulty_5() {
   create_difficulty(65535, 0) == #"ffff000000000000000000000000000000000000000000000000000000000000"
 }
 
-fn two_exponential(exponent: Int) -> Int {
-  if exponent == 0 {
+test create_difficulty_6() {
+  create_difficulty(40000, 18) == #"0000000000000000009c40000000000000000000000000000000000000000000"
+}
+
+test create_difficulty_7() {
+  create_difficulty(40000, 60) == #"0000000000000000000000000000000000000000000000000000000000009c40"
+}
+
+fn do_two_exponential(exponent: Int) -> Int {
+  if exponent <= 0 {
     1
   } else {
-    two_exponential(exponent - 1) * 2
+    do_two_exponential(exponent - 1) * 2
+  }
+}
+
+fn two_exponential(exponent: Int) -> Int {
+  if exponent >= 5 {
+    32 * two_exponential(exponent - 5)
+  } else {
+    do_two_exponential(exponent)
   }
 }
 
@@ -192,7 +219,7 @@ fn get_new_difficulty(
 
   if new_padded_difficulty / 65536 == 0 {
     if current_leading_zeros >= 30 {
-      (4096, 30)
+      (4096, 60)
     } else {
       (new_padded_difficulty, current_leading_zeros + 1)
     }
@@ -231,7 +258,15 @@ test get_new_difficulty_6() {
   get_new_difficulty(9000, 4, 1, 3) == (48000, 5)
 }
 
-fn calculate_interlink(
+test get_new_difficulty_7() {
+  get_new_difficulty(9000, 60, 1, 3) == (4096, 60)
+}
+
+test get_new_difficulty_8() {
+  get_new_difficulty(27000, 2, 3, 1) == (65535, 2)
+}
+
+fn do_calculate_interlink(
   interlink: List<ByteArray>,
   current_hash: ByteArray,
   difficulty_number: Int,
@@ -245,21 +280,594 @@ fn calculate_interlink(
   if builtin.less_than_equals_bytearray(current_hash, half_target) {
     when interlink is {
       [] ->
-        [current_hash]
+        [
+          current_hash,
+          ..do_calculate_interlink(
+            [],
+            current_hash,
+            halved_difficulty,
+            halved_leading_zeroes,
+          )
+        ]
       [_, ..rest] ->
         [
           current_hash,
-          ..calculate_interlink(
+          ..do_calculate_interlink(
             rest,
             current_hash,
-            difficulty_number,
-            leading_zeros,
+            halved_difficulty,
+            halved_leading_zeroes,
           )
         ]
     }
   } else {
     interlink
   }
+}
+
+fn calculate_interlink(
+  interlink: List<ByteArray>,
+  current_hash: ByteArray,
+  difficulty_number: Int,
+  leading_zeros: Int,
+) -> List<ByteArray> {
+  let (quarter_difficulty, quarter_leading_zeroes) =
+    get_new_difficulty(difficulty_number, leading_zeros, 1, 4)
+  let quarter_target =
+    create_difficulty(quarter_difficulty, quarter_leading_zeroes)
+
+  if builtin.less_than_equals_bytearray(current_hash, quarter_target) {
+    when interlink is {
+      [] ->
+        [
+          current_hash,
+          current_hash,
+          ..calculate_interlink(
+            [],
+            current_hash,
+            quarter_difficulty,
+            quarter_leading_zeroes,
+          )
+        ]
+      [_] ->
+        [
+          current_hash,
+          current_hash,
+          ..calculate_interlink(
+            [],
+            current_hash,
+            quarter_difficulty,
+            quarter_leading_zeroes,
+          )
+        ]
+      [_, _, ..rest] ->
+        [
+          current_hash,
+          current_hash,
+          ..calculate_interlink(
+            rest,
+            current_hash,
+            quarter_difficulty,
+            quarter_leading_zeroes,
+          )
+        ]
+    }
+  } else {
+    do_calculate_interlink(
+      interlink,
+      current_hash,
+      difficulty_number,
+      leading_zeros,
+    )
+  }
+}
+
+test interlink_1() {
+  let current_hash =
+    #"0000000000000000009c40000000000000000000000000000000000000000000"
+  calculate_interlink([], current_hash, 40000, 5) == [
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+  ]
+}
+
+test interlink_2() {
+  let current_hash =
+    #"0000000000000000000000000000000101000000000000000000000000000000"
+  calculate_interlink([], current_hash, 40000, 5) == [
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+  ]
+}
+
+test interlink_3() {
+  let prev_hash =
+    #"0000000000000000009c40000000000000000000000000000000000000000000"
+
+  let current_hash =
+    #"0000000000000000000000000000000101000000000000000000000000000000"
+  calculate_interlink(
+    [prev_hash, prev_hash, prev_hash, prev_hash, prev_hash, prev_hash],
+    current_hash,
+    40000,
+    5,
+  ) == [
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+  ]
+}
+
+test interlink_4() {
+  let prev_hash =
+    #"0000000000000000000000000000000101000000000000000000000000000000"
+
+  let current_hash =
+    #"0000000000000000009c40000000000000000000000000000000000000000000"
+
+  let current_list =
+    [
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+      prev_hash,
+    ]
+
+  calculate_interlink(current_list, current_hash, 40000, 5) == [
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+    prev_hash,
+  ]
 }
 
 const halving_number =
@@ -272,7 +880,7 @@ const epoch_target =
   1209600
 
 const initial_payout =
-  5000000
+  5000000000
 
 const padding =
   16
