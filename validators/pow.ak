@@ -943,12 +943,13 @@ validator {
       Active -> {
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
+
+        let own_credential =
+          ScriptCredential(own_policy)
         list.any(
           tx.inputs,
           fn(input) {
-            input.output.address.payment_credential == ScriptCredential(
-              own_policy,
-            )
+            input.output.address.payment_credential == own_credential
           },
         )
       }
