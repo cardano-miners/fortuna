@@ -4,3 +4,8 @@ artifacts/
 build/
 # Aiken's default documentation export
 docs/
+
+
+# Added by cargo
+
+/target

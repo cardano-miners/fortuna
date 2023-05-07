@@ -1,0 +1,12 @@
+[package]
+name = "fortuna"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.2.7", features = ["derive"] }
+miette = { version = "5.8.0", features = ["fancy"] }
+naumachia = { git = "https://github.com/free-honey/naumachia.git", rev = "b5b4aeebd6e67448dfb41d941f15b4559cf4447a" }
+tokio = { version = "1.28.0", features = ["full"] }
