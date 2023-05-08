@@ -6,7 +6,7 @@ use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/transaction.{
   InlineDatum, Input, Mint, Output, OutputReference, ScriptContext, Spend,
-  Transaction, TransactionId,
+  Transaction,
 }
 use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{PolicyId, Value, quantity_of, tokens}
@@ -885,31 +885,22 @@ const initial_payout =
 const padding =
   16
 
-validator {
+validator(utxo_ref: OutputReference) {
   fn mint(state: MintingState, ctx: ScriptContext) -> Bool {
     when state is {
       Setup -> {
-        let utxo_ref =
-          OutputReference {
-            transaction_id: TransactionId { hash: "<HASH>" },
-            output_index: 0,
-          }
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
 
-        let Transaction { reference_inputs, outputs, mint, .. } =
+        let Transaction { inputs, outputs, mint, .. } =
           tx
         // Add in entropy from a reference output
-        expect Some(bootstrap_input) =
-          list.find(
-            reference_inputs,
-            fn(input) { input.output_reference == utxo_ref },
-          )
-        expect InlineDatum(bootstrap_datum) =
-          bootstrap_input.output.datum
         // Entropy Initial hash. No need for difficulty check
+        expect Some(_) =
+          list.find(inputs, fn(input) { input.output_reference == utxo_ref })
+
         let bootstrap_hash =
-          bootstrap_datum
+          utxo_ref
             |> builtin.serialise_data()
             |> sha2_256()
             |> sha2_256()

@@ -1,21 +1,16 @@
 use miette::IntoDiagnostic;
-use naumachia::{
-    ledger_client::LedgerClient, trireme_ledger_client::get_trireme_ledger_client_from_file,
-};
+
+use crate::contract;
 
 #[derive(clap::Args)]
 pub struct Args {
-    tx_hash: String,
-    output_index: u16,
+    output_reference: String,
 }
 
-pub async fn exec(
-    Args {
-        tx_hash,
-        output_index,
-    }: Args,
-) -> miette::Result<()> {
-    let ledger_client = get_trireme_ledger_client_from_file::<(), ()>()
+pub async fn exec(Args { output_reference }: Args) -> miette::Result<()> {
+    let output_reference = hex::decode(output_reference).into_diagnostic()?;
+
+    contract::genesis(output_reference)
         .await
         .into_diagnostic()?;
 

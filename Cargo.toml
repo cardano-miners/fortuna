@@ -6,7 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-trait = "0.1.68"
 clap = { version = "4.2.7", features = ["derive"] }
+hex = "0.4.3"
 miette = { version = "5.8.0", features = ["fancy"] }
 naumachia = { git = "https://github.com/free-honey/naumachia.git", rev = "b5b4aeebd6e67448dfb41d941f15b4559cf4447a" }
+sha2 = "0.10.6"
+thiserror = "1.0.40"
 tokio = { version = "1.28.0", features = ["full"] }
