@@ -2,33 +2,24 @@ use async_trait::async_trait;
 use naumachia::{
     backend::Backend,
     ledger_client::LedgerClient,
-    logic::{SCLogic, SCLogicResult},
+    logic::{SCLogic, SCLogicError, SCLogicResult},
+    scripts::{
+        raw_script::BlueprintFile, raw_validator_script::RawPlutusValidator, ScriptError,
+        ScriptResult, ValidatorCode,
+    },
     smart_contract::{SmartContract, SmartContractTrait},
     transaction::TxActions,
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
 use sha2::{Digest, Sha256};
 
-use crate::{error, mutations, queries};
+use crate::{datums::State, error, mutations, queries, redeemers::InputNonce};
+
+const BLUEPRINT: &str = include_str!("../plutus.json");
+const VALIDATOR_NAME: &str = "tuna.spend";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fortuna;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct State {
-    block_number: u64,
-    current_hash: Vec<u8>,
-    leading_zeros: u8,
-    difficulty_number: u16,
-    epoch_time: u64,
-    extra: u32,
-    interlink: Vec<Vec<u8>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct InputNonce {
-    nonce: Vec<u8>,
-}
 
 #[async_trait]
 impl SCLogic for Fortuna {
@@ -52,17 +43,21 @@ impl SCLogic for Fortuna {
 
                 let current_hash = hasher.finalize();
 
-                let datum = State {
-                    block_number: 0,
-                    current_hash,
-                    leading_zeros: 4,
-                    difficulty_number: 65535,
-                    epoch_time: todo!(),
-                    extra: 0,
-                    interlink: vec![],
-                };
+                let datum = State::genesis(current_hash.to_vec());
 
-                let actions = TxActions::v2().with_script_init(datum, values, address);
+                let network = ledger_client
+                    .network()
+                    .await
+                    .map_err(|err| SCLogicError::Endpoint(err.into()))?;
+
+                let validator =
+                    tuna_spend_validator().map_err(|e| SCLogicError::Endpoint(e.into()))?;
+
+                let address = validator
+                    .address(network)
+                    .map_err(|e| SCLogicError::Endpoint(Box::new(e)))?;
+
+                let actions = TxActions::v2().with_script_init(datum, Default::default(), address);
 
                 Ok(actions)
             }
@@ -70,8 +65,8 @@ impl SCLogic for Fortuna {
     }
 
     async fn lookup<Record: LedgerClient<Self::Datums, Self::Redeemers>>(
-        query: Self::Lookups,
-        ledger_client: &Record,
+        _query: Self::Lookups,
+        _ledger_client: &Record,
     ) -> SCLogicResult<Self::LookupResponses> {
         todo!()
     }
@@ -89,4 +84,22 @@ pub async fn mutate(mutation: mutations::FortunaMutation) -> error::Result<()> {
 
 pub async fn genesis(output_reference: Vec<u8>) -> error::Result<()> {
     mutate(mutations::FortunaMutation::Genesis { output_reference }).await
+}
+
+pub fn tuna_spend_validator() -> ScriptResult<RawPlutusValidator<State, InputNonce>> {
+    let blueprint: BlueprintFile = serde_json::from_str(BLUEPRINT)
+        .map_err(|e| ScriptError::FailedToConstruct(e.to_string()))?;
+
+    let validator_blueprint =
+        blueprint
+            .get_validator(VALIDATOR_NAME)
+            .ok_or(ScriptError::FailedToConstruct(format!(
+                "Validator not listed in Blueprint: {:?}",
+                VALIDATOR_NAME
+            )))?;
+
+    let raw_script_validator = RawPlutusValidator::from_blueprint(validator_blueprint)
+        .map_err(|e| ScriptError::FailedToConstruct(e.to_string()))?;
+
+    Ok(raw_script_validator)
 }
