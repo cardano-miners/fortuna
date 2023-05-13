@@ -25,8 +25,8 @@ type InputNonce =
   ByteArray
 
 type MintingState {
-  Active
-  Setup
+  Mine
+  Genesis
 }
 
 type TargetState {
@@ -41,7 +41,7 @@ type TargetState {
 validator(utxo_ref: OutputReference) {
   fn mint(state: MintingState, ctx: ScriptContext) -> Bool {
     when state is {
-      Setup -> {
+      Genesis -> {
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
 
@@ -91,7 +91,7 @@ validator(utxo_ref: OutputReference) {
 
         initial_state == output_state && has_output_token && mints_token
       }
-      Active -> {
+      Mine -> {
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
 
@@ -201,7 +201,7 @@ validator(utxo_ref: OutputReference) {
 
     // Input has master token
     let has_input_token =
-      quantity_of(in_value, own_validator_hash, "Master")
+      quantity_of(in_value, own_validator_hash, fortuna.master_token_name)
 
     let has_input_token =
       has_input_token == 1

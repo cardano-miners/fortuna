@@ -6,6 +6,9 @@ use aiken/transaction.{Input, Output, OutputReference}
 use aiken/transaction/value.{PolicyId, Value, tokens}
 use fortuna/parameters.{epoch_target, padding}
 
+pub const master_token_name =
+  "lord tuna"
+
 pub fn own_validator_input_utxo(
   inputs: List<Input>,
   output_reference: OutputReference,
@@ -144,7 +147,7 @@ pub fn value_contains_master_token(val: Value, own_policy: PolicyId) -> Bool {
       |> tokens(own_policy)
       |> dict.to_list()
 
-  token_name == "Master" && quantity == 1
+  token_name == master_token_name && quantity == 1
 }
 
 pub fn get_difficulty_adjustment(total_epoch_time: Int) -> (Int, Int) {
