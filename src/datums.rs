@@ -4,7 +4,7 @@ use naumachia::scripts::raw_validator_script::plutus_data::{BigInt, Constr, Plut
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
-    block_number: u64,
+    pub block_number: u64,
     current_hash: Vec<u8>,
     leading_zeros: u8,
     difficulty_number: u16,

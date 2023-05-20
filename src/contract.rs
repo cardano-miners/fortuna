@@ -26,6 +26,7 @@ const BLUEPRINT: &str = include_str!("../plutus.json");
 const SPEND_VALIDATOR_NAME: &str = "tuna.spend";
 const MINT_VALIDATOR_NAME: &str = "tuna.mint";
 const MASTER_TOKEN_NAME: &str = "lord tuna";
+const TOKEN_NAME: &str = "TUNA";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fortuna;
@@ -68,10 +69,10 @@ impl SCLogic for Fortuna {
 
                 let mut values = Values::default();
 
-                values.add_one_value(
-                    &PolicyId::NativeToken(mint.id().unwrap(), Some(MASTER_TOKEN_NAME.to_string())),
-                    1,
-                );
+                let policy_id =
+                    PolicyId::NativeToken(mint.id().unwrap(), Some(MASTER_TOKEN_NAME.to_string()));
+
+                values.add_one_value(&policy_id, 1);
 
                 let actions = TxActions::v2()
                     .with_script_init(datum, values, address)
@@ -88,7 +89,48 @@ impl SCLogic for Fortuna {
                 block_data,
                 redeemer,
             } => {
-                todo!()
+                let network = ledger_client
+                    .network()
+                    .await
+                    .map_err(|err| SCLogicError::Endpoint(err.into()))?;
+
+                let (spend, mint) =
+                    tuna_validators().map_err(|e| SCLogicError::Endpoint(e.into()))?;
+
+                let address = spend
+                    .address(network)
+                    .map_err(|e| SCLogicError::Endpoint(Box::new(e)))?;
+
+                let outputs = ledger_client
+                    .all_outputs_at_address(&address)
+                    .await
+                    .map_err(|err| SCLogicError::Endpoint(err.into()))?;
+
+                let policy_id =
+                    PolicyId::NativeToken(mint.id().unwrap(), Some(MASTER_TOKEN_NAME.to_string()));
+
+                let input = outputs
+                    .into_iter()
+                    .find(|output| output.values().get(&policy_id).is_some())
+                    .unwrap();
+
+                let mut values = Values::default();
+
+                values.add_one_value(&policy_id, 1);
+
+                let amount = calculate_amount(block_data.block_number);
+
+                let actions = TxActions::v2()
+                    .with_script_init(block_data, values, address)
+                    .with_script_redeem(input, FortunaRedeemer::Spend(redeemer), Box::new(spend))
+                    .with_mint(
+                        amount,
+                        Some(TOKEN_NAME.to_string()),
+                        FortunaRedeemer::Mint(MintingState::Mine),
+                        Box::new(mint),
+                    );
+
+                Ok(actions)
             }
         }
     }
@@ -153,4 +195,8 @@ pub fn tuna_validators() -> ScriptResult<(
         .map_err(|e| ScriptError::FailedToConstruct(e.to_string()))?;
 
     Ok((raw_spend_script_validator, raw_mint_script_validator))
+}
+
+fn calculate_amount(block_number: u64) -> u64 {
+    (50 * 100_000_000) / (2 ^ ((block_number - 1) / 210_000))
 }

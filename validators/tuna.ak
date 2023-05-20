@@ -223,7 +223,7 @@ validator(utxo_ref: OutputReference) {
       }
 
     let mints_token =
-      token_name == "pow" && quantity == expected_quantity
+      token_name == fortuna.token_name && quantity == expected_quantity
 
     let has_output_token =
       fortuna.value_contains_master_token(out_value, own_validator_hash)

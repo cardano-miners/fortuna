@@ -1,4 +1,4 @@
-use naumachia::scripts::raw_validator_script::plutus_data::PlutusData;
+use naumachia::scripts::raw_validator_script::plutus_data::{Constr, PlutusData};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
@@ -52,12 +52,27 @@ pub enum MintingState {
 
 impl From<MintingState> for PlutusData {
     fn from(value: MintingState) -> Self {
-        todo!()
+        match value {
+            MintingState::Genesis => PlutusData::Constr(Constr {
+                constr: 1,
+                fields: vec![],
+            }),
+            MintingState::Mine => PlutusData::Constr(Constr {
+                constr: 0,
+                fields: vec![],
+            }),
+        }
     }
 }
 
 impl From<PlutusData> for MintingState {
     fn from(value: PlutusData) -> Self {
-        todo!()
+        let PlutusData::Constr(constr) = value else {unreachable!()};
+
+        if constr.constr == 0 {
+            MintingState::Mine
+        } else {
+            MintingState::Genesis
+        }
     }
 }

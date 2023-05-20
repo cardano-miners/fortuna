@@ -9,6 +9,9 @@ use fortuna/parameters.{epoch_target, padding}
 pub const master_token_name =
   "lord tuna"
 
+pub const token_name =
+  "TUNA"
+
 pub fn own_validator_input_utxo(
   inputs: List<Input>,
   output_reference: OutputReference,
