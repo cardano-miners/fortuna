@@ -27,6 +27,7 @@ impl State {
     }
 }
 
+
 impl From<State> for PlutusData {
     fn from(value: State) -> Self {
         PlutusData::Constr(Constr {
@@ -64,7 +65,6 @@ impl From<State> for PlutusData {
         })
     }
 }
-
 impl From<PlutusData> for State {
     fn from(value: PlutusData) -> Self {
         let PlutusData::Constr(Constr { fields, .. }) = value else {unreachable!()};

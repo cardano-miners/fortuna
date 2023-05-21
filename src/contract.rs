@@ -25,7 +25,7 @@ use crate::{
 const BLUEPRINT: &str = include_str!("../plutus.json");
 const SPEND_VALIDATOR_NAME: &str = "tuna.spend";
 const MINT_VALIDATOR_NAME: &str = "tuna.mint";
-const MASTER_TOKEN_NAME: &str = "lord tuna";
+pub const MASTER_TOKEN_NAME: &str = "lord tuna";
 const TOKEN_NAME: &str = "TUNA";
 
 #[derive(Debug, PartialEq, Eq)]

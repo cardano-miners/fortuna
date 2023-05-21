@@ -648,6 +648,7 @@ dependencies = [
  "hex",
  "miette",
  "naumachia",
+ "rand",
  "serde",
  "serde_json",
  "sha2",
