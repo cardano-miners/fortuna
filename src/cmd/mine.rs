@@ -8,6 +8,7 @@ use naumachia::{
     },
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
+use uplc::{plutus_data_to_bytes, PlutusData as AikenPlutusData};
 
 use crate::{
     contract::{tuna_validators, MASTER_TOKEN_NAME},
@@ -15,7 +16,7 @@ use crate::{
     redeemers::FortunaRedeemer,
 };
 use rand::random;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 struct TargetState {
     pub block_number: u64,
@@ -121,7 +122,7 @@ async fn mine(data: State) {
 
     let target_data_without_nonce: PlutusData = data.into();
 
-    let PlutusData::Constr(Constr {  fields, .. }) = target_data_without_nonce 
+    let PlutusData::Constr(Constr {  fields, .. }) = target_data_without_nonce
     else { unreachable!() };
 
     let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
@@ -132,10 +133,14 @@ async fn mine(data: State) {
 
         fields.push(PlutusData::BoundedBytes(nonce.to_vec()));
 
-        let target_state = PlutusData::Constr(Constr { constr: 0, fields });
+        let target_state: AikenPlutusData = PlutusData::Constr(Constr { constr: 0, fields }).into();
 
-        let mut hasher = Sha256::new();
+        let target_bytes = plutus_data_to_bytes(&target_state).unwrap();
 
-        
+        let hasher = Sha256::new_with_prefix(target_bytes);
+
+        let hasher = Sha256::new_with_prefix(hasher.finalize());
+
+        let new_hash = hasher.finalize();
     }
 }
