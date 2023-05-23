@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use naumachia::{
     address::PolicyId,
     backend::Backend,
@@ -17,6 +18,7 @@ use naumachia::{
 use sha2::{Digest, Sha256};
 
 use crate::{
+    cmd::mine::{ON_CHAIN_HALF_TIME_RANGE, UNIX_SEC_TO_SLOT_CONV},
     datums::State,
     error, mutations, queries,
     redeemers::{FortunaRedeemer, InputNonce, MintingState},
@@ -26,7 +28,7 @@ const BLUEPRINT: &str = include_str!("../plutus.json");
 const SPEND_VALIDATOR_NAME: &str = "tuna.spend";
 const MINT_VALIDATOR_NAME: &str = "tuna.mint";
 pub const MASTER_TOKEN_NAME: &str = "lord tuna";
-const TOKEN_NAME: &str = "TUNA";
+pub const TOKEN_NAME: &str = "TUNA";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fortuna;
@@ -53,7 +55,14 @@ impl SCLogic for Fortuna {
 
                 let current_hash = hasher.finalize();
 
-                let datum = State::genesis(current_hash.to_vec());
+                let current_utc: DateTime<Utc> = Utc::now();
+
+                let current_time_off_chain = current_utc.timestamp() as u64;
+                let current_time_on_chain = current_time_off_chain + ON_CHAIN_HALF_TIME_RANGE;
+
+                let current_slot_time = calculate_slot_from_epoch_time(current_time_off_chain);
+
+                let datum = State::genesis(current_hash.to_vec(), current_time_on_chain);
 
                 let network = ledger_client
                     .network()
@@ -81,6 +90,10 @@ impl SCLogic for Fortuna {
                         Some(MASTER_TOKEN_NAME.to_string()),
                         FortunaRedeemer::Mint(MintingState::Genesis),
                         Box::new(mint),
+                    )
+                    .with_valid_range(
+                        Some(current_slot_time.try_into().unwrap()),
+                        Some((current_slot_time + 180).try_into().unwrap()),
                     );
 
                 Ok(actions)
@@ -88,6 +101,7 @@ impl SCLogic for Fortuna {
             Mine {
                 block_data,
                 redeemer,
+                current_slot_time,
             } => {
                 let network = ledger_client
                     .network()
@@ -128,6 +142,10 @@ impl SCLogic for Fortuna {
                         Some(TOKEN_NAME.to_string()),
                         FortunaRedeemer::Mint(MintingState::Mine),
                         Box::new(mint),
+                    )
+                    .with_valid_range(
+                        Some(current_slot_time as i64),
+                        Some(current_slot_time as i64 + 180),
                     );
 
                 Ok(actions)
@@ -157,10 +175,15 @@ pub async fn genesis(output_reference: Vec<u8>) -> error::Result<()> {
     mutate(mutations::FortunaMutation::Genesis { output_reference }).await
 }
 
-pub async fn mine(block_data: State, redeemer: InputNonce) -> error::Result<()> {
+pub async fn mine(
+    block_data: State,
+    redeemer: InputNonce,
+    current_slot_time: u64,
+) -> error::Result<()> {
     mutate(mutations::FortunaMutation::Mine {
         block_data,
         redeemer,
+        current_slot_time,
     })
     .await
 }
@@ -199,4 +222,8 @@ pub fn tuna_validators() -> ScriptResult<(
 
 fn calculate_amount(block_number: u64) -> u64 {
     (50 * 100_000_000) / (2 ^ ((block_number - 1) / 210_000))
+}
+
+fn calculate_slot_from_epoch_time(unix_time: u64) -> u64 {
+    unix_time - UNIX_SEC_TO_SLOT_CONV
 }

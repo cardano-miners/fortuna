@@ -7,5 +7,6 @@ pub enum FortunaMutation {
     Mine {
         block_data: State,
         redeemer: InputNonce,
+        current_slot_time: u64,
     },
 }

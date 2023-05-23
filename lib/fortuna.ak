@@ -157,11 +157,11 @@ pub fn get_difficulty_adjustment(total_epoch_time: Int) -> (Int, Int) {
   if
   epoch_target / total_epoch_time >= 4 && epoch_target % total_epoch_time > 0{
   
-    (4, 1)
-  } else if total_epoch_time / epoch_target >= 4 && total_epoch_time % epoch_target > 0 {
     (1, 4)
+  } else if total_epoch_time / epoch_target >= 4 && total_epoch_time % epoch_target > 0 {
+    (4, 1)
   } else {
-    (epoch_target, total_epoch_time)
+    (total_epoch_time, epoch_target)
   }
 }
 
@@ -170,15 +170,15 @@ test get_difficulty_adjustment_1() {
 }
 
 test get_difficulty_adjustment_2() {
-  get_difficulty_adjustment(1200600) == (1209600, 1200600)
+  get_difficulty_adjustment(1200600) == (1200600, 1209600)
 }
 
 test get_difficulty_adjustment_3() {
-  get_difficulty_adjustment(50000000) == (1, 4)
+  get_difficulty_adjustment(50000000) == (4, 1)
 }
 
 test get_difficulty_adjustment_4() {
-  get_difficulty_adjustment(200000) == (4, 1)
+  get_difficulty_adjustment(200000) == (1, 4)
 }
 
 pub fn get_new_difficulty(

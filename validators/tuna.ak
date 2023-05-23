@@ -17,6 +17,7 @@ type State {
   leading_zeros: Int,
   difficulty_number: Int,
   epoch_time: Int,
+  current_slot_time: Int,
   extra: Data,
   interlink: List<ByteArray>,
 }
@@ -45,8 +46,32 @@ validator(utxo_ref: OutputReference) {
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
 
-        let Transaction { inputs, outputs, mint, .. } =
+        let Transaction { inputs, outputs, mint, validity_range, .. } =
           tx
+
+        let Interval {
+          upper_bound: IntervalBound {
+            bound_type: upper_range,
+            is_inclusive: upper_is_inclusive,
+          },
+          lower_bound: IntervalBound {
+            bound_type: lower_range,
+            is_inclusive: lower_is_inclusive,
+          },
+        } =
+          validity_range
+
+        expect Finite(upper_range) =
+          upper_range
+
+        expect Finite(lower_range) =
+          lower_range
+
+        let time_range_check =
+          upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180
+
+        let averaged_slot_time =
+          ( upper_range - lower_range ) / 2 + lower_range
 
         // Add in entropy from a reference output
         // Entropy Initial hash. No need for difficulty check
@@ -85,11 +110,12 @@ validator(utxo_ref: OutputReference) {
             leading_zeros: 4,
             difficulty_number: 65535,
             epoch_time: 0,
+            current_slot_time: averaged_slot_time,
             extra: 0,
             interlink: [],
           }
 
-        initial_state == output_state && has_output_token && mints_token
+        initial_state == output_state && has_output_token && mints_token && time_range_check
       }
       Mine -> {
         let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
@@ -116,6 +142,7 @@ validator(utxo_ref: OutputReference) {
       leading_zeros,
       difficulty_number,
       epoch_time,
+      current_slot_time,
       interlink,
       ..
     } =
@@ -173,7 +200,7 @@ validator(utxo_ref: OutputReference) {
     let time_range_check =
       upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180
 
-    let averaged_block_time =
+    let averaged_slot_time =
       ( upper_range - lower_range ) / 2 + lower_range
 
     // Mining Diffculty Met
@@ -240,6 +267,7 @@ validator(utxo_ref: OutputReference) {
       current_hash: out_current_hash,
       leading_zeros: out_leading_zeros,
       epoch_time: out_epoch_time,
+      current_slot_time: out_current_slot_time,
       interlink: out_interlink,
       extra,
       difficulty_number: out_difficulty_number,
@@ -251,7 +279,7 @@ validator(utxo_ref: OutputReference) {
         // use total epoch time with target epoch time to get difficulty adjustment ratio
         // ratio maxes out at 4/1 and mins to 1/4
         let total_epoch_time =
-          averaged_block_time + epoch_time
+          epoch_time + averaged_slot_time - current_slot_time
 
         let (adjustment_numerator, adjustment_denominator) =
           fortuna.get_difficulty_adjustment(total_epoch_time)
@@ -268,13 +296,16 @@ validator(utxo_ref: OutputReference) {
         new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty
       } else {
         let new_epoch_time =
-          averaged_block_time + epoch_time
+          epoch_time + averaged_slot_time - current_slot_time
+
         leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time
       }
 
-    let output_state_valid =
-      block_number + 1 == out_block_number && out_current_hash == target && difficulty_and_epoch_check
+    let output_slot_time_valid =
+      out_current_slot_time == averaged_slot_time
 
+    let output_state_valid =
+      block_number + 1 == out_block_number && out_current_hash == target && difficulty_and_epoch_check && output_slot_time_valid
     // Check output extra field is within a certain size
     let extra_data_length_check =
       builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512

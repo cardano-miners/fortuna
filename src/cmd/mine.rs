@@ -8,13 +8,13 @@ use naumachia::{
     },
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
-use uplc::{plutus_data_to_bytes, PlutusData as AikenPlutusData};
 
 use crate::{
     contract::{tuna_validators, MASTER_TOKEN_NAME},
     datums::State,
-    redeemers::FortunaRedeemer,
+    redeemers::{FortunaRedeemer, InputNonce},
 };
+use chrono::prelude::*;
 use rand::random;
 use sha2::{Digest, Sha256};
 
@@ -26,6 +26,16 @@ struct TargetState {
     epoch_time: u64,
     nonce: Vec<u8>,
 }
+
+const EPOCH_NUMBER: u64 = 2016;
+
+const EPOCH_TARGET: u64 = 1_209_600;
+
+pub const UNIX_SEC_TO_SLOT_CONV: u64 = 1_591_566_291;
+
+pub const ON_CHAIN_HALF_TIME_RANGE: u64 = 90;
+
+const PADDING: u64 = 16;
 
 impl From<TargetState> for PlutusData {
     fn from(value: TargetState) -> Self {
@@ -114,11 +124,17 @@ where
     Ok(datum)
 }
 
-async fn mine(data: State) {
+async fn mine(data: State) -> (State, InputNonce, u64) {
     // Do some work here.
     // ...
 
-    let new_block_number = data.block_number + 1;
+    let block_number = data.block_number;
+    let difficulty_number = data.difficulty_number;
+    let leading_zeros = data.leading_zeros;
+    let epoch_time = data.epoch_time;
+    let current_time = data.current_time;
+
+    let current_difficulty_hash = get_difficulty_hash(difficulty_number, leading_zeros);
 
     let target_data_without_nonce: PlutusData = data.into();
 
@@ -127,20 +143,112 @@ async fn mine(data: State) {
 
     let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
 
+    let mut nonce = [0; 32];
+
+    let mut new_hash = vec![];
+
     loop {
-        let nonce = random::<[u8; 32]>();
+        nonce = random::<[u8; 32]>();
         let mut fields = fields.clone();
 
         fields.push(PlutusData::BoundedBytes(nonce.to_vec()));
 
-        let target_state: AikenPlutusData = PlutusData::Constr(Constr { constr: 0, fields }).into();
-
-        let target_bytes = plutus_data_to_bytes(&target_state).unwrap();
+        let target_bytes = PlutusData::Constr(Constr { constr: 0, fields }).bytes();
 
         let hasher = Sha256::new_with_prefix(target_bytes);
 
         let hasher = Sha256::new_with_prefix(hasher.finalize());
 
-        let new_hash = hasher.finalize();
+        new_hash = hasher.finalize().to_vec();
+
+        if new_hash.le(&current_difficulty_hash) {
+            break;
+        }
     }
+
+    let utc: DateTime<Utc> = Utc::now();
+    let new_time_off_chain = utc.timestamp() as u64;
+    let new_time_on_chain = new_time_off_chain + ON_CHAIN_HALF_TIME_RANGE;
+    let new_slot_time = new_time_off_chain - UNIX_SEC_TO_SLOT_CONV;
+
+    let mut new_state = State {
+        block_number: block_number + 1,
+        current_hash: new_hash,
+        leading_zeros,
+        difficulty_number,
+        epoch_time,
+        current_time: new_time_on_chain,
+        extra: 0,
+        interlink: vec![],
+    };
+
+    if block_number % EPOCH_NUMBER == 0 {
+        new_state.epoch_time = epoch_time + new_state.current_time - current_time;
+
+        change_difficulty(&mut new_state);
+    } else {
+        // get cardano slot time
+        new_state.epoch_time = epoch_time + new_state.current_time - current_time;
+    }
+    (
+        new_state,
+        InputNonce {
+            nonce: nonce.to_vec(),
+        },
+        new_slot_time,
+    )
+}
+
+fn get_difficulty_hash(difficulty_number: u16, leading_zeros: u8) -> Vec<u8> {
+    let mut difficulty_hash = [0_u8; 32];
+
+    if leading_zeros % 2 == 0 {
+        let byte_location = leading_zeros / 2;
+        difficulty_hash[byte_location as usize] = (difficulty_number / 256) as u8;
+        difficulty_hash[(byte_location + 1) as usize] = (difficulty_number % 256) as u8;
+    } else {
+        let byte_location = leading_zeros / 2;
+        difficulty_hash[byte_location as usize] = (difficulty_number / 4096) as u8;
+        difficulty_hash[(byte_location + 1) as usize] = ((difficulty_number / 16) % 4096) as u8;
+        difficulty_hash[(byte_location + 2) as usize] = (difficulty_number % 16) as u8;
+    }
+    difficulty_hash.to_vec()
+}
+
+fn change_difficulty(state: &mut State) {
+    let current_difficulty = state.difficulty_number as u64;
+    let leading_zeros = state.leading_zeros;
+    let total_epoch_time = state.epoch_time;
+
+    let difficulty_adjustment = if EPOCH_TARGET / total_epoch_time >= 4 {
+        (1, 4)
+    } else if total_epoch_time / EPOCH_TARGET >= 4 {
+        (4, 1)
+    } else {
+        (total_epoch_time, EPOCH_TARGET)
+    };
+
+    let new_padded_difficulty =
+        current_difficulty * PADDING * difficulty_adjustment.0 / difficulty_adjustment.1;
+    let new_difficulty = new_padded_difficulty / PADDING;
+
+    let (new_difficulty, new_leading_zeros) = if new_padded_difficulty / 65536 == 0 {
+        if leading_zeros >= 30 {
+            (4096, 60)
+        } else {
+            (new_padded_difficulty, leading_zeros + 1)
+        }
+    } else if new_difficulty / 65536 > 0 {
+        if leading_zeros <= 2 {
+            (65535, 2)
+        } else {
+            (new_difficulty / PADDING, leading_zeros - 1)
+        }
+    } else {
+        (new_difficulty, leading_zeros)
+    };
+
+    state.difficulty_number = new_difficulty as u16;
+    state.leading_zeros = new_leading_zeros;
+    state.epoch_time = 0;
 }

@@ -27,7 +27,7 @@ impl From<PlutusData> for FortunaRedeemer {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 pub struct InputNonce {
-    nonce: Vec<u8>,
+    pub(crate) nonce: Vec<u8>,
 }
 
 impl From<InputNonce> for PlutusData {

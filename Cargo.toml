@@ -7,14 +7,14 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.68"
+chrono = "0.4.24"
 clap = { version = "4.2.7", features = ["derive"] }
 hex = "0.4.3"
 miette = { version = "5.8.0", features = ["fancy"] }
-naumachia = { git = "https://github.com/free-honey/naumachia.git", rev = "9d1fa540805c372afc1dff37a3b7051d8eb4f940" }
+naumachia = { git = "https://github.com/free-honey/naumachia.git", rev = "16e706b2b8a7df012a0e136dd7a011ec183830de" }
 rand = "0.8.5"
 serde = "1.0.163"
 serde_json = "1.0.96"
 sha2 = "0.10.6"
 thiserror = "1.0.40"
 tokio = { version = "1.28.0", features = ["full"] }
-uplc = { version = "1.0.3-alpha" }
