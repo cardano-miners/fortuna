@@ -11,9 +11,9 @@ use naumachia::{
 };
 
 use crate::{
-    contract::{tuna_validators, MASTER_TOKEN_NAME},
+    contract::{self, tuna_validators, MASTER_TOKEN_NAME},
     datums::State,
-    redeemers::FortunaRedeemer,
+    redeemers::{FortunaRedeemer, InputNonce},
 };
 use chrono::prelude::*;
 use rand::random;
@@ -125,10 +125,7 @@ where
     Ok(datum)
 }
 
-async fn mine(data: State) {
-    // Do some work here.
-    // ...
-
+async fn mine(data: State) -> miette::Result<()> {
     let block_number = data.block_number;
     let difficulty_number = data.difficulty_number;
     let leading_zeros = data.leading_zeros;
@@ -144,9 +141,9 @@ async fn mine(data: State) {
 
     let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
 
-    let mut nonce = [0; 32];
+    let mut nonce: [u8; 32];
 
-    let mut new_hash = vec![];
+    let mut new_hash: Vec<u8>;
 
     loop {
         nonce = random::<[u8; 32]>();
@@ -166,6 +163,10 @@ async fn mine(data: State) {
             break;
         }
     }
+
+    let redeemer = InputNonce {
+        nonce: nonce.to_vec(),
+    };
 
     let utc: DateTime<Utc> = Utc::now();
     let new_time_off_chain = utc.timestamp() as u64;
@@ -193,6 +194,12 @@ async fn mine(data: State) {
     }
 
     calculate_interlink(&mut new_state);
+
+    contract::mine(new_state, redeemer, new_slot_time)
+        .await
+        .into_diagnostic()?;
+
+    Ok(())
 }
 
 fn calculate_interlink(new_state: &mut State) {
