@@ -6,13 +6,14 @@ use naumachia::{
         raw_validator_script::plutus_data::{BigInt, Constr, PlutusData},
         MintingPolicy, ValidatorCode,
     },
+    transaction::TxActions,
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
 
 use crate::{
     contract::{tuna_validators, MASTER_TOKEN_NAME},
     datums::State,
-    redeemers::{FortunaRedeemer, InputNonce},
+    redeemers::FortunaRedeemer,
 };
 use chrono::prelude::*;
 use rand::random;
@@ -124,7 +125,7 @@ where
     Ok(datum)
 }
 
-async fn mine(data: State) -> (State, InputNonce, u64) {
+async fn mine(data: State) {
     // Do some work here.
     // ...
 
@@ -190,13 +191,12 @@ async fn mine(data: State) -> (State, InputNonce, u64) {
         // get cardano slot time
         new_state.epoch_time = epoch_time + new_state.current_time - current_time;
     }
-    (
-        new_state,
-        InputNonce {
-            nonce: nonce.to_vec(),
-        },
-        new_slot_time,
-    )
+
+    calculate_interlink(&mut new_state);
+}
+
+fn calculate_interlink(new_state: &mut State) {
+    todo!()
 }
 
 fn get_difficulty_hash(difficulty_number: u16, leading_zeros: u8) -> Vec<u8> {
@@ -220,6 +220,19 @@ fn change_difficulty(state: &mut State) {
     let leading_zeros = state.leading_zeros;
     let total_epoch_time = state.epoch_time;
 
+    let (new_difficulty, new_leading_zeros) =
+        calculate_new_difficulty(total_epoch_time, current_difficulty, leading_zeros);
+
+    state.difficulty_number = new_difficulty;
+    state.leading_zeros = new_leading_zeros;
+    state.epoch_time = 0;
+}
+
+fn calculate_new_difficulty(
+    total_epoch_time: u64,
+    current_difficulty: u64,
+    leading_zeros: u8,
+) -> (u16, u8) {
     let difficulty_adjustment = if EPOCH_TARGET / total_epoch_time >= 4 {
         (1, 4)
     } else if total_epoch_time / EPOCH_TARGET >= 4 {
@@ -232,23 +245,19 @@ fn change_difficulty(state: &mut State) {
         current_difficulty * PADDING * difficulty_adjustment.0 / difficulty_adjustment.1;
     let new_difficulty = new_padded_difficulty / PADDING;
 
-    let (new_difficulty, new_leading_zeros) = if new_padded_difficulty / 65536 == 0 {
+    if new_padded_difficulty / 65536 == 0 {
         if leading_zeros >= 30 {
             (4096, 60)
         } else {
-            (new_padded_difficulty, leading_zeros + 1)
+            (new_padded_difficulty as u16, leading_zeros + 1)
         }
     } else if new_difficulty / 65536 > 0 {
         if leading_zeros <= 2 {
             (65535, 2)
         } else {
-            (new_difficulty / PADDING, leading_zeros - 1)
+            ((new_difficulty / PADDING) as u16, leading_zeros - 1)
         }
     } else {
-        (new_difficulty, leading_zeros)
-    };
-
-    state.difficulty_number = new_difficulty as u16;
-    state.leading_zeros = new_leading_zeros;
-    state.epoch_time = 0;
+        (new_difficulty as u16, leading_zeros)
+    }
 }
