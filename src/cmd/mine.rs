@@ -141,28 +141,34 @@ async fn mine(data: State) -> miette::Result<()> {
 
     let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
 
-    let mut nonce: [u8; 32];
+    let (nonce, new_hash) = tokio::task::spawn_blocking(move || {
+        let mut nonce: [u8; 32];
 
-    let mut new_hash: Vec<u8>;
+        let mut new_hash: Vec<u8>;
 
-    loop {
-        nonce = random::<[u8; 32]>();
-        let mut fields = fields.clone();
+        loop {
+            nonce = random::<[u8; 32]>();
+            let mut fields = fields.clone();
 
-        fields.push(PlutusData::BoundedBytes(nonce.to_vec()));
+            fields.push(PlutusData::BoundedBytes(nonce.to_vec()));
 
-        let target_bytes = PlutusData::Constr(Constr { constr: 0, fields }).bytes();
+            let target_bytes = PlutusData::Constr(Constr { constr: 0, fields }).bytes();
 
-        let hasher = Sha256::new_with_prefix(target_bytes);
+            let hasher = Sha256::new_with_prefix(target_bytes);
 
-        let hasher = Sha256::new_with_prefix(hasher.finalize());
+            let hasher = Sha256::new_with_prefix(hasher.finalize());
 
-        new_hash = hasher.finalize().to_vec();
+            new_hash = hasher.finalize().to_vec();
 
-        if new_hash.le(&current_difficulty_hash) {
-            break;
+            if new_hash.le(&current_difficulty_hash) {
+                break;
+            }
         }
-    }
+
+        (nonce, new_hash)
+    })
+    .await
+    .into_diagnostic()?;
 
     let redeemer = InputNonce {
         nonce: nonce.to_vec(),
