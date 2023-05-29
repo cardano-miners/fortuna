@@ -6,7 +6,6 @@ use naumachia::{
         raw_validator_script::plutus_data::{BigInt, Constr, PlutusData},
         MintingPolicy, ValidatorCode,
     },
-    transaction::TxActions,
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
 
@@ -131,6 +130,7 @@ async fn mine(data: State) -> miette::Result<()> {
     let leading_zeros = data.leading_zeros;
     let epoch_time = data.epoch_time;
     let current_time = data.current_time;
+    let interlink = data.interlink.clone();
 
     let current_difficulty_hash = get_difficulty_hash(difficulty_number, leading_zeros);
 
@@ -187,7 +187,7 @@ async fn mine(data: State) -> miette::Result<()> {
         epoch_time,
         current_time: new_time_on_chain,
         extra: 0,
-        interlink: vec![],
+        interlink,
     };
 
     if block_number % EPOCH_NUMBER == 0 {
@@ -199,7 +199,7 @@ async fn mine(data: State) -> miette::Result<()> {
         new_state.epoch_time = epoch_time + new_state.current_time - current_time;
     }
 
-    calculate_interlink(&mut new_state);
+    calculate_interlink(&mut new_state, difficulty_number, leading_zeros);
 
     contract::mine(new_state, redeemer, new_slot_time)
         .await
@@ -208,8 +208,30 @@ async fn mine(data: State) -> miette::Result<()> {
     Ok(())
 }
 
-fn calculate_interlink(new_state: &mut State) {
-    todo!()
+fn calculate_interlink(new_state: &mut State, difficulty_number: u16, leading_zeros: u8) {
+    let epoch_half = EPOCH_TARGET / 2;
+    let mut index = 0;
+
+    let (mut half_difficulty_number, mut half_leading_zeros) =
+        calculate_new_difficulty(epoch_half, difficulty_number.into(), leading_zeros);
+
+    while get_difficulty_hash(half_difficulty_number, half_leading_zeros)
+        .le(&new_state.current_hash)
+    {
+        if let Some(position) = new_state.interlink.get_mut(index) {
+            *position = new_state.current_hash.clone();
+        } else {
+            new_state.interlink.push(new_state.current_hash.clone());
+        }
+
+        (half_difficulty_number, half_leading_zeros) = calculate_new_difficulty(
+            epoch_half,
+            half_difficulty_number.into(),
+            half_leading_zeros,
+        );
+
+        index += 1;
+    }
 }
 
 fn get_difficulty_hash(difficulty_number: u16, leading_zeros: u8) -> Vec<u8> {
