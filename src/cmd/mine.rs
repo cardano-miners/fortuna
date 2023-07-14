@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use miette::IntoDiagnostic;
 use naumachia::{
     address::PolicyId,
@@ -74,11 +76,58 @@ pub async fn exec() -> miette::Result<()> {
         .await
         .into_diagnostic()?;
 
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
+
+    let datum_thread = tokio::spawn(async move {
+        let mut last_data = None;
+
+        let ledger_client = get_trireme_ledger_client_from_file::<State, FortunaRedeemer>()
+            .await
+            .unwrap();
+
+        loop {
+            // TODO: snooze if error and try again
+            let data = get_latest_datum(&ledger_client).await.unwrap();
+
+            match last_data {
+                Some(ld) if ld != data => {
+                    tx.send(data.clone()).await.unwrap();
+                    last_data = Some(data);
+                }
+                Some(_) => {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                }
+                None => {
+                    tx.send(data.clone()).await.unwrap();
+                    last_data = Some(data);
+                }
+            }
+        }
+    });
+
+    loop {
+        let datum = rx.recv().await.unwrap();
+
+        tokio::select! {
+            _ = mine(datum)=> {
+
+            }
+
+            datum = rx.recv() => {
+
+            }
+
+
+        }
+    }
+
     loop {
         let data = get_latest_datum(&ledger_client).await?;
 
         match last_data {
             None => {
+                last_data = Some(data.clone());
+
                 handle = Some(tokio::spawn(async move { mine(data).await }).abort_handle());
             }
             Some(ld) if ld != data => {
