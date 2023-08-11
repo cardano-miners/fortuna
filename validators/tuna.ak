@@ -17,9 +17,9 @@ type State {
   leading_zeros: Int,
   difficulty_number: Int,
   epoch_time: Int,
-  current_slot_time: Int,
+  current_posix_time: Int,
   extra: Data,
-  interlink: List<ByteArray>,
+  interlink: List<Data>,
 }
 
 type InputNonce =
@@ -43,11 +43,12 @@ validator(utxo_ref: OutputReference) {
   fn mint(state: MintingState, ctx: ScriptContext) -> Bool {
     when state is {
       Genesis -> {
-        let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
+        expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
 
-        let Transaction { inputs, outputs, mint, validity_range, .. } =
-          tx
+        let Transaction { inputs, outputs, mint, validity_range, .. } = tx
+
+        let mint = value.from_minted_value(mint)
 
         let Interval {
           upper_bound: IntervalBound {
@@ -58,20 +59,16 @@ validator(utxo_ref: OutputReference) {
             bound_type: lower_range,
             is_inclusive: lower_is_inclusive,
           },
-        } =
-          validity_range
+        } = validity_range
 
-        expect Finite(upper_range) =
-          upper_range
+        expect Finite(upper_range) = upper_range
 
-        expect Finite(lower_range) =
-          lower_range
+        expect Finite(lower_range) = lower_range
 
         let time_range_check =
           upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180
 
-        let averaged_slot_time =
-          ( upper_range - lower_range ) / 2 + lower_range
+        let averaged_slot_time = ( upper_range - lower_range ) / 2 + lower_range
 
         // Add in entropy from a reference output
         // Entropy Initial hash. No need for difficulty check
@@ -93,14 +90,12 @@ validator(utxo_ref: OutputReference) {
             },
           )
 
-        let mints_token =
-          fortuna.value_contains_master_token(mint, own_policy)
+        let mints_token = fortuna.value_contains_master_token(mint, own_policy)
 
         let has_output_token =
           fortuna.value_contains_master_token(value, own_policy)
 
-        expect output_state: State =
-          output_datum
+        expect output_state: State = output_datum
 
         // Check initial state is set to default
         let initial_state =
@@ -110,7 +105,7 @@ validator(utxo_ref: OutputReference) {
             leading_zeros: 4,
             difficulty_number: 65535,
             epoch_time: 0,
-            current_slot_time: averaged_slot_time,
+            current_posix_time: averaged_slot_time,
             extra: 0,
             interlink: [],
           }
@@ -118,11 +113,10 @@ validator(utxo_ref: OutputReference) {
         initial_state == output_state && has_output_token && mints_token && time_range_check
       }
       Mine -> {
-        let ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
+        expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
           ctx
 
-        let own_credential =
-          ScriptCredential(own_policy)
+        let own_credential = ScriptCredential(own_policy)
 
         list.any(
           tx.inputs,
@@ -142,41 +136,32 @@ validator(utxo_ref: OutputReference) {
       leading_zeros,
       difficulty_number,
       epoch_time,
-      current_slot_time,
+      current_posix_time,
       interlink,
       ..
-    } =
-      state
+    } = state
 
-    let ScriptContext { transaction, purpose } =
-      ctx
+    let ScriptContext { transaction, purpose } = ctx
 
-    expect Spend(own_reference) =
-      purpose
+    expect Spend(own_reference) = purpose
 
-    let Transaction { inputs, outputs, mint, validity_range, .. } =
-      transaction
+    let Transaction { inputs, outputs, mint, validity_range, .. } = transaction
 
-    let own_input =
-      fortuna.own_validator_input_utxo(inputs, own_reference)
+    let mint = value.from_minted_value(mint)
 
-    let Output { address: in_address, value: in_value, .. } =
-      own_input
+    let own_input = fortuna.own_validator_input_utxo(inputs, own_reference)
 
-    let credential =
-      in_address.payment_credential
+    let Output { address: in_address, value: in_value, .. } = own_input
 
-    expect ScriptCredential(own_validator_hash) =
-      credential
+    let credential = in_address.payment_credential
 
+    expect ScriptCredential(own_validator_hash) = credential
+
+    // Spend(0) requirement: Contract has only one output going back to itself
     expect [own_output] =
-      list.filter(
-        outputs,
-        fn(output: Output) { output.address.payment_credential == credential },
-      )
+      list.filter(outputs, fn(output: Output) { output.address == in_address })
 
-    let Output { datum: out_datum, value: out_value, .. } =
-      own_output
+    let Output { datum: out_datum, value: out_value, .. } = own_output
 
     // Time Range Span is 3 minutes or less 
     let Interval {
@@ -188,22 +173,18 @@ validator(utxo_ref: OutputReference) {
         bound_type: lower_range,
         is_inclusive: lower_is_inclusive,
       },
-    } =
-      validity_range
+    } = validity_range
 
-    expect Finite(upper_range) =
-      upper_range
+    // We have a constant expectation of the transaction time range
+    expect Finite(upper_range) = upper_range
+    expect Finite(lower_range) = lower_range
+    let averaged_posix_time = ( upper_range - lower_range ) / 2
 
-    expect Finite(lower_range) =
-      lower_range
-
-    let time_range_check =
-      upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180
-
-    let averaged_slot_time =
-      ( upper_range - lower_range ) / 2 + lower_range
-
-    // Mining Diffculty Met
+    // Posix time is in milliseconds
+    // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
+    expect
+      upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000
+    //
     let target =
       TargetState {
         nonce,
@@ -214,33 +195,32 @@ validator(utxo_ref: OutputReference) {
         difficulty_number,
       }
 
-    let target =
+    let found_bytearray =
       target
         |> builtin.serialise_data()
         |> sha2_256()
         |> sha2_256()
 
-    let difficulty =
-      fortuna.create_difficulty(difficulty_number, leading_zeros)
+    let (found_difficulty_number, found_leading_zeros) =
+      fortuna.format_found_bytearray(found_bytearray)
 
-    let mining_check =
-      builtin.less_than_equals_bytearray(target, difficulty)
-
-    // Input has master token
-    let has_input_token =
-      quantity_of(in_value, own_validator_hash, fortuna.master_token_name)
-
-    let has_input_token =
-      has_input_token == 1
-
-    // Mint contains proper quantity of pow token
+    // Mining Difficulty Met
+    // Spend(2) requirement: Found difficulty is less than or equal to the current difficulty
+    // We do this by checking the leading zeros and the difficulty number
+    expect
+      found_leading_zeros > leading_zeros || found_leading_zeros == leading_zeros && found_difficulty_number < difficulty_number
+    //
+    // Spend(3) requirement: Input has master token
+    expect
+      quantity_of(in_value, own_validator_hash, fortuna.master_token_name) == 1
+    //
+    // Spend(4) requirement: Only one type of token minted under the validator policy
     expect [(token_name, quantity)] =
       mint
         |> tokens(own_validator_hash)
         |> dict.to_list
 
-    let halving_exponent =
-      block_number / halving_number
+    let halving_exponent = block_number / halving_number
 
     let expected_quantity =
       if halving_exponent > 29 {
@@ -249,41 +229,37 @@ validator(utxo_ref: OutputReference) {
         initial_payout / fortuna.two_exponential(halving_exponent)
       }
 
-    let mints_token =
-      token_name == fortuna.token_name && quantity == expected_quantity
-
-    let has_output_token =
-      fortuna.value_contains_master_token(out_value, own_validator_hash)
-
+    // Spend(5) requirement: Minted token is the correct name and amount
+    expect token_name == fortuna.token_name && quantity == expected_quantity
+    //
+    // Spend(6) requirement: Output has only master token and ada
+    expect
+      fortuna.value_has_only_master_and_lovelace(out_value, own_validator_hash)
     // Check output datum contains correct epoch time, block number, hash, and leading zeros
     // Check for every divisible by 2016 block: 
     // - Epoch time resets
     // - leading zeros is adjusted based on percent of hardcoded target time for 2016 blocks vs epoch time
-    expect InlineDatum(output_datum) =
-      out_datum
-
+    expect InlineDatum(output_datum) = out_datum
+    // Spend(7) requirement: Expect Output Datum to be of type State
     expect State {
       block_number: out_block_number,
       current_hash: out_current_hash,
       leading_zeros: out_leading_zeros,
       epoch_time: out_epoch_time,
-      current_slot_time: out_current_slot_time,
+      current_posix_time: out_current_posix_time,
       interlink: out_interlink,
       extra,
       difficulty_number: out_difficulty_number,
-    }: State =
-      output_datum
+    }: State = output_datum
 
-    let difficulty_and_epoch_check =
+    // Spend(8) requirement: Check output has correct difficulty check numbers and epoch time
+    expect
       if block_number % epoch_number == 0 && block_number > 0 {
         // use total epoch time with target epoch time to get difficulty adjustment ratio
         // ratio maxes out at 4/1 and mins to 1/4
-        let total_epoch_time =
-          epoch_time + averaged_slot_time - current_slot_time
-
+        let total_epoch_time = epoch_time + averaged_posix_time
         let (adjustment_numerator, adjustment_denominator) =
           fortuna.get_difficulty_adjustment(total_epoch_time)
-
         // Now use ratio to find new leading zeros difficulty
         let (new_difficulty, new_leading_zeroes) =
           fortuna.get_new_difficulty(
@@ -292,32 +268,32 @@ validator(utxo_ref: OutputReference) {
             adjustment_numerator,
             adjustment_denominator,
           )
-
         new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty
       } else {
-        let new_epoch_time =
-          epoch_time + averaged_slot_time - current_slot_time
-
+        let new_epoch_time = epoch_time + averaged_posix_time
         leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time
       }
-
-    let output_slot_time_valid =
-      out_current_slot_time == averaged_slot_time
-
-    let output_state_valid =
-      block_number + 1 == out_block_number && out_current_hash == target && difficulty_and_epoch_check && output_slot_time_valid
-    // Check output extra field is within a certain size
-    let extra_data_length_check =
-      builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512
-
-    let interlink_check =
+    //
+    // Spend(9) requirement: Output posix time is the average of the input time range + current posix time
+    expect out_current_posix_time == averaged_posix_time + current_posix_time
+    //
+    // Spend(10) requirement: Output block number is the input block number + 1 
+    // Spend(11) requirement: Output current hash is the target hash
+    expect
+      block_number + 1 == out_block_number && out_current_hash == found_bytearray
+    //Spend(12) requirement: Check output extra field is within a certain size
+    expect builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512
+    // Spend(13) requirement: Check output interlink is correct
+    expect
       fortuna.calculate_interlink(
         interlink,
-        out_current_hash,
+        found_bytearray,
+        found_leading_zeros,
+        found_difficulty_number,
         difficulty_number,
         leading_zeros,
       ) == out_interlink
-
-    mining_check && has_input_token && mints_token && has_output_token && time_range_check && output_state_valid && extra_data_length_check && interlink_check
+    //
+    True
   }
 }
