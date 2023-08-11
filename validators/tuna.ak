@@ -66,7 +66,7 @@ validator(utxo_ref: OutputReference) {
         expect Finite(lower_range) = lower_range
 
         let time_range_check =
-          upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180
+          upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000
 
         let averaged_slot_time = ( upper_range - lower_range ) / 2 + lower_range
 
@@ -118,6 +118,7 @@ validator(utxo_ref: OutputReference) {
 
         let own_credential = ScriptCredential(own_policy)
 
+        // Mint(0) Mine requirement: Contract has one spend input with the policy as the payment credential
         list.any(
           tx.inputs,
           fn(input) {
@@ -178,7 +179,7 @@ validator(utxo_ref: OutputReference) {
     // We have a constant expectation of the transaction time range
     expect Finite(upper_range) = upper_range
     expect Finite(lower_range) = lower_range
-    let averaged_posix_time = ( upper_range - lower_range ) / 2
+    let averaged_current_time = ( upper_range - lower_range ) / 2 + lower_range
 
     // Posix time is in milliseconds
     // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
@@ -252,12 +253,13 @@ validator(utxo_ref: OutputReference) {
       difficulty_number: out_difficulty_number,
     }: State = output_datum
 
-    // Spend(8) requirement: Check output has correct difficulty check numbers and epoch time
+    // Spend(8) requirement: Check output has correct difficulty number, leading zeros, and epoch time
     expect
       if block_number % epoch_number == 0 && block_number > 0 {
         // use total epoch time with target epoch time to get difficulty adjustment ratio
         // ratio maxes out at 4/1 and mins to 1/4
-        let total_epoch_time = epoch_time + averaged_posix_time
+        let total_epoch_time =
+          epoch_time + averaged_current_time - current_posix_time
         let (adjustment_numerator, adjustment_denominator) =
           fortuna.get_difficulty_adjustment(total_epoch_time)
         // Now use ratio to find new leading zeros difficulty
@@ -270,12 +272,13 @@ validator(utxo_ref: OutputReference) {
           )
         new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty
       } else {
-        let new_epoch_time = epoch_time + averaged_posix_time
+        let new_epoch_time =
+          epoch_time + averaged_current_time - current_posix_time
         leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time
       }
     //
-    // Spend(9) requirement: Output posix time is the average of the input time range + current posix time
-    expect out_current_posix_time == averaged_posix_time + current_posix_time
+    // Spend(9) requirement: Output posix time is the averaged current time
+    expect out_current_posix_time == averaged_current_time
     //
     // Spend(10) requirement: Output block number is the input block number + 1 
     // Spend(11) requirement: Output current hash is the target hash
