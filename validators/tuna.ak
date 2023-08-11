@@ -65,23 +65,26 @@ validator(utxo_ref: OutputReference) {
 
         expect Finite(lower_range) = lower_range
 
-        let time_range_check =
+        // Posix time is in milliseconds
+        // Mint(0) Genesis requirement: Time range span is 3 minutes or less and inclusive
+        expect
           upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000
-
-        let averaged_slot_time = ( upper_range - lower_range ) / 2 + lower_range
+        //  
+        let averaged_current_time =
+          ( upper_range - lower_range ) / 2 + lower_range
 
         // Add in entropy from a reference output
-        // Entropy Initial hash. No need for difficulty check
-        expect Some(_) =
-          list.find(inputs, fn(input) { input.output_reference == utxo_ref })
-
+        // Mint(1) Genesis requirement: Contract has initial entropy hash. No need for difficulty check
+        expect
+          list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+        //
         let bootstrap_hash =
           utxo_ref
             |> builtin.serialise_data()
             |> sha2_256()
             |> sha2_256()
 
-        // Expect one ouput with payment credential matching policy id
+        // Mint(2) Genesis requirement: Expect one ouput with payment credential matching policy id
         expect [Output { datum: InlineDatum(output_datum), value, .. }] =
           list.filter(
             outputs,
@@ -90,14 +93,15 @@ validator(utxo_ref: OutputReference) {
             },
           )
 
-        let mints_token = fortuna.value_contains_master_token(mint, own_policy)
-
-        let has_output_token =
-          fortuna.value_contains_master_token(value, own_policy)
-
+        // Mint(3) Genesis requirement: Mints master token
+        expect fortuna.value_contains_master_token(mint, own_policy)
+        //
+        // Mint(4) Genesis requirement: Master token goes to only script output
+        expect fortuna.value_has_only_master_and_lovelace(value, own_policy)
+        //
         expect output_state: State = output_datum
 
-        // Check initial state is set to default
+        // Mint(5) Genesis requirement: Check initial datum state is set to default
         let initial_state =
           State {
             block_number: 0,
@@ -105,12 +109,12 @@ validator(utxo_ref: OutputReference) {
             leading_zeros: 4,
             difficulty_number: 65535,
             epoch_time: 0,
-            current_posix_time: averaged_slot_time,
+            current_posix_time: averaged_current_time,
             extra: 0,
             interlink: [],
           }
 
-        initial_state == output_state && has_output_token && mints_token && time_range_check
+        initial_state == output_state
       }
       Mine -> {
         expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
@@ -287,16 +291,13 @@ validator(utxo_ref: OutputReference) {
     //Spend(12) requirement: Check output extra field is within a certain size
     expect builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512
     // Spend(13) requirement: Check output interlink is correct
-    expect
-      fortuna.calculate_interlink(
-        interlink,
-        found_bytearray,
-        found_leading_zeros,
-        found_difficulty_number,
-        difficulty_number,
-        leading_zeros,
-      ) == out_interlink
-    //
-    True
+    fortuna.calculate_interlink(
+      interlink,
+      found_bytearray,
+      found_leading_zeros,
+      found_difficulty_number,
+      difficulty_number,
+      leading_zeros,
+    ) == out_interlink
   }
 }
