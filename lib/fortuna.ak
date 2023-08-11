@@ -1,16 +1,13 @@
 use aiken/builtin
-use aiken/bytearray
 use aiken/dict
 use aiken/list
 use aiken/transaction.{Input, Output, OutputReference}
 use aiken/transaction/value.{PolicyId, Value, tokens}
 use fortuna/parameters.{epoch_target, padding}
 
-pub const master_token_name =
-  "lord tuna"
+pub const master_token_name = "lord tuna"
 
-pub const token_name =
-  "TUNA"
+pub const token_name = "TUNA"
 
 pub fn own_validator_input_utxo(
   inputs: List<Input>,
@@ -21,92 +18,45 @@ pub fn own_validator_input_utxo(
   input.output
 }
 
-fn create_00_byte(times: Int) -> ByteArray {
-  if times <= 0 {
-    #""
-  } else {
-    bytearray.concat(create_00_byte(times - 2), #"00")
-  }
-}
+pub fn format_found_bytearray(target: ByteArray) -> (Int, Int) {
+  let leading_zeros = find_first_nonzero_byte(target, 0)
+  let bytearray_position = leading_zeros / 2
 
-fn create_00_byte_multiple(times: Int) -> ByteArray {
-  if times >= 10 {
-    bytearray.concat(create_00_byte_multiple(times - 10), #"0000000000")
-  } else {
-    create_00_byte(times)
-  }
-}
-
-// Create a bytearray number that is based on leading zeros and a difficulty number that fits in 2 bytes
-pub fn create_difficulty(
-  difficulty_number: Int,
-  leading_zeros: Int,
-) -> ByteArray {
+  // difficulty number takes the next 16 bits after the leading zeros
+  // we truncate off since we only need 2 bytes of difficulty number
+  // our comparison is that this difficulty number is less than the target difficulty number
   if leading_zeros % 2 == 0 {
-    let difficulty_number_bytes =
-      builtin.cons_bytearray(
-        // 65536 is 256 * 256
-        difficulty_number % 65536 / 256,
-        builtin.cons_bytearray(difficulty_number, #""),
+    let difficulty_number =
+      builtin.index_bytearray(target, bytearray_position) * 256 + builtin.index_bytearray(
+        target,
+        bytearray_position + 1,
       )
 
-    bytearray.concat(
-      bytearray.concat(
-        create_00_byte_multiple(leading_zeros),
-        difficulty_number_bytes,
-      ),
-      // -2 bytes for difficulty number spot
-      create_00_byte_multiple(64 - leading_zeros - 4),
-    )
+    (difficulty_number, leading_zeros)
   } else {
-    let difficulty_number_bytes =
-      builtin.cons_bytearray(
-        // 65536 is 256 * 256
-        difficulty_number % 65536 / 4096,
-        builtin.cons_bytearray(
-          difficulty_number % 4096 / 16,
-          builtin.cons_bytearray(difficulty_number % 16 * 16, #""),
-        ),
-      )
+    let difficulty_number =
+      builtin.index_bytearray(target, bytearray_position) * 4096 + builtin.index_bytearray(
+        target,
+        bytearray_position + 1,
+      ) * 16 + builtin.index_bytearray(target, bytearray_position + 2) / 16
 
-    bytearray.concat(
-      bytearray.concat(
-        create_00_byte_multiple(leading_zeros - 1),
-        difficulty_number_bytes,
-      ),
-      // -5 bytes for difficulty number spot
-      create_00_byte_multiple(64 - leading_zeros - 5),
-    )
+    (difficulty_number, leading_zeros)
   }
 }
 
-test create_difficulty_1() {
-  create_difficulty(50005, 5) == #"00000c3550000000000000000000000000000000000000000000000000000000"
+fn find_first_nonzero_byte(bytes: ByteArray, current_index) -> Int {
+  let current_byte = builtin.index_bytearray(bytes, current_index)
+
+  if current_byte == 0 {
+    2 + find_first_nonzero_byte(bytes, current_index + 1)
+  } else if current_byte < 16 {
+    1
+  } else {
+    0
+  }
 }
 
-test create_difficulty_2() {
-  create_difficulty(50000, 5) == #"00000c3500000000000000000000000000000000000000000000000000000000"
-}
-
-test create_difficulty_3() {
-  create_difficulty(257, 4) == #"0000010100000000000000000000000000000000000000000000000000000000"
-}
-
-test create_difficulty_4() {
-  create_difficulty(257, 30) == #"0000000000000000000000000000000101000000000000000000000000000000"
-}
-
-test create_difficulty_5() {
-  create_difficulty(65535, 0) == #"ffff000000000000000000000000000000000000000000000000000000000000"
-}
-
-test create_difficulty_6() {
-  create_difficulty(40000, 18) == #"0000000000000000009c40000000000000000000000000000000000000000000"
-}
-
-test create_difficulty_7() {
-  create_difficulty(40000, 60) == #"0000000000000000000000000000000000000000000000000000000000009c40"
-}
+// TODO add some tests for previous 2 functions
 
 fn do_two_exponential(exponent: Int) -> Int {
   if exponent <= 0 {
@@ -142,6 +92,27 @@ test two_exponential_4() {
 
 test two_exponential_5() {
   two_exponential(29) == 536870912
+}
+
+pub fn value_has_only_master_and_lovelace(
+  val: Value,
+  own_policy: PolicyId,
+) -> Bool {
+  expect [(policy1, amount1), (policy2, amount2)] =
+    val
+      |> value.to_dict
+      |> dict.to_list()
+
+  if policy1 == value.ada_policy_id {
+    // Should always reach here since maps come in ordered on chain
+    expect [(token_name, quantity)] = amount2 |> dict.to_list()
+
+    policy2 == own_policy && quantity == 1 && token_name == master_token_name
+  } else {
+    expect [(token_name, quantity)] = amount1 |> dict.to_list()
+
+    policy1 == own_policy && quantity == 1 && token_name == master_token_name
+  }
 }
 
 pub fn value_contains_master_token(val: Value, own_policy: PolicyId) -> Bool {
@@ -190,8 +161,7 @@ pub fn get_new_difficulty(
   let new_padded_difficulty =
     difficulty_number * padding * adjustment_numerator / adjustment_denominator
 
-  let new_difficulty =
-    new_padded_difficulty / padding
+  let new_difficulty = new_padded_difficulty / padding
 
   if new_padded_difficulty / 65536 == 0 {
     if current_leading_zeros >= 30 {
@@ -243,17 +213,19 @@ test get_new_difficulty_8() {
 }
 
 fn do_calculate_interlink(
-  interlink: List<ByteArray>,
-  current_hash: ByteArray,
+  interlink: List<Data>,
+  current_hash: Data,
+  found_leading_zeros: Int,
+  found_difficulty_number: Int,
   difficulty_number: Int,
   leading_zeros: Int,
-) -> List<ByteArray> {
+) -> List<Data> {
   let (halved_difficulty, halved_leading_zeroes) =
     get_new_difficulty(difficulty_number, leading_zeros, 1, 2)
-  let half_target =
-    create_difficulty(halved_difficulty, halved_leading_zeroes)
 
-  if builtin.less_than_equals_bytearray(current_hash, half_target) {
+  if
+  found_leading_zeros > halved_leading_zeroes || found_leading_zeros == halved_leading_zeroes && found_difficulty_number < halved_difficulty{
+  
     when interlink is {
       [] ->
         [
@@ -261,6 +233,8 @@ fn do_calculate_interlink(
           ..do_calculate_interlink(
             [],
             current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
             halved_difficulty,
             halved_leading_zeroes,
           )
@@ -271,6 +245,8 @@ fn do_calculate_interlink(
           ..do_calculate_interlink(
             rest,
             current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
             halved_difficulty,
             halved_leading_zeroes,
           )
@@ -282,17 +258,19 @@ fn do_calculate_interlink(
 }
 
 pub fn calculate_interlink(
-  interlink: List<ByteArray>,
-  current_hash: ByteArray,
+  interlink: List<Data>,
+  current_hash: Data,
+  found_leading_zeros: Int,
+  found_difficulty_number: Int,
   difficulty_number: Int,
   leading_zeros: Int,
-) -> List<ByteArray> {
+) -> List<Data> {
   let (quarter_difficulty, quarter_leading_zeroes) =
     get_new_difficulty(difficulty_number, leading_zeros, 1, 4)
-  let quarter_target =
-    create_difficulty(quarter_difficulty, quarter_leading_zeroes)
 
-  if builtin.less_than_equals_bytearray(current_hash, quarter_target) {
+  if
+  found_leading_zeros > quarter_leading_zeroes || found_leading_zeros == quarter_leading_zeroes && found_difficulty_number < quarter_difficulty{
+  
     when interlink is {
       [] ->
         [
@@ -301,6 +279,8 @@ pub fn calculate_interlink(
           ..calculate_interlink(
             [],
             current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
             quarter_difficulty,
             quarter_leading_zeroes,
           )
@@ -312,6 +292,8 @@ pub fn calculate_interlink(
           ..calculate_interlink(
             [],
             current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
             quarter_difficulty,
             quarter_leading_zeroes,
           )
@@ -323,6 +305,8 @@ pub fn calculate_interlink(
           ..calculate_interlink(
             rest,
             current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
             quarter_difficulty,
             quarter_leading_zeroes,
           )
@@ -332,6 +316,8 @@ pub fn calculate_interlink(
     do_calculate_interlink(
       interlink,
       current_hash,
+      found_leading_zeros,
+      found_difficulty_number,
       difficulty_number,
       leading_zeros,
     )
@@ -340,9 +326,21 @@ pub fn calculate_interlink(
 
 test interlink_1() {
   let current_hash =
-    #"0000000000000000009c40000000000000000000000000000000000000000000"
-  calculate_interlink([], current_hash, 40000, 5) == [
+    #"0000000000000000009c40000000000012000000000000000000000000000000"
+
+  let (found_difficulty_number, found_leading_zeros) =
+    format_found_bytearray(current_hash)
+
+  let current_hash: Data = current_hash
+
+  calculate_interlink(
+    [],
     current_hash,
+    found_leading_zeros,
+    found_difficulty_number,
+    40000,
+    5,
+  ) == [
     current_hash,
     current_hash,
     current_hash,
@@ -399,8 +397,21 @@ test interlink_1() {
 
 test interlink_2() {
   let current_hash =
-    #"0000000000000000000000000000000101000000000000000000000000000000"
-  calculate_interlink([], current_hash, 40000, 5) == [
+    #"0000000000000000000000000000000101000000000123000000000000000000"
+
+  let (found_difficulty_number, found_leading_zeros) =
+    format_found_bytearray(current_hash)
+
+  let current_hash: Data = current_hash
+
+  calculate_interlink(
+    [],
+    current_hash,
+    found_leading_zeros,
+    found_difficulty_number,
+    40000,
+    5,
+  ) == [
     current_hash,
     current_hash,
     current_hash,
@@ -513,9 +524,18 @@ test interlink_3() {
 
   let current_hash =
     #"0000000000000000000000000000000101000000000000000000000000000000"
+
+  let (found_difficulty_number, found_leading_zeros) =
+    format_found_bytearray(current_hash)
+
+  let current_hash: Data = current_hash
+  let prev_hash: Data = prev_hash
+
   calculate_interlink(
     [prev_hash, prev_hash, prev_hash, prev_hash, prev_hash, prev_hash],
     current_hash,
+    found_leading_zeros,
+    found_difficulty_number,
     40000,
     5,
   ) == [
@@ -632,6 +652,12 @@ test interlink_4() {
   let current_hash =
     #"0000000000000000009c40000000000000000000000000000000000000000000"
 
+  let (found_difficulty_number, found_leading_zeros) =
+    format_found_bytearray(current_hash)
+
+  let current_hash: Data = current_hash
+  let prev_hash: Data = prev_hash
+
   let current_list =
     [
       prev_hash,
@@ -739,7 +765,14 @@ test interlink_4() {
       prev_hash,
     ]
 
-  calculate_interlink(current_list, current_hash, 40000, 5) == [
+  calculate_interlink(
+    current_list,
+    current_hash,
+    found_leading_zeros,
+    found_difficulty_number,
+    40000,
+    5,
+  ) == [
     current_hash,
     current_hash,
     current_hash,
@@ -791,7 +824,7 @@ test interlink_4() {
     current_hash,
     current_hash,
     current_hash,
-    current_hash,
+    prev_hash,
     prev_hash,
     prev_hash,
     prev_hash,
