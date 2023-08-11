@@ -68,7 +68,7 @@ validator(utxo_ref: OutputReference) {
         // Posix time is in milliseconds
         // Mint(0) Genesis requirement: Time range span is 3 minutes or less and inclusive
         expect
-          upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000
+          (upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000)?
         //  
         let averaged_current_time =
           ( upper_range - lower_range ) / 2 + lower_range
@@ -76,7 +76,7 @@ validator(utxo_ref: OutputReference) {
         // Add in entropy from a reference output
         // Mint(1) Genesis requirement: Contract has initial entropy hash. No need for difficulty check
         expect
-          list.any(inputs, fn(input) { input.output_reference == utxo_ref })
+          list.any(inputs, fn(input) { input.output_reference == utxo_ref })?
         //
         let bootstrap_hash =
           utxo_ref
@@ -94,10 +94,10 @@ validator(utxo_ref: OutputReference) {
           )
 
         // Mint(3) Genesis requirement: Mints master token
-        expect fortuna.value_contains_master_token(mint, own_policy)
+        expect fortuna.value_contains_master_token(mint, own_policy)?
         //
         // Mint(4) Genesis requirement: Master token goes to only script output
-        expect fortuna.value_has_only_master_and_lovelace(value, own_policy)
+        expect fortuna.value_has_only_master_and_lovelace(value, own_policy)?
         //
         expect output_state: State = output_datum
 
@@ -114,7 +114,7 @@ validator(utxo_ref: OutputReference) {
             interlink: [],
           }
 
-        initial_state == output_state
+        (initial_state == output_state)?
       }
       Mine -> {
         expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
@@ -128,7 +128,7 @@ validator(utxo_ref: OutputReference) {
           fn(input) {
             input.output.address.payment_credential == own_credential
           },
-        )
+        )?
       }
     }
   }
@@ -188,7 +188,7 @@ validator(utxo_ref: OutputReference) {
     // Posix time is in milliseconds
     // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
     expect
-      upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000
+      (upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000)?
     //
     let target =
       TargetState {
@@ -213,11 +213,11 @@ validator(utxo_ref: OutputReference) {
     // Spend(2) requirement: Found difficulty is less than or equal to the current difficulty
     // We do this by checking the leading zeros and the difficulty number
     expect
-      found_leading_zeros > leading_zeros || found_leading_zeros == leading_zeros && found_difficulty_number < difficulty_number
+      (found_leading_zeros > leading_zeros || found_leading_zeros == leading_zeros && found_difficulty_number < difficulty_number)?
     //
     // Spend(3) requirement: Input has master token
     expect
-      quantity_of(in_value, own_validator_hash, fortuna.master_token_name) == 1
+      (quantity_of(in_value, own_validator_hash, fortuna.master_token_name) == 1)?
     //
     // Spend(4) requirement: Only one type of token minted under the validator policy
     expect [(token_name, quantity)] =
@@ -235,11 +235,11 @@ validator(utxo_ref: OutputReference) {
       }
 
     // Spend(5) requirement: Minted token is the correct name and amount
-    expect token_name == fortuna.token_name && quantity == expected_quantity
+    expect (token_name == fortuna.token_name && quantity == expected_quantity)?
     //
     // Spend(6) requirement: Output has only master token and ada
     expect
-      fortuna.value_has_only_master_and_lovelace(out_value, own_validator_hash)
+      fortuna.value_has_only_master_and_lovelace(out_value, own_validator_hash)?
     // Check output datum contains correct epoch time, block number, hash, and leading zeros
     // Check for every divisible by 2016 block: 
     // - Epoch time resets
@@ -274,30 +274,30 @@ validator(utxo_ref: OutputReference) {
             adjustment_numerator,
             adjustment_denominator,
           )
-        new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty
+        (new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty)?
       } else {
         let new_epoch_time =
           epoch_time + averaged_current_time - current_posix_time
-        leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time
+        (leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time)?
       }
     //
     // Spend(9) requirement: Output posix time is the averaged current time
-    expect out_current_posix_time == averaged_current_time
+    expect (out_current_posix_time == averaged_current_time)?
     //
     // Spend(10) requirement: Output block number is the input block number + 1 
     // Spend(11) requirement: Output current hash is the target hash
     expect
-      block_number + 1 == out_block_number && out_current_hash == found_bytearray
+      (block_number + 1 == out_block_number && out_current_hash == found_bytearray)?
     //Spend(12) requirement: Check output extra field is within a certain size
-    expect builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512
+    expect (builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512)?
     // Spend(13) requirement: Check output interlink is correct
-    fortuna.calculate_interlink(
+    (fortuna.calculate_interlink(
       interlink,
       found_bytearray,
       found_leading_zeros,
       found_difficulty_number,
       difficulty_number,
       leading_zeros,
-    ) == out_interlink
+    ) == out_interlink)?
   }
 }
