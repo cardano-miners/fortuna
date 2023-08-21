@@ -33,8 +33,6 @@ const EPOCH_NUMBER: u64 = 2016;
 
 const EPOCH_TARGET: u64 = 1_209_600;
 
-pub const UNIX_SEC_TO_SLOT_CONV: u64 = 1_591_566_291;
-
 pub const ON_CHAIN_HALF_TIME_RANGE: u64 = 90;
 
 const PADDING: u64 = 16;
@@ -76,7 +74,7 @@ pub async fn exec() -> miette::Result<()> {
         .await
         .into_diagnostic()?;
 
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
 
     let datum_thread = tokio::spawn(async move {
         let mut last_data = None;
@@ -226,7 +224,7 @@ async fn mine(data: State) -> miette::Result<()> {
     let utc: DateTime<Utc> = Utc::now();
     let new_time_off_chain = utc.timestamp() as u64;
     let new_time_on_chain = new_time_off_chain + ON_CHAIN_HALF_TIME_RANGE;
-    let new_slot_time = new_time_off_chain - UNIX_SEC_TO_SLOT_CONV;
+    let new_slot_time = new_time_off_chain;
 
     let mut new_state = State {
         block_number: block_number + 1,

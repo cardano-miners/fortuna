@@ -11,7 +11,8 @@ chrono = "0.4.24"
 clap = { version = "4.2.7", features = ["derive"] }
 hex = "0.4.3"
 miette = { version = "5.8.0", features = ["fancy"] }
-naumachia = { git = "https://github.com/free-honey/naumachia.git", rev = "16e706b2b8a7df012a0e136dd7a011ec183830de" }
+naumachia = { git = "https://github.com/free-honey/naumachia.git" }
+uplc = { git = "https://github.com/aiken-lang/aiken.git" }
 rand = "0.8.5"
 serde = "1.0.163"
 serde_json = "1.0.96"

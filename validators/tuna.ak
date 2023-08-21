@@ -31,12 +31,12 @@ type MintingState {
 }
 
 type TargetState {
+  nonce: ByteArray,
   block_number: Int,
   current_hash: ByteArray,
   leading_zeros: Int,
   difficulty_number: Int,
   epoch_time: Int,
-  nonce: ByteArray,
 }
 
 validator(utxo_ref: OutputReference) {
@@ -67,8 +67,11 @@ validator(utxo_ref: OutputReference) {
 
         // Posix time is in milliseconds
         // Mint(0) Genesis requirement: Time range span is 3 minutes or less and inclusive
-        expect
-          (upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000)?
+        expect and {
+            !upper_is_inclusive?,
+            lower_is_inclusive?,
+            (upper_range - lower_range <= 180000)?,
+          }
         //  
         let averaged_current_time =
           ( upper_range - lower_range ) / 2 + lower_range
@@ -187,8 +190,11 @@ validator(utxo_ref: OutputReference) {
 
     // Posix time is in milliseconds
     // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
-    expect
-      (upper_is_inclusive && lower_is_inclusive && upper_range - lower_range <= 180000)?
+    expect and {
+        !upper_is_inclusive?,
+        lower_is_inclusive?,
+        (upper_range - lower_range <= 180000)?,
+      }
     //
     let target =
       TargetState {
@@ -212,8 +218,13 @@ validator(utxo_ref: OutputReference) {
     // Mining Difficulty Met
     // Spend(2) requirement: Found difficulty is less than or equal to the current difficulty
     // We do this by checking the leading zeros and the difficulty number
-    expect
-      (found_leading_zeros > leading_zeros || found_leading_zeros == leading_zeros && found_difficulty_number < difficulty_number)?
+    expect or {
+        (found_leading_zeros > leading_zeros)?,
+        and {
+          (found_leading_zeros == leading_zeros)?,
+          (found_difficulty_number < difficulty_number)?,
+        },
+      }
     //
     // Spend(3) requirement: Input has master token
     expect
@@ -235,7 +246,10 @@ validator(utxo_ref: OutputReference) {
       }
 
     // Spend(5) requirement: Minted token is the correct name and amount
-    expect (token_name == fortuna.token_name && quantity == expected_quantity)?
+    expect and {
+        (token_name == fortuna.token_name)?,
+        (quantity == expected_quantity)?,
+      }
     //
     // Spend(6) requirement: Output has only master token and ada
     expect
@@ -274,11 +288,21 @@ validator(utxo_ref: OutputReference) {
             adjustment_numerator,
             adjustment_denominator,
           )
-        (new_leading_zeroes == out_leading_zeros && 0 == out_epoch_time && out_difficulty_number == new_difficulty)?
+        //
+        and {
+          (new_leading_zeroes == out_leading_zeros)?,
+          (new_difficulty == out_difficulty_number)?,
+          (0 == out_epoch_time)?,
+        }
       } else {
         let new_epoch_time =
           epoch_time + averaged_current_time - current_posix_time
-        (leading_zeros == out_leading_zeros && out_difficulty_number == difficulty_number && new_epoch_time == out_epoch_time)?
+        // 
+        and {
+          (leading_zeros == out_leading_zeros)?,
+          (difficulty_number == out_difficulty_number)?,
+          (new_epoch_time == out_epoch_time)?,
+        }
       }
     //
     // Spend(9) requirement: Output posix time is the averaged current time
