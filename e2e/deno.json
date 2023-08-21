@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "e2e": "deno run --allow-all main.ts"
+  }
+}

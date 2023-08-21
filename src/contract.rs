@@ -18,7 +18,6 @@ use naumachia::{
 use sha2::{Digest, Sha256};
 
 use crate::{
-    cmd::mine::{ON_CHAIN_HALF_TIME_RANGE, UNIX_SEC_TO_SLOT_CONV},
     datums::State,
     error, mutations, queries,
     redeemers::{FortunaRedeemer, InputNonce, MintingState},
@@ -29,6 +28,8 @@ const SPEND_VALIDATOR_NAME: &str = "tuna.spend";
 const MINT_VALIDATOR_NAME: &str = "tuna.mint";
 pub const MASTER_TOKEN_NAME: &str = "lord tuna";
 pub const TOKEN_NAME: &str = "TUNA";
+pub const CONVERSION_TIME_SEC: u64 = 1691996128;
+pub const SLOT_OFFSET: u64 = 25325728;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fortuna;
@@ -49,16 +50,16 @@ impl SCLogic for Fortuna {
 
         match endpoint {
             Genesis { output_reference } => {
-                let mut hasher = Sha256::new();
+                let hasher = Sha256::new_with_prefix(output_reference);
 
-                hasher.update(output_reference);
+                let hasher = Sha256::new_with_prefix(hasher.finalize());
 
                 let current_hash = hasher.finalize();
 
                 let current_utc: DateTime<Utc> = Utc::now();
 
                 let current_time_off_chain = current_utc.timestamp() as u64;
-                let current_time_on_chain = current_time_off_chain + ON_CHAIN_HALF_TIME_RANGE;
+                let current_time_on_chain = current_time_off_chain + 45;
 
                 let current_slot_time = calculate_slot_from_epoch_time(current_time_off_chain);
 
@@ -93,7 +94,7 @@ impl SCLogic for Fortuna {
                     )
                     .with_valid_range(
                         Some(current_slot_time.try_into().unwrap()),
-                        Some((current_slot_time + 180).try_into().unwrap()),
+                        Some((current_slot_time + 90).try_into().unwrap()),
                     );
 
                 Ok(actions)
@@ -145,7 +146,7 @@ impl SCLogic for Fortuna {
                     )
                     .with_valid_range(
                         Some(current_slot_time as i64),
-                        Some(current_slot_time as i64 + 180),
+                        Some(current_slot_time as i64 + 90),
                     );
 
                 Ok(actions)
@@ -225,5 +226,5 @@ fn calculate_amount(block_number: u64) -> u64 {
 }
 
 fn calculate_slot_from_epoch_time(unix_time: u64) -> u64 {
-    unix_time - UNIX_SEC_TO_SLOT_CONV
+    unix_time - CONVERSION_TIME_SEC + SLOT_OFFSET
 }
