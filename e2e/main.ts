@@ -7,7 +7,7 @@ import {
   toHex,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
 
-import { test, testFail } from "./test.ts";
+import { test } from "./test.ts";
 import {
   calculateInterlink,
   getDifficulty,
@@ -33,9 +33,7 @@ await test("First Mined Block", async (ctx) => {
     [],
   ]);
 
-  const datum = Data.to(
-    preDatum,
-  );
+  const datum = Data.to(preDatum);
 
   const validatorAddress = ctx.lucid.utils.validatorToAddress(ctx.validator);
 
@@ -55,7 +53,9 @@ await test("First Mined Block", async (ctx) => {
     .collectFrom(allCollectUtxo)
     .payToContract(validatorAddress, { inline: datum }, masterToken)
     .mintAssets(masterToken, Data.to(new Constr(1, [])))
-    .readFrom(refUtxo).validFrom(timeNow).validTo(timeNow + 90000)
+    .readFrom(refUtxo)
+    .validFrom(timeNow)
+    .validTo(timeNow + 90000)
     .complete();
 
   const signed1 = await tx.sign().complete();
@@ -68,14 +68,7 @@ await test("First Mined Block", async (ctx) => {
 
   const x = new Uint8Array(16);
 
-  let targetState = new Constr(0, [
-    toHex(x),
-    0n,
-    boostrapHash,
-    4n,
-    65535n,
-    0n,
-  ]);
+  let targetState = new Constr(0, [toHex(x), 0n, boostrapHash, 4n, 65535n, 0n]);
 
   let targetHash = sha256(sha256(fromHex(Data.to(targetState))));
   let a = getDifficulty(targetHash);
@@ -84,21 +77,14 @@ await test("First Mined Block", async (ctx) => {
     a = getDifficulty(targetHash);
     if (
       a.leadingZeros > 4n ||
-      a.leadingZeros == 4n && a.difficulty_number < 65535n
+      (a.leadingZeros == 4n && a.difficulty_number < 65535n)
     ) {
       break;
     }
 
     incrementU8Array(x);
 
-    targetState = new Constr(0, [
-      toHex(x),
-      0n,
-      boostrapHash,
-      4n,
-      65535n,
-      0n,
-    ]);
+    targetState = new Constr(0, [toHex(x), 0n, boostrapHash, 4n, 65535n, 0n]);
 
     targetHash = sha256(sha256(fromHex(Data.to(targetState))));
   }
@@ -124,23 +110,15 @@ await test("First Mined Block", async (ctx) => {
     interlink,
   ]);
 
-  const outDat = Data.to(
-    postDatum,
-  );
+  const outDat = Data.to(postDatum);
 
   const masterTokenUtxo = await ctx.lucid.utxosAt(validatorAddress);
   const mintTokens = { [validatorHash + fromText("TUNA")]: 5000000000n };
 
   const txMine = await ctx.lucid
     .newTx()
-    .collectFrom(
-      masterTokenUtxo,
-      Data.to(
-        new Constr(1, [
-          toHex(x),
-        ]),
-      ),
-    ).payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
+    .collectFrom(masterTokenUtxo, Data.to(new Constr(1, [toHex(x)])))
+    .payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
     .readFrom(refUtxo)
     .mintAssets(mintTokens, Data.to(new Constr(0, [])))
     .validTo(realTimeNow + 90000)

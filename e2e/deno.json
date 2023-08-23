@@ -1,5 +1,7 @@
 {
   "tasks": {
-    "e2e": "deno run --allow-all main.ts"
+    "e2e": "deno run --allow-all main.ts",
+    "mine": "deno run --allow-all miner.ts",
+    "genesis": "deno run --allow-all genesis.ts"
   }
 }
