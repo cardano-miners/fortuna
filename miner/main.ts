@@ -5,6 +5,7 @@ import {
   Data,
   fromHex,
   fromText,
+  generateSeedPhrase,
   Lucid,
   Script,
   sha256,
@@ -42,6 +43,8 @@ const mine = new Command()
     }: Genesis = JSON.parse(genesisFile);
 
     const lucid = await Lucid.new(undefined, preprod ? "Preprod" : "Mainnet");
+
+    lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
 
     const validatorUTXOs = await lucid.utxosAt(validatorAddress);
 
@@ -157,6 +160,8 @@ const genesis = new Command()
 
     const lucid = await Lucid.new(undefined, preprod ? "Preprod" : "Mainnet");
 
+    lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
+
     const initOutputRef = new Constr(0, [new Constr(0, [txHash]), index]);
 
     const appliedValidator = applyParamsToScript(unAppliedValidator.script, [
@@ -232,7 +237,24 @@ const genesis = new Command()
 const init = new Command()
   .description("Initialize the miner")
   .action(() => {
-    console.log("Init");
+    const seed = generateSeedPhrase();
+
+    Deno.writeTextFileSync("seed.txt", seed);
+
+    console.log(`Miner wallet initialized and saved to seed.txt`);
+  });
+
+const address = new Command()
+  .description("Check address balance")
+  .option("-p, --preprod", "Use testnet")
+  .action(async ({ preprod }) => {
+    const lucid = await Lucid.new(undefined, preprod ? "Preprod" : "Mainnet");
+
+    lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
+
+    const address = await lucid.wallet.address();
+
+    console.log(`Address: ${address}`);
   });
 
 await new Command()
@@ -242,4 +264,5 @@ await new Command()
   .command("mine", mine)
   .command("genesis", genesis)
   .command("init", init)
+  .command("address", address)
   .parse(Deno.args);

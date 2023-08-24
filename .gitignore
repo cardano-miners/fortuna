@@ -9,3 +9,5 @@ docs/
 # Added by cargo
 
 /target
+
+seed.txt
