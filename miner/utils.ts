@@ -1,4 +1,4 @@
-import * as colors from "https://deno.land/std@0.184.0/fmt/colors.ts";
+import * as colors from "https://deno.land/std@0.199.0/fmt/colors.ts";
 import * as cbor from "https://deno.land/x/cbor@v1.4.1/index.js";
 import {
   fromHex,
