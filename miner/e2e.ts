@@ -71,7 +71,7 @@ await test("First Mined Block", async (ctx) => {
   let targetState = new Constr(0, [toHex(x), 0n, boostrapHash, 4n, 65535n, 0n]);
 
   let targetHash = sha256(sha256(fromHex(Data.to(targetState))));
-  let a = getDifficulty(targetHash);
+  let a;
 
   while (true) {
     a = getDifficulty(targetHash);
