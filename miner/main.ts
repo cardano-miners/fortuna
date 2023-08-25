@@ -1,3 +1,4 @@
+import "https://deno.land/std@0.199.0/dotenv/load.ts";
 import { Command } from "https://deno.land/x/cliffy@v1.0.0-rc.3/command/mod.ts";
 import {
   applyParamsToScript,
@@ -6,6 +7,7 @@ import {
   fromHex,
   fromText,
   generateSeedPhrase,
+  Kupmios,
   Lucid,
   Script,
   sha256,
@@ -21,7 +23,7 @@ import {
 // Excludes datum field because it is not needed
 // and it's annoying to type.
 type Genesis = {
-  validator: Script;
+  validator: string;
   validatorHash: string;
   validatorAddress: string;
   boostrapHash: string;
@@ -30,10 +32,12 @@ type Genesis = {
 
 const mine = new Command()
   .description("Start the miner")
-  .option("-p, --preprod", "Use testnet")
-  .action(async ({ preprod }) => {
+  .env("KUPO_URL=<value:string>", "Kupo URL")
+  .env("OGMIOS_URL=<value:string>", "Ogmios URL")
+  .option("-p, --preview", "Use testnet")
+  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
     const genesisFile = Deno.readTextFileSync(
-      `genesis/${preprod ? "preprod" : "mainnet"}.json`,
+      `genesis/${preview ? "preview" : "mainnet"}.json`,
     );
 
     const {
@@ -42,7 +46,8 @@ const mine = new Command()
       validatorAddress,
     }: Genesis = JSON.parse(genesisFile);
 
-    const lucid = await Lucid.new(undefined, preprod ? "Preprod" : "Mainnet");
+    const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
+    const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
 
     lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
 
@@ -57,10 +62,6 @@ const mine = new Command()
     const state = Data.from(validatorState) as Constr<
       string | bigint | string[]
     >;
-
-    state.fields;
-
-    state;
 
     const nonce = new Uint8Array(16);
 
@@ -106,7 +107,7 @@ const mine = new Command()
       targetState.fields[0] = toHex(nonce);
     }
 
-    const realTimeNow = Date.now();
+    const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
     const interlink = calculateInterlink(toHex(targetHash), difficulty, {
       leadingZeros: state.fields[2] as bigint,
@@ -136,7 +137,7 @@ const mine = new Command()
       .collectFrom([validatorOutRef], Data.to(new Constr(1, [toHex(nonce)])))
       .payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
       .mintAssets(mintTokens, Data.to(new Constr(0, [])))
-      .attachMintingPolicy(validator)
+      .attachSpendingValidator({ type: "PlutusV2", script: validator })
       .validTo(realTimeNow + 90000)
       .validFrom(realTimeNow)
       .complete();
@@ -152,17 +153,27 @@ const mine = new Command()
   });
 
 const genesis = new Command()
-  .description("Create block 0 using an ideally random out ref")
-  .arguments("<tx-hash:string> <index:number>")
-  .option("-p, --preprod", "Use testnet")
-  .action(async ({ preprod }, txHash, index) => {
+  .description("Create block 0")
+  .env("KUPO_URL=<value:string>", "Kupo URL")
+  .env("OGMIOS_URL=<value:string>", "Ogmios URL")
+  .option("-p, --preview", "Use testnet")
+  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
     const unAppliedValidator = readValidator();
 
-    const lucid = await Lucid.new(undefined, preprod ? "Preprod" : "Mainnet");
-
+    const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
+    const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
     lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
 
-    const initOutputRef = new Constr(0, [new Constr(0, [txHash]), index]);
+    const utxos = await lucid.wallet.getUtxos();
+
+    if (utxos.length === 0) {
+      throw new Error("No UTXOs Found");
+    }
+
+    const initOutputRef = new Constr(0, [
+      new Constr(0, [utxos[0].txHash]),
+      BigInt(utxos[0].outputIndex),
+    ]);
 
     const appliedValidator = applyParamsToScript(unAppliedValidator.script, [
       initOutputRef,
@@ -175,7 +186,13 @@ const genesis = new Command()
 
     const boostrapHash = toHex(sha256(sha256(fromHex(Data.to(initOutputRef)))));
 
-    const timeNow = Date.now();
+    const validatorAddress = lucid.utils.validatorToAddress(validator);
+
+    const validatorHash = lucid.utils.validatorToScriptHash(validator);
+
+    const masterToken = { [validatorHash + fromText("lord tuna")]: 1n };
+
+    const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
     // State
     const preDatum = new Constr(0, [
@@ -199,15 +216,9 @@ const genesis = new Command()
 
     const datum = Data.to(preDatum);
 
-    const validatorAddress = lucid.utils.validatorToAddress(validator);
-
-    const validatorHash = lucid.utils.validatorToScriptHash(validator);
-
-    const masterToken = { [validatorHash + fromText("lord tuna")]: 1n };
-
     const tx = await lucid
       .newTx()
-      .collectFrom([])
+      .collectFrom(utxos)
       .payToContract(validatorAddress, { inline: datum }, masterToken)
       .mintAssets(masterToken, Data.to(new Constr(1, [])))
       .attachMintingPolicy(validator)
@@ -217,21 +228,29 @@ const genesis = new Command()
 
     const signed = await tx.sign().complete();
 
-    await signed.submit();
+    try {
+      await signed.submit();
 
-    await lucid.awaitTx(signed.toHash());
+      console.log(`TX Hash: ${signed.toHash()}`);
 
-    Deno.writeTextFileSync(
-      `genesis/${preprod ? "preprod" : "mainnet"}.json`,
-      JSON.stringify({
-        validator: validator.script,
-        validatorHash,
-        validatorAddress,
-        boostrapHash,
-        datum: JSON.parse(Data.toJson(preDatum)),
-        outRef: { txHash, index },
-      }),
-    );
+      await lucid.awaitTx(signed.toHash());
+
+      console.log(`Completed and saving genesis file.`);
+
+      Deno.writeTextFileSync(
+        `genesis/${preview ? "preview" : "mainnet"}.json`,
+        JSON.stringify({
+          validator: validator.script,
+          validatorHash,
+          validatorAddress,
+          boostrapHash,
+          datum,
+          outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
+        }),
+      );
+    } catch (e) {
+      console.log(e);
+    }
   });
 
 const init = new Command()
@@ -246,15 +265,25 @@ const init = new Command()
 
 const address = new Command()
   .description("Check address balance")
-  .option("-p, --preprod", "Use testnet")
-  .action(async ({ preprod }) => {
-    const lucid = await Lucid.new(undefined, preprod ? "Preprod" : "Mainnet");
+  .env("KUPO_URL=<value:string>", "Kupo URL")
+  .env("OGMIOS_URL=<value:string>", "Ogmios URL")
+  .option("-p, --preview", "Use testnet")
+  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+    const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
+    const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
 
     lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
 
     const address = await lucid.wallet.address();
 
+    const utxos = await lucid.wallet.getUtxos();
+
+    const balance = utxos.reduce((acc, u) => {
+      return acc + u.assets.lovelace;
+    }, 0n);
+
     console.log(`Address: ${address}`);
+    console.log(`ADA Balance: ${balance / 1_000_000n}`);
   });
 
 await new Command()
