@@ -513,6 +513,10 @@ test interlink_2() {
     current_hash,
     current_hash,
     current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
   ]
 }
 
@@ -537,6 +541,10 @@ test interlink_3() {
     40000,
     5,
   ) == [
+    current_hash,
+    current_hash,
+    current_hash,
+    current_hash,
     current_hash,
     current_hash,
     current_hash,
