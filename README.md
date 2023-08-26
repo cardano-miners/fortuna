@@ -1,5 +1,6 @@
 <div align="center">
-  <img src="https://github.com/aiken-lang/fortuna/blob/main/assets/logo_razzy_blue/Fortuna_circle_horizontal.png?raw=true" alt="Fortuna" height="150" />
+<img src="https://github.com/aiken-lang/fortuna/blob/main/assets/logo_white/Fortuna_circle_horizontal.png?raw=true#gh-dark-mode-only" alt="Aiken" height="150" />
+  <img src="https://github.com/aiken-lang/fortuna/blob/main/assets/logo_razzy_blue/Fortuna_circle_horizontal.png?raw=true#gh-light-mode-only" alt="Fortuna" height="150" />
   <hr />
     <h2 align="center" style="border-bottom: none">Bitcoin style proof of work in smart contract form</h2>
 
