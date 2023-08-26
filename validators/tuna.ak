@@ -109,7 +109,7 @@ validator(utxo_ref: OutputReference) {
           State {
             block_number: 0,
             current_hash: bootstrap_hash,
-            leading_zeros: 4,
+            leading_zeros: 5,
             difficulty_number: 65535,
             epoch_time: 0,
             current_posix_time: averaged_current_time,
