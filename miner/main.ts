@@ -128,7 +128,7 @@ const mine = new Command()
     if (
       state.fields[0] as bigint % 2016n === 0n && state.fields[0] as bigint > 0
     ) {
-      const adjustment = getDifficultyAdjustement(epoch_time, 12_096_000_000n);
+      const adjustment = getDifficultyAdjustement(epoch_time, 1_209_600_000n);
 
       epoch_time = 0n;
 

@@ -56,8 +56,6 @@ fn find_first_nonzero_byte(bytes: ByteArray, current_index) -> Int {
   }
 }
 
-// TODO add some tests for previous 2 functions
-
 fn do_two_exponential(exponent: Int) -> Int {
   if exponent <= 0 {
     1
@@ -137,19 +135,19 @@ pub fn get_difficulty_adjustment(total_epoch_time: Int) -> (Int, Int) {
 }
 
 test get_difficulty_adjustment_1() {
-  get_difficulty_adjustment(1209600) == (1209600, 1209600)
+  get_difficulty_adjustment(1_209_600_000) == (1_209_600_000, 1_209_600_000)
 }
 
 test get_difficulty_adjustment_2() {
-  get_difficulty_adjustment(1200600) == (1200600, 1209600)
+  get_difficulty_adjustment(1_200_600_000) == (1_200_600_000, 1_209_600_000)
 }
 
 test get_difficulty_adjustment_3() {
-  get_difficulty_adjustment(50000000) == (4, 1)
+  get_difficulty_adjustment(50_000_000_000) == (4, 1)
 }
 
 test get_difficulty_adjustment_4() {
-  get_difficulty_adjustment(200000) == (1, 4)
+  get_difficulty_adjustment(200_000_000) == (1, 4)
 }
 
 pub fn get_new_difficulty(
@@ -205,7 +203,7 @@ test get_new_difficulty_6() {
 }
 
 test get_new_difficulty_7() {
-  get_new_difficulty(9000, 60, 1, 3) == (4096, 60)
+  get_new_difficulty(9000, 62, 1, 3) == (4096, 62)
 }
 
 test get_new_difficulty_8() {
