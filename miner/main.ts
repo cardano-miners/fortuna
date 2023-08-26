@@ -40,11 +40,9 @@ const mine = new Command()
       `genesis/${preview ? "preview" : "mainnet"}.json`,
     );
 
-    const {
-      validator,
-      validatorHash,
-      validatorAddress,
-    }: Genesis = JSON.parse(genesisFile);
+    const { validator, validatorHash, validatorAddress }: Genesis = JSON.parse(
+      genesisFile,
+    );
 
     const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
     const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
@@ -53,8 +51,8 @@ const mine = new Command()
 
     const validatorUTXOs = await lucid.utxosAt(validatorAddress);
 
-    const validatorOutRef = validatorUTXOs.find((u) =>
-      u.assets[validatorHash + fromText("lord tuna")]
+    const validatorOutRef = validatorUTXOs.find(
+      (u) => u.assets[validatorHash + fromText("lord tuna")],
     )!;
 
     const validatorState = validatorOutRef.datum!;
@@ -115,7 +113,7 @@ const mine = new Command()
     });
 
     const postDatum = new Constr(0, [
-      state.fields[0] as bigint + 1n,
+      (state.fields[0] as bigint) + 1n,
       toHex(targetHash),
       state.fields[2] as bigint,
       state.fields[3] as bigint,
@@ -253,15 +251,13 @@ const genesis = new Command()
     }
   });
 
-const init = new Command()
-  .description("Initialize the miner")
-  .action(() => {
-    const seed = generateSeedPhrase();
+const init = new Command().description("Initialize the miner").action(() => {
+  const seed = generateSeedPhrase();
 
-    Deno.writeTextFileSync("seed.txt", seed);
+  Deno.writeTextFileSync("seed.txt", seed);
 
-    console.log(`Miner wallet initialized and saved to seed.txt`);
-  });
+  console.log(`Miner wallet initialized and saved to seed.txt`);
+});
 
 const address = new Command()
   .description("Check address balance")
