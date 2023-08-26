@@ -1,4 +1,4 @@
-import "https://deno.land/std@0.199.0/dotenv/load.ts";
+import { loadSync } from "https://deno.land/std@0.199.0/dotenv/mod.ts";
 import { Command } from "https://deno.land/x/cliffy@v1.0.0-rc.3/command/mod.ts";
 import {
   applyParamsToScript,
@@ -20,6 +20,8 @@ import {
   readValidator,
 } from "./utils.ts";
 
+loadSync({ export: true, allowEmptyValues: true });
+
 // Excludes datum field because it is not needed
 // and it's annoying to type.
 type Genesis = {
@@ -32,8 +34,8 @@ type Genesis = {
 
 const mine = new Command()
   .description("Start the miner")
-  .env("KUPO_URL=<value:string>", "Kupo URL")
-  .env("OGMIOS_URL=<value:string>", "Ogmios URL")
+  .env("KUPO_URL=<value:string>", "Kupo URL", { required: true })
+  .env("OGMIOS_URL=<value:string>", "Ogmios URL", { required: true })
   .option("-p, --preview", "Use testnet")
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
     const genesisFile = Deno.readTextFileSync(
@@ -44,7 +46,7 @@ const mine = new Command()
       genesisFile,
     );
 
-    const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
 
     lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
@@ -152,13 +154,13 @@ const mine = new Command()
 
 const genesis = new Command()
   .description("Create block 0")
-  .env("KUPO_URL=<value:string>", "Kupo URL")
-  .env("OGMIOS_URL=<value:string>", "Ogmios URL")
+  .env("KUPO_URL=<value:string>", "Kupo URL", { required: true })
+  .env("OGMIOS_URL=<value:string>", "Ogmios URL", { required: true })
   .option("-p, --preview", "Use testnet")
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
     const unAppliedValidator = readValidator();
 
-    const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
     lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
 
@@ -261,11 +263,11 @@ const init = new Command().description("Initialize the miner").action(() => {
 
 const address = new Command()
   .description("Check address balance")
-  .env("KUPO_URL=<value:string>", "Kupo URL")
-  .env("OGMIOS_URL=<value:string>", "Ogmios URL")
+  .env("KUPO_URL=<value:string>", "Kupo URL", { required: true })
+  .env("OGMIOS_URL=<value:string>", "Ogmios URL", { required: true })
   .option("-p, --preview", "Use testnet")
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const provider = new Kupmios(kupoUrl ?? "", ogmiosUrl ?? "");
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Lucid.new(provider, preview ? "Preview" : "Mainnet");
 
     lucid.selectWalletFromSeed(Deno.readTextFileSync("seed.txt"));
