@@ -14,8 +14,10 @@ import {
   toHex,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
 import {
+  calculateDifficultyNumber,
   calculateInterlink,
   getDifficulty,
+  getDifficultyAdjustement,
   incrementU8Array,
   readValidator,
 } from "./utils.ts";
@@ -91,7 +93,6 @@ const mine = new Command()
     while (true) {
       targetHash = sha256(sha256(fromHex(Data.to(targetState))));
 
-      console.log(`Trying Target Hash: ${toHex(targetHash)}`);
       difficulty = getDifficulty(targetHash);
 
       const { leadingZeros, difficulty_number } = difficulty;
@@ -114,15 +115,43 @@ const mine = new Command()
     const interlink = calculateInterlink(toHex(targetHash), difficulty, {
       leadingZeros: state.fields[2] as bigint,
       difficulty_number: state.fields[3] as bigint,
-    });
+    }, state.fields[7] as string[]);
+
+    let epoch_time = (state.fields[4] as bigint) + BigInt(90000 + realTimeNow) -
+      (state.fields[5] as bigint);
+
+    let difficulty_number = state.fields[3] as bigint;
+    let leading_zeros = state.fields[2] as bigint;
+
+    if (
+      state.fields[0] as bigint % 2016n === 0n && state.fields[0] as bigint > 0
+    ) {
+      const adjustment = getDifficultyAdjustement(epoch_time, 1209600000n);
+
+      epoch_time = 0n;
+
+      const new_difficulty = calculateDifficultyNumber(
+        {
+          leadingZeros: state.fields[2] as bigint,
+          difficulty_number: state.fields[3] as bigint,
+        },
+        adjustment.numerator,
+        adjustment.denominator,
+      );
+
+      difficulty_number = new_difficulty.difficulty_number;
+      leading_zeros = new_difficulty.leadingZeros;
+    }
+
+    // calculateDifficultyNumber();
 
     const postDatum = new Constr(0, [
       (state.fields[0] as bigint) + 1n,
       toHex(targetHash),
-      state.fields[2] as bigint,
-      state.fields[3] as bigint,
-      BigInt(45000 + realTimeNow) - (state.fields[5] as bigint),
-      BigInt(45000 + realTimeNow),
+      leading_zeros,
+      difficulty_number,
+      epoch_time,
+      BigInt(90000 + realTimeNow),
       0n,
       interlink,
     ]);
@@ -140,7 +169,7 @@ const mine = new Command()
       .payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
       .mintAssets(mintTokens, Data.to(new Constr(0, [])))
       .attachSpendingValidator({ type: "PlutusV2", script: validator })
-      .validTo(realTimeNow + 90000)
+      .validTo(realTimeNow + 180000)
       .validFrom(realTimeNow)
       .complete();
 
@@ -203,13 +232,13 @@ const genesis = new Command()
       // current_hash: ByteArray
       boostrapHash,
       // leading_zeros: Int
-      4n,
+      2n,
       // difficulty_number: Int
       65535n,
       // epoch_time: Int
       0n,
       // current_posix_time: Int
-      BigInt(45000 + timeNow),
+      BigInt(90000 + timeNow),
       // extra: Data
       0n,
       // interlink: List<Data>
@@ -225,7 +254,7 @@ const genesis = new Command()
       .mintAssets(masterToken, Data.to(new Constr(1, [])))
       .attachMintingPolicy(validator)
       .validFrom(timeNow)
-      .validTo(timeNow + 90000)
+      .validTo(timeNow + 180000)
       .complete();
 
     const signed = await tx.sign().complete();

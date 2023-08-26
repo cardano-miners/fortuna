@@ -164,8 +164,8 @@ pub fn get_new_difficulty(
   let new_difficulty = new_padded_difficulty / padding
 
   if new_padded_difficulty / 65536 == 0 {
-    if current_leading_zeros >= 30 {
-      (4096, 60)
+    if current_leading_zeros >= 62 {
+      (4096, 62)
     } else {
       (new_padded_difficulty, current_leading_zeros + 1)
     }

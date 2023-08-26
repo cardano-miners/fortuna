@@ -191,7 +191,7 @@ validator(utxo_ref: OutputReference) {
     // Posix time is in milliseconds
     // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
     expect and {
-        !upper_is_inclusive?,
+        (!upper_is_inclusive)?,
         lower_is_inclusive?,
         (upper_range - lower_range <= 180000)?,
       }

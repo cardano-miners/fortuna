@@ -149,22 +149,84 @@ export function halfDifficultyNumber(
   }
 }
 
+export function getDifficultyAdjustement(
+  total_epoch_time: bigint,
+  epoch_target: bigint,
+): { numerator: bigint; denominator: bigint } {
+  if (
+    epoch_target / total_epoch_time >= 4 && epoch_target % total_epoch_time > 0
+  ) {
+    return { numerator: 1n, denominator: 4n };
+  } else if (
+    total_epoch_time / epoch_target >= 4 && total_epoch_time % epoch_target > 0
+  ) {
+    return { numerator: 4n, denominator: 1n };
+  } else {
+    return { numerator: total_epoch_time, denominator: epoch_target };
+  }
+}
+
+export function calculateDifficultyNumber(
+  a: { leadingZeros: bigint; difficulty_number: bigint },
+  numerator: bigint,
+  denominator: bigint,
+): { leadingZeros: bigint; difficulty_number: bigint } {
+  const new_padded_difficulty = a.difficulty_number * 16n * numerator /
+    denominator;
+
+  const new_difficulty = new_padded_difficulty / 16n;
+
+  if (new_padded_difficulty / 65536n == 0n) {
+    if (a.leadingZeros >= 62n) {
+      return { difficulty_number: 4096n, leadingZeros: 62n };
+    } else {
+      return {
+        difficulty_number: new_padded_difficulty,
+        leadingZeros: a.leadingZeros + 1n,
+      };
+    }
+  } else if (new_difficulty / 65536n > 0n) {
+    if (a.leadingZeros <= 2) {
+      return { difficulty_number: 65535n, leadingZeros: 2n };
+    } else {
+      return {
+        difficulty_number: new_difficulty / 16n,
+        leadingZeros: a.leadingZeros - 1n,
+      };
+    }
+  } else {
+    return {
+      difficulty_number: new_difficulty,
+      leadingZeros: a.leadingZeros,
+    };
+  }
+}
+
 export function calculateInterlink(
   currentHash: string,
   a: { leadingZeros: bigint; difficulty_number: bigint },
   b: { leadingZeros: bigint; difficulty_number: bigint },
+  currentInterlink: string[],
 ): string[] {
   let b_half = halfDifficultyNumber(b);
 
-  let interlink: string[] = [];
+  const interlink: string[] = currentInterlink;
+
+  let currentIndex = 0;
 
   while (
     b_half.leadingZeros < a.leadingZeros ||
     b_half.leadingZeros == a.leadingZeros &&
       b_half.difficulty_number > a.difficulty_number
   ) {
-    interlink = [currentHash, ...interlink];
+    if (currentIndex < interlink.length) {
+      interlink[currentIndex] = currentHash;
+    } else {
+      interlink.push(currentHash);
+    }
+
     b_half = halfDifficultyNumber(b_half);
+    currentIndex += 1;
   }
 
   return interlink;
