@@ -87,9 +87,11 @@ const mine = new Command()
       difficulty_number: bigint;
     };
 
+    console.log("Mining...");
     while (true) {
       targetHash = sha256(sha256(fromHex(Data.to(targetState))));
 
+      console.log(`Trying Target Hash: ${toHex(targetHash)}`);
       difficulty = getDifficulty(targetHash);
 
       const { leadingZeros, difficulty_number } = difficulty;
