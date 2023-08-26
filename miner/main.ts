@@ -282,6 +282,25 @@ const address = new Command()
 
     console.log(`Address: ${address}`);
     console.log(`ADA Balance: ${balance / 1_000_000n}`);
+
+    try {
+      const genesisFile = Deno.readTextFileSync(
+        `genesis/${preview ? "preview" : "mainnet"}.json`,
+      );
+
+      const { validatorHash }: Genesis = JSON
+        .parse(
+          genesisFile,
+        );
+
+      const tunaBalance = utxos.reduce((acc, u) => {
+        return acc + (u.assets[validatorHash + fromText("TUNA")] ?? 0n);
+      }, 0n);
+
+      console.log(`TUNA Balance: ${tunaBalance / 100_000_000n}`);
+    } catch {
+      console.log(`TUNA Balance: 0`);
+    }
   });
 
 await new Command()
