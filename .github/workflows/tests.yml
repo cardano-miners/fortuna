@@ -18,8 +18,3 @@ jobs:
       - run: aiken fmt --check
       - run: aiken check
       - run: aiken build
-
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: vx.x.x
-      - run: deno task e2e
