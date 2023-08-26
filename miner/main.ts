@@ -67,6 +67,8 @@ const mine = new Command()
 
     const nonce = new Uint8Array(16);
 
+    crypto.getRandomValues(nonce);
+
     const targetState = new Constr(0, [
       // nonce: ByteArray
       toHex(nonce),
