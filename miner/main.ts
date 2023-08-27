@@ -167,7 +167,7 @@ const mine = new Command()
 
     const readUtxo = await lucid.utxosByOutRef([{
       txHash:
-        "44732090c80e3c80f99e91f66fbbf5512c605d865276011089985517e0c7cf56",
+        "01751095ea408a3ebe6083b4de4de8a24b635085183ab8a2ac76273ef8fff5dd",
       outputIndex: 0,
     }]);
 
