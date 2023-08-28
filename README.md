@@ -7,7 +7,7 @@
 [![Licence](https://img.shields.io/github/license/aiken-lang/fortuna)](https://github.com/aiken-lang/fortuna/blob/main/LICENSE)
 [![Tests](https://github.com/aiken-lang/fortuna/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/aiken-lang/fortuna/actions/workflows/tests.yml)
 
-  <hr/>
+<hr/>
 </div>
 
 ## Mining $TUNA
@@ -59,3 +59,8 @@ After everything is setup, you can run the miner with the following command:
 ```sh
 deno task cli mine
 ```
+
+### Policy
+
+The policy for the TUNA token is
+`279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a`
