@@ -97,11 +97,12 @@ const mine = new Command()
       };
 
       console.log("Mining...");
-      let timer = new Date().valueOf();
+      let timer = 0;
       while (true) {
+        timer = new Date().valueOf();
         if (new Date().valueOf() - timer > 30000) {
           console.log("New block not found in 30 seconds, updating state");
-          timer = new Date().valueOf();
+          
           validatorUTXOs = await lucid.utxosAt(validatorAddress);
 
           validatorOutRef = validatorUTXOs.find(
