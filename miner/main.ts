@@ -30,7 +30,7 @@ type Genesis = {
   validator: string;
   validatorHash: string;
   validatorAddress: string;
-  boostrapHash: string;
+  bootstrapHash: string;
   outRef: { txHash: string; index: number };
 };
 
@@ -291,7 +291,9 @@ const genesis = new Command()
       script: appliedValidator,
     };
 
-    const boostrapHash = toHex(sha256(sha256(fromHex(Data.to(initOutputRef)))));
+    const bootstrapHash = toHex(
+      sha256(sha256(fromHex(Data.to(initOutputRef)))),
+    );
 
     const validatorAddress = lucid.utils.validatorToAddress(validator);
 
@@ -306,7 +308,7 @@ const genesis = new Command()
       // block_number: Int
       0n,
       // current_hash: ByteArray
-      boostrapHash,
+      bootstrapHash,
       // leading_zeros: Int
       5n,
       // difficulty_number: Int
@@ -350,7 +352,7 @@ const genesis = new Command()
           validator: validator.script,
           validatorHash,
           validatorAddress,
-          boostrapHash,
+          bootstrapHash,
           datum,
           outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
         }),
