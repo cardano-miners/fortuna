@@ -10,6 +10,7 @@ use naumachia::{
     },
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
+use tokio::task::JoinSet;
 
 use crate::{
     contract::{self, tuna_validators, MASTER_TOKEN_NAME},
@@ -71,8 +72,9 @@ pub async fn thing() -> miette::Result<()> {
     // 3. submitter to listen for new datums
     // two future to select on
     let (sender, receiver) = tokio::sync::watch::channel::<Option<State>>(None);
+    let mut tasks = JoinSet::new();
 
-    let chainsync_handle = tokio::spawn(async move {
+    tasks.spawn(async move {
         // do some chainsync in a loop now
         sender.send(Some(State {
             block_number: todo!(),
@@ -86,15 +88,13 @@ pub async fn thing() -> miette::Result<()> {
         }))
     });
 
-    let num_threads = 12;
-
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
-    let mut thread_handles = iter::repeat(()).take(num_threads).map(|_| {
+    for _ in 0..num_cpus::get() {
         let tx = tx.clone();
         let receiver = receiver.clone();
 
-        tokio::task::spawn_blocking(move || loop {
+        tasks.spawn_blocking(move || loop {
             let thing = receiver.borrow();
 
             if let Some(thing) = &*thing {
@@ -113,8 +113,8 @@ pub async fn thing() -> miette::Result<()> {
                     });
                 }
             };
-        })
-    });
+        });
+    }
 
     while let Some(new_datum) = rx.recv().await {}
 

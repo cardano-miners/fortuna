@@ -798,6 +798,7 @@ dependencies = [
  "hex",
  "miette",
  "naumachia",
+ "num_cpus",
  "rand",
  "serde",
  "serde_json",
