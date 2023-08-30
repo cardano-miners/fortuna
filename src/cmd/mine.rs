@@ -116,7 +116,18 @@ pub async fn thing() -> miette::Result<()> {
         });
     }
 
-    while let Some(new_datum) = rx.recv().await {}
+    tasks.spawn(async move {
+        while let Some(new_datum) = rx.recv().await {
+            todo!();
+        }
+
+        Ok(())
+    });
+
+    if let Some(_) = tasks.join_next().await {
+        // If any task finishes for some reason, we drop all of them cleanly.
+        tasks.abort_all();
+    }
 
     Ok(())
 }
