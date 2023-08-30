@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{iter, time::Duration};
 
 use miette::IntoDiagnostic;
 use naumachia::{
@@ -65,6 +65,62 @@ impl From<TargetState> for PlutusData {
     }
 }
 
+pub async fn thing() -> miette::Result<()> {
+    // 1. watcher to wait for latest datum
+    // 2. cancellable workers to calculate the next datum
+    // 3. submitter to listen for new datums
+    // two future to select on
+    let (sender, receiver) = tokio::sync::watch::channel::<Option<State>>(None);
+
+    let chainsync_handle = tokio::spawn(async move {
+        // do some chainsync in a loop now
+        sender.send(Some(State {
+            block_number: todo!(),
+            current_hash: todo!(),
+            leading_zeros: todo!(),
+            difficulty_number: todo!(),
+            epoch_time: todo!(),
+            current_time: todo!(),
+            extra: todo!(),
+            interlink: todo!(),
+        }))
+    });
+
+    let num_threads = 12;
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let mut thread_handles = iter::repeat(()).take(num_threads).map(|_| {
+        let tx = tx.clone();
+        let receiver = receiver.clone();
+
+        tokio::task::spawn_blocking(move || loop {
+            let thing = receiver.borrow();
+
+            if let Some(thing) = &*thing {
+                while !receiver.has_changed().unwrap() {
+                    // try to find targetHash
+                    //
+                    tx.send(State {
+                        block_number: todo!(),
+                        current_hash: todo!(),
+                        leading_zeros: todo!(),
+                        difficulty_number: todo!(),
+                        epoch_time: todo!(),
+                        current_time: todo!(),
+                        extra: todo!(),
+                        interlink: todo!(),
+                    });
+                }
+            };
+        })
+    });
+
+    while let Some(new_datum) = rx.recv().await {}
+
+    Ok(())
+}
+
 pub async fn exec() -> miette::Result<()> {
     let mut last_data = None;
 
@@ -102,22 +158,6 @@ pub async fn exec() -> miette::Result<()> {
             }
         }
     });
-
-    loop {
-        let datum = rx.recv().await.unwrap();
-
-        tokio::select! {
-            _ = mine(datum)=> {
-
-            }
-
-            datum = rx.recv() => {
-
-            }
-
-
-        }
-    }
 
     loop {
         let data = get_latest_datum(&ledger_client).await?;
@@ -183,8 +223,9 @@ async fn mine(data: State) -> miette::Result<()> {
 
     let target_data_without_nonce: PlutusData = data.into();
 
-    let PlutusData::Constr(Constr {  fields, .. }) = target_data_without_nonce
-    else { unreachable!() };
+    let PlutusData::Constr(Constr { fields, .. }) = target_data_without_nonce else {
+        unreachable!()
+    };
 
     let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
 
