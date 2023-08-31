@@ -1,4 +1,4 @@
-use std::{time::Duration};
+use std::time::Duration;
 
 use miette::IntoDiagnostic;
 use naumachia::{
@@ -11,7 +11,7 @@ use naumachia::{
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
 use tokio::{
-    sync::{watch},
+    sync::watch,
     task::{self, JoinSet},
 };
 
@@ -19,6 +19,7 @@ use crate::{
     contract::{self, tuna_validators, MASTER_TOKEN_NAME},
     datums::State,
     redeemers::{FortunaRedeemer, InputNonce},
+    util::cancel_on_change,
 };
 use chrono::prelude::*;
 use rand::random;
@@ -143,18 +144,7 @@ async fn spawn_miner(receiver: watch::Receiver<Option<State>>) -> miette::Result
                 let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
 
                 let task = task::spawn_blocking(|| mine(current_difficulty_hash, fields));
-                let handle = task.abort_handle();
-
-                let receiver = receiver.clone();
-                task::spawn(async move {
-                    while let Ok(false) = receiver.has_changed() {
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                    }
-
-                    handle.abort();
-                });
-
-                let (nonce, new_hash) = match task.await {
+                let (nonce, new_hash) = match cancel_on_change(task, receiver.clone()).await {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
