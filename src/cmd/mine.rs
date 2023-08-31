@@ -85,7 +85,7 @@ pub async fn exec() -> miette::Result<()> {
         match get_latest_datum(&ledger_client).await {
             Ok(d) => sender.send(Some(d)).into_diagnostic()?,
             Err(_) => {
-                tokio::time::sleep(Duration::from_secs(10));
+                tokio::time::sleep(Duration::from_secs(10)).await;
             }
         }
     }
@@ -148,7 +148,7 @@ async fn spawn_miner(receiver: watch::Receiver<Option<State>>) -> miette::Result
                 let receiver = receiver.clone();
                 task::spawn(async move {
                     while let Ok(false) = receiver.has_changed() {
-                        tokio::time::sleep(Duration::from_millis(100));
+                        tokio::time::sleep(Duration::from_millis(100)).await;
                     }
 
                     handle.abort();
