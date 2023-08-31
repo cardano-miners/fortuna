@@ -1,4 +1,4 @@
-use std::{iter, time::Duration};
+use std::{time::Duration};
 
 use miette::IntoDiagnostic;
 use naumachia::{
@@ -11,8 +11,8 @@ use naumachia::{
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
 use tokio::{
-    sync::{mpsc::UnboundedSender, oneshot, watch},
-    task::{self, AbortHandle, JoinHandle, JoinSet},
+    sync::{watch},
+    task::{self, JoinSet},
 };
 
 use crate::{
