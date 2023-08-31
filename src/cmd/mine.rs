@@ -1,4 +1,4 @@
-use std::{iter, time::Duration};
+use std::{time::Duration};
 
 use miette::IntoDiagnostic;
 use naumachia::{
@@ -10,7 +10,10 @@ use naumachia::{
     },
     trireme_ledger_client::get_trireme_ledger_client_from_file,
 };
-use tokio::task::JoinSet;
+use tokio::{
+    sync::{watch},
+    task::{self, JoinSet},
+};
 
 use crate::{
     contract::{self, tuna_validators, MASTER_TOKEN_NAME},
@@ -66,133 +69,29 @@ impl From<TargetState> for PlutusData {
     }
 }
 
-pub async fn thing() -> miette::Result<()> {
-    // 1. watcher to wait for latest datum
-    // 2. cancellable workers to calculate the next datum
-    // 3. submitter to listen for new datums
-    // two future to select on
-    let (sender, receiver) = tokio::sync::watch::channel::<Option<State>>(None);
+pub async fn exec() -> miette::Result<()> {
+    let (sender, receiver) = watch::channel::<Option<State>>(None);
     let mut tasks = JoinSet::new();
 
-    tasks.spawn(async move {
-        // do some chainsync in a loop now
-        sender.send(Some(State {
-            block_number: todo!(),
-            current_hash: todo!(),
-            leading_zeros: todo!(),
-            difficulty_number: todo!(),
-            epoch_time: todo!(),
-            current_time: todo!(),
-            extra: todo!(),
-            interlink: todo!(),
-        }))
-    });
-
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-
     for _ in 0..num_cpus::get() {
-        let tx = tx.clone();
-        let receiver = receiver.clone();
-
-        tasks.spawn_blocking(move || loop {
-            let thing = receiver.borrow();
-
-            if let Some(thing) = &*thing {
-                while !receiver.has_changed().unwrap() {
-                    // try to find targetHash
-                    //
-                    tx.send(State {
-                        block_number: todo!(),
-                        current_hash: todo!(),
-                        leading_zeros: todo!(),
-                        difficulty_number: todo!(),
-                        epoch_time: todo!(),
-                        current_time: todo!(),
-                        extra: todo!(),
-                        interlink: todo!(),
-                    });
-                }
-            };
-        });
+        tasks.spawn_local(spawn_miner(receiver.clone()));
     }
-
-    tasks.spawn(async move {
-        while let Some(new_datum) = rx.recv().await {
-            todo!();
-        }
-
-        Ok(())
-    });
-
-    if let Some(_) = tasks.join_next().await {
-        // If any task finishes for some reason, we drop all of them cleanly.
-        tasks.abort_all();
-    }
-
-    Ok(())
-}
-
-pub async fn exec() -> miette::Result<()> {
-    let mut last_data = None;
-
-    let mut handle = None;
 
     let ledger_client = get_trireme_ledger_client_from_file::<State, FortunaRedeemer>()
         .await
         .into_diagnostic()?;
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-
-    let datum_thread = tokio::spawn(async move {
-        let mut last_data = None;
-
-        let ledger_client = get_trireme_ledger_client_from_file::<State, FortunaRedeemer>()
-            .await
-            .unwrap();
-
-        loop {
-            // TODO: snooze if error and try again
-            let data = get_latest_datum(&ledger_client).await.unwrap();
-
-            match last_data {
-                Some(ld) if ld != data => {
-                    tx.send(data.clone()).await.unwrap();
-                    last_data = Some(data);
-                }
-                Some(_) => {
-                    tokio::time::sleep(Duration::from_secs(10)).await;
-                }
-                None => {
-                    tx.send(data.clone()).await.unwrap();
-                    last_data = Some(data);
-                }
-            }
-        }
-    });
-
     loop {
-        let data = get_latest_datum(&ledger_client).await?;
-
-        match last_data {
-            None => {
-                last_data = Some(data.clone());
-
-                handle = Some(tokio::spawn(async move { mine(data).await }).abort_handle());
+        match get_latest_datum(&ledger_client).await {
+            Ok(d) => sender.send(Some(d)).into_diagnostic()?,
+            Err(_) => {
+                tokio::time::sleep(Duration::from_secs(10)).await;
             }
-            Some(ld) if ld != data => {
-                if let Some(handle) = handle.take() {
-                    handle.abort();
-                }
-
-                let worker_data = data.clone();
-
-                handle = Some(tokio::spawn(async move { mine(worker_data).await }).abort_handle());
-
-                last_data = Some(data)
-            }
-            _ => (),
         }
     }
+
+    #[allow(unreachable_code)]
+    Ok(())
 }
 
 async fn get_latest_datum<LC>(ledger_client: &LC) -> miette::Result<State>
@@ -222,89 +121,104 @@ where
     Ok(datum)
 }
 
-async fn mine(data: State) -> miette::Result<()> {
-    let block_number = data.block_number;
-    let difficulty_number = data.difficulty_number;
-    let leading_zeros = data.leading_zeros;
-    let epoch_time = data.epoch_time;
-    let current_time = data.current_time;
-    let interlink = data.interlink.clone();
+async fn spawn_miner(receiver: watch::Receiver<Option<State>>) -> miette::Result<()> {
+    loop {
+        match &*receiver.borrow() {
+            Some(data) => {
+                let block_number = data.block_number;
+                let difficulty_number = data.difficulty_number;
+                let leading_zeros = data.leading_zeros;
+                let epoch_time = data.epoch_time;
+                let current_time = data.current_time;
+                let interlink = data.interlink.clone();
 
-    let current_difficulty_hash = get_difficulty_hash(difficulty_number, leading_zeros);
+                let current_difficulty_hash = get_difficulty_hash(difficulty_number, leading_zeros);
 
-    let target_data_without_nonce: PlutusData = data.into();
+                let target_data_without_nonce: PlutusData = data.clone().into();
 
-    let PlutusData::Constr(Constr { fields, .. }) = target_data_without_nonce else {
-        unreachable!()
-    };
+                let PlutusData::Constr(Constr { fields, .. }) = target_data_without_nonce else {
+                    unreachable!()
+                };
 
-    let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
+                let fields: Vec<PlutusData> = fields.into_iter().take(5).collect();
 
-    let (nonce, new_hash) = tokio::task::spawn_blocking(move || {
-        let mut nonce: [u8; 32];
+                let task = task::spawn_blocking(|| mine(current_difficulty_hash, fields));
+                let handle = task.abort_handle();
 
-        let mut new_hash: Vec<u8>;
+                let receiver = receiver.clone();
+                task::spawn(async move {
+                    while let Ok(false) = receiver.has_changed() {
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
 
-        loop {
-            nonce = random::<[u8; 32]>();
-            let mut fields = fields.clone();
+                    handle.abort();
+                });
 
-            fields.push(PlutusData::BoundedBytes(nonce.to_vec()));
+                let (nonce, new_hash) = match task.await {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
 
-            let target_bytes = PlutusData::Constr(Constr { constr: 0, fields }).bytes();
+                let redeemer = InputNonce {
+                    nonce: nonce.to_vec(),
+                };
 
-            let hasher = Sha256::new_with_prefix(target_bytes);
+                let utc: DateTime<Utc> = Utc::now();
+                let new_time_off_chain = utc.timestamp() as u64;
+                let new_time_on_chain = new_time_off_chain + ON_CHAIN_HALF_TIME_RANGE;
+                let new_slot_time = new_time_off_chain;
 
-            let hasher = Sha256::new_with_prefix(hasher.finalize());
+                let mut new_state = State {
+                    block_number: block_number + 1,
+                    current_hash: new_hash,
+                    leading_zeros,
+                    difficulty_number,
+                    epoch_time,
+                    current_time: new_time_on_chain,
+                    extra: 0,
+                    interlink,
+                };
 
-            new_hash = hasher.finalize().to_vec();
+                if block_number % EPOCH_NUMBER == 0 {
+                    new_state.epoch_time = epoch_time + new_state.current_time - current_time;
 
-            if new_hash.le(&current_difficulty_hash) {
-                break;
+                    change_difficulty(&mut new_state);
+                } else {
+                    // get cardano slot time
+                    new_state.epoch_time = epoch_time + new_state.current_time - current_time;
+                }
+
+                calculate_interlink(&mut new_state, difficulty_number, leading_zeros);
+
+                contract::mine(new_state, redeemer, new_slot_time)
+                    .await
+                    .into_diagnostic()?;
+
+                return Ok(());
             }
+            None => continue,
         }
-
-        (nonce, new_hash)
-    })
-    .await
-    .into_diagnostic()?;
-
-    let redeemer = InputNonce {
-        nonce: nonce.to_vec(),
-    };
-
-    let utc: DateTime<Utc> = Utc::now();
-    let new_time_off_chain = utc.timestamp() as u64;
-    let new_time_on_chain = new_time_off_chain + ON_CHAIN_HALF_TIME_RANGE;
-    let new_slot_time = new_time_off_chain;
-
-    let mut new_state = State {
-        block_number: block_number + 1,
-        current_hash: new_hash,
-        leading_zeros,
-        difficulty_number,
-        epoch_time,
-        current_time: new_time_on_chain,
-        extra: 0,
-        interlink,
-    };
-
-    if block_number % EPOCH_NUMBER == 0 {
-        new_state.epoch_time = epoch_time + new_state.current_time - current_time;
-
-        change_difficulty(&mut new_state);
-    } else {
-        // get cardano slot time
-        new_state.epoch_time = epoch_time + new_state.current_time - current_time;
     }
+}
 
-    calculate_interlink(&mut new_state, difficulty_number, leading_zeros);
+pub fn mine(current_difficulty_hash: Vec<u8>, fields: Vec<PlutusData>) -> ([u8; 32], Vec<u8>) {
+    loop {
+        let nonce = random::<[u8; 32]>();
+        let mut fields = fields.clone();
 
-    contract::mine(new_state, redeemer, new_slot_time)
-        .await
-        .into_diagnostic()?;
+        fields.push(PlutusData::BoundedBytes(nonce.to_vec()));
 
-    Ok(())
+        let target_bytes = PlutusData::Constr(Constr { constr: 0, fields }).bytes();
+
+        let hasher = Sha256::new_with_prefix(target_bytes);
+        let hasher = Sha256::new_with_prefix(hasher.finalize());
+
+        let new_hash = hasher.finalize().to_vec();
+
+        if new_hash.le(&current_difficulty_hash) {
+            return (nonce, new_hash);
+        }
+    }
 }
 
 fn calculate_interlink(new_state: &mut State, difficulty_number: u16, leading_zeros: u8) {

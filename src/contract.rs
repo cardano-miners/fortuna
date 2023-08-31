@@ -23,7 +23,7 @@ use crate::{
     redeemers::{FortunaRedeemer, InputNonce, MintingState},
 };
 
-const BLUEPRINT: &str = include_str!("../genesis/plutus.json");
+const BLUEPRINT: &str = include_str!("../genesis/mainnet.json");
 const SPEND_VALIDATOR_NAME: &str = "tuna.spend";
 const MINT_VALIDATOR_NAME: &str = "tuna.mint";
 pub const MASTER_TOKEN_NAME: &str = "lord tuna";
