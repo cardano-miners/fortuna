@@ -82,9 +82,16 @@ pub async fn exec() -> miette::Result<()> {
         .await
         .into_diagnostic()?;
 
+    let mut last_value = None;
+
     loop {
         match get_latest_datum(&ledger_client).await {
-            Ok(d) => sender.send(Some(d)).into_diagnostic()?,
+            Ok(d) => {
+                if Some(&d) != last_value.as_ref() {
+                    sender.send(Some(d.clone())).into_diagnostic()?;
+                    last_value = Some(d);
+                }
+            }
             Err(_) => {
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
