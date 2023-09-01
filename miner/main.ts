@@ -98,6 +98,8 @@ const mine = new Command()
 
       console.log("Mining...");
       let timer = new Date().valueOf();
+      let hashCounter = 0;
+      let startTime = Date.now();
       while (true) {
         if (new Date().valueOf() - timer > 5000) {
           console.log("New block not found in 5 seconds, updating state");
@@ -137,6 +139,16 @@ const mine = new Command()
         }
 
         targetHash = sha256(sha256(fromHex(Data.to(targetState))));
+        hashCounter++;
+
+          if (Date.now() - startTime > 30000) {  // Every 30,000 milliseconds (or 30 seconds)
+              let rate = hashCounter / ((Date.now() - startTime) / 1000); // Calculate rate
+              console.log(`Average Hashrate over the last 30 seconds: ${rate.toFixed(2)} H/s`);
+
+              // Reset the counter and the timer
+              hashCounter = 0;
+              startTime = Date.now();
+          }
 
         difficulty = getDifficulty(targetHash);
 
