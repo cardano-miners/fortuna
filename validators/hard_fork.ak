@@ -98,6 +98,7 @@ validator(
 
         let own_withdrawal = Inline(ScriptCredential(own_policy))
 
+        // Fork Mint(0) requirement: Withdrawal script is present
         dict.has_key(withdrawals, own_withdrawal)
       }
       tx.WithdrawFrom(stake_cred) -> {
@@ -110,7 +111,7 @@ validator(
     }
   }
 
-  fn fork(_datum: Data, _redeemer, ctx: ScriptContext) -> Bool {
+  fn fork(datum: ForkDatum, _redeemer, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
     expect tx.Spend(own_ref) = purpose
@@ -119,10 +120,24 @@ validator(
 
     let own_input = utils.find_input_resolved(inputs, own_ref)
 
-    expect ScriptCredential(withdraw_key) = own_input.address.payment_credential
+    expect ScriptCredential(own_script_hash) =
+      own_input.address.payment_credential
+    expect
+      when datum is {
+        NftState { .. } -> {
+          let minted_names =
+            transaction.mint
+              |> value.from_minted_value
+              |> value.tokens(own_script_hash)
+              |> dict.to_list
+          // Fork Spend(0) requirement: No new NFTs are minted if the NFT state is present
+          minted_names == []
+        }
+        _ -> True
+      }
+    let own_withdrawal = Inline(ScriptCredential(own_script_hash))
 
-    let own_withdrawal = Inline(ScriptCredential(withdraw_key))
-
+    // Fork Spend(1) requirement: Withdrawal script is present
     dict.has_key(withdrawals, own_withdrawal)
   }
 }
