@@ -10,25 +10,7 @@ use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{quantity_of, tokens}
 use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
-
-type State {
-  block_number: Int,
-  current_hash: ByteArray,
-  leading_zeros: Int,
-  difficulty_number: Int,
-  epoch_time: Int,
-  current_posix_time: Int,
-  extra: Data,
-  interlink: List<Data>,
-}
-
-type InputNonce =
-  ByteArray
-
-type MintingState {
-  Mine
-  Genesis
-}
+use fortuna/types.{State}
 
 type TargetState {
   nonce: ByteArray,
@@ -39,8 +21,16 @@ type TargetState {
   epoch_time: Int,
 }
 
+type InputNonce =
+  ByteArray
+
+type MintingAction {
+  Mine
+  Genesis
+}
+
 validator(utxo_ref: OutputReference) {
-  fn mint(state: MintingState, ctx: ScriptContext) -> Bool {
+  fn mint(state: MintingAction, ctx: ScriptContext) -> Bool {
     when state is {
       Genesis -> {
         expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
