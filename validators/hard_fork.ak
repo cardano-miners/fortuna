@@ -63,9 +63,6 @@ type LockActionType {
   AfterForkLock(OutputReference)
 }
 
-type ForkAction {
-}
-
 type NftForkAction {
   Initialize
   Lock {
@@ -113,21 +110,20 @@ validator(
     }
   }
 
-  fn fork(datum: ForkDatum, _redeemer, ctx: ScriptContext) -> Bool {
+  fn fork(_datum: Data, _redeemer, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
     expect tx.Spend(own_ref) = purpose
 
-    let Transaction { inputs, mint, outputs, reference_inputs, .. } =
-      transaction
-
-    let mint = value.from_minted_value(mint)
+    let Transaction { inputs, withdrawals, .. } = transaction
 
     let own_input = utils.find_input_resolved(inputs, own_ref)
 
-    expect ScriptCredential(own_policy) = own_input.address.payment_credential
+    expect ScriptCredential(withdraw_key) = own_input.address.payment_credential
 
-    True
+    let own_withdrawal = Inline(ScriptCredential(withdraw_key))
+
+    dict.has_key(withdrawals, own_withdrawal)
   }
 }
 // when redeemer is {
