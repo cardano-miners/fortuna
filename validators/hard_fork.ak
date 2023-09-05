@@ -81,7 +81,7 @@ const miner_lock_state_token: ByteArray = "miner_lock_state"
 
 const lock_state_token: ByteArray = "lock_state"
 
-const hard_fork_state_token: ByteArray = "hard_fork_state"
+const hard_fork_state_token: ByteArray = "hfs"
 
 // maybe we should do time instead of block height?
 validator(
@@ -105,8 +105,67 @@ validator(
         expect action: NftForkAction = redeemer
         expect Inline(ScriptCredential(own_policy)) = stake_cred
 
-        todo
+        let Transaction { inputs, reference_inputs, outputs, mint, .. } =
+          transaction
+
+        when action is {
+          // Check if the input is spent and proper initial state is made
+          Initialize -> todo
+          Lock { hard_fork_state_ref, key, .. } -> {
+            let hard_fork_state_input =
+              utils.find_input_resolved(reference_inputs, hard_fork_state_ref)
+
+            expect
+              utils.value_has_nft_and_lovelace(
+                hard_fork_state_input.value,
+                own_policy,
+                hard_fork_state_token,
+              )
+            //
+            expect InlineDatum(hard_fork_state_datum) =
+              hard_fork_state_input.datum
+
+            expect HardForkState { status, .. }: ForkDatum =
+              hard_fork_state_datum
+
+            when status is {
+              NotForked -> {
+                let (nft_owner_key, prev_held_amount) =
+                  // Validate nft key is present or minted
+                  when key is {
+                    None -> {
+                      // validate mint
+                      // Use blake hash since it's faster and this is unrelated to Proof of Work
+                      let own_token_name =
+                        builtin.head_list(inputs).output_reference
+                          |> builtin.serialise_data
+                          |> hash.blake2b_256
+
+                      expect [(mint_token_name, 1)] =
+                        mint
+                          |> value.from_minted_value
+                          |> value.tokens(own_policy)
+                          |> dict.to_list
+
+                      // Fork Lock(0) requirement: Minted token name is derived from the input ref
+                      expect own_token_name == mint_token_name
+                      //
+                      (own_token_name, 0)
+                    }
+                    Some(_) -> todo
+                  }
+                True
+              }
+
+              Forked -> todo
+              FailedFork -> False
+            }
+          }
+
+          _ -> False
+        }
       }
+
       _ -> False
     }
   }
