@@ -10,6 +10,12 @@
 <hr/>
 </div>
 
+## Explorer
+
+Thanks to [@QCPOLstakepool](https://github.com/QCPOLstakepool) we have an explorer.
+
+Check it out [here](https://fortuna-explorer.stakepool.quebec/home).
+
 ## Mining $TUNA
 
 > The current miner is naive and a better implementation is coming soon.
@@ -60,7 +66,7 @@ After everything is setup, you can run the miner with the following command:
 deno task cli mine
 ```
 
-### Policy
+## Policy
 
 The policy for the TUNA token is
 `279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a`
