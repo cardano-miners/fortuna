@@ -97,9 +97,6 @@ pub async fn exec() -> miette::Result<()> {
             }
         }
     }
-
-    #[allow(unreachable_code)]
-    Ok(())
 }
 
 async fn get_latest_datum<LC>(ledger_client: &LC) -> miette::Result<State>
