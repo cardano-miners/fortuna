@@ -30,6 +30,7 @@ fn main() -> Result<(), rustacuda::error::CudaError> {
     let device = Device::get_device(0).unwrap();
     let _context = Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device).unwrap();
     let server_url_arg = env::args().nth(1).unwrap_or_else(|| "http://localhost:8008".to_string());
+    let server_url_clone = server_url_arg.clone();
 
     let json_arc = Arc::new(Mutex::new(String::from(
         r#"{"fields":[{"bytes":"2c58571ed350979233da4dea0846ff50"},{"int":7745},{"bytes":"0000003ae1a0f5771417fe0ca2865f93a0ff6d2534037570fc5e258ca9213845"},{"int":66},{"int":555},{"int":61545000}],"constructor":0}"#,
@@ -43,7 +44,7 @@ fn main() -> Result<(), rustacuda::error::CudaError> {
         loop {
             // checks for json update every second
             std::thread::sleep(std::time::Duration::from_millis(1000));
-            let new_json = fetch_url("http://localhost:8008").unwrap().clone();
+            let new_json = fetch_url(&server_url_clone).unwrap().clone();
             let mut json = json_arc_clone.lock().unwrap();
             if new_json != *json {
                 *json = new_json;
