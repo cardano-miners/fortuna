@@ -1,6 +1,3 @@
-
-
-
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <iostream>
@@ -17,7 +14,7 @@
 #include "sha256.cuh"
 
 #define SHOW_INTERVAL_MS 2000
-#define ITERATIONS_PER_KERNEL 256
+#define ITERATIONS_PER_KERNEL 100
 #define BLOCK_SIZE 256
 #define NUMBLOCKS 163834u
 #define IDX_MULTIPLIER (NUMBLOCKS * BLOCK_SIZE * ITERATIONS_PER_KERNEL)
@@ -81,14 +78,16 @@ __constant__ uint64_t total_nonces = IDX_MULTIPLIER;
 __constant__ unsigned char constant_bytes[4] = { 0xD8, 0x79, 0x9f, 0x50 };
 extern "C" __global__ void sha256_kernel(uint64_t* out_nonce_low, uint64_t* out_nonce_high, unsigned char* out_found_hash, int* out_found, const char* in_input_string, size_t in_input_string_size, uint8_t difficulty, uint64_t nonce_offset_low, uint64_t nonce_offset_high) {
     __shared__ SHA256_CTX shared_ctx[BLOCK_SIZE];
+
     uint64_t nonce_low;
     uint64_t nonce_high;
 
+    unsigned char nonce[16];
     unsigned char sha[32];
 
     for (uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-         idx < total_nonces;
-         idx += blockDim.x * gridDim.x) {
+        idx < total_nonces;
+        idx += blockDim.x * gridDim.x) {
         nonce_low = idx + nonce_offset_low;
         nonce_high = nonce_offset_high;
 
@@ -97,25 +96,19 @@ extern "C" __global__ void sha256_kernel(uint64_t* out_nonce_low, uint64_t* out_
             nonce_high++;
         }
 
-        // Initialize SHA256 context
-        sha256_init(&shared_ctx[threadIdx.x]);
+        nonce_to_bytes(nonce_low, nonce_high, nonce);
 
-        // Directly write constant_bytes and nonce to ctx.data
-        shared_ctx[threadIdx.x].data[0] = constant_bytes[0];
-        shared_ctx[threadIdx.x].data[1] = constant_bytes[1];
-        shared_ctx[threadIdx.x].data[2] = constant_bytes[2];
-        shared_ctx[threadIdx.x].data[3] = constant_bytes[3];
-        nonce_to_bytes(nonce_low, nonce_high, shared_ctx[threadIdx.x].data + 4);
+        {
+            sha256_init(&shared_ctx[threadIdx.x]);
+            sha256_update(&shared_ctx[threadIdx.x], constant_bytes, 4);
+            sha256_update(&shared_ctx[threadIdx.x], nonce, 16);
+            sha256_update(&shared_ctx[threadIdx.x], (unsigned char*)in_input_string, in_input_string_size);
+            sha256_final(&shared_ctx[threadIdx.x], sha);
 
-        // Adjust data length accordingly
-        shared_ctx[threadIdx.x].datalen = 20; // 4 bytes for constant_bytes + 16 bytes for nonce
-
-        sha256_update(&shared_ctx[threadIdx.x], (unsigned char*)in_input_string, in_input_string_size);
-        sha256_final(&shared_ctx[threadIdx.x], sha);
-
-        sha256_init(&shared_ctx[threadIdx.x]);
-        sha256_update(&shared_ctx[threadIdx.x], sha, 32);
-        sha256_final(&shared_ctx[threadIdx.x], sha);
+            sha256_init(&shared_ctx[threadIdx.x]);
+            sha256_update(&shared_ctx[threadIdx.x], sha, 32);
+            sha256_final(&shared_ctx[threadIdx.x], sha);
+        }
 
         if (checkZeroPadding(sha, difficulty) && atomicExch(out_found, 1) == 0) {
             memcpy(out_found_hash, sha, 32);
