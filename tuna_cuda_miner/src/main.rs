@@ -11,10 +11,11 @@ use regex::Regex;
 use rand::RngCore;
 use reqwest::{self, Error};
 use arrayref::array_ref;
-use std::time::Instant;
 
+use std::time::Instant;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::process::exit;
 
 
 const BLOCK_SIZE: u32 = 256;
@@ -67,11 +68,8 @@ fn main() -> Result<(), rustacuda::error::CudaError> {
 
         if should_terminate.load(Ordering::SeqCst) {
             should_terminate.store(false, Ordering::SeqCst);
-        } else {
-            break;
         }
     }
-    Ok(())
 }
 
 #[derive(Serialize)]
@@ -253,11 +251,15 @@ fn extract_fields(input: &str) -> Vec<FieldValue> {
         .collect()
 }
 
-fn fetch_url(url: &str) -> Result<String, reqwest::Error> {
-    let body = reqwest::blocking::get(url)?.text()?;
-    Ok(body)
+fn fetch_url(url: &str) -> Result<String, Error> {
+    match reqwest::blocking::get(url) {
+        Ok(response) => Ok(response.text()?),
+        Err(err) => {
+            eprintln!("Server failed to connect");
+            exit(0);
+        }
+    }
 }
-
 fn post_answer(url: &str, answer: &FoundAnswerResponse) -> Result<(), Error> {
     let client = reqwest::blocking::Client::new();
     client.post(url)
