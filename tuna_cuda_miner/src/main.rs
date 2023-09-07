@@ -254,7 +254,7 @@ fn extract_fields(input: &str) -> Vec<FieldValue> {
 fn fetch_url(url: &str) -> Result<String, Error> {
     match reqwest::blocking::get(url) {
         Ok(response) => Ok(response.text()?),
-        Err(err) => {
+        Err(_err) => {
             eprintln!("Server failed to connect");
             exit(0);
         }
