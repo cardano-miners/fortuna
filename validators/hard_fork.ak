@@ -45,7 +45,7 @@ validator(init_utxo_ref: OutputReference, fork_hash: ByteArray) {
     when redeemer is {
       Genesis -> {
         // This time genesis mints "lord tuna" and hands it over to the hard fork contract
-        // Then after the hard fork "lord tuna" is handed over to this miner contract
+        // Then after the hard fork, "lord tuna" is handed back over to this miner contract
         // This allows us to maintain the miner contract with the same logic as the old one
         let _x = 1
         todo
@@ -257,24 +257,25 @@ validator(init_utxo_ref: OutputReference, fork_hash: ByteArray) {
         }
       }
     //
-    // Spend(9) requirement: Output posix time is the averaged current time
-    expect (out_current_posix_time == averaged_current_time)?
-    //
-    // Spend(10) requirement: Output block number is the input block number + 1 
-    // Spend(11) requirement: Output current hash is the target hash
-    expect
-      (block_number + 1 == out_block_number && out_current_hash == found_bytearray)?
-    //Spend(12) requirement: Check output extra field is within a certain size
-    expect (builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512)?
-    // Spend(13) requirement: Check output interlink is correct
-    (fortuna.calculate_interlink(
-      interlink,
-      found_bytearray,
-      found_leading_zeros,
-      found_difficulty_number,
-      difficulty_number,
-      leading_zeros,
-    ) == out_interlink)?
+    and {
+      // Spend(9) requirement: Output posix time is the averaged current time
+      (out_current_posix_time == averaged_current_time)?,
+      // Spend(10) requirement: Output block number is the input block number + 1 
+      (block_number + 1 == out_block_number)?,
+      // Spend(11) requirement: Output current hash is the target hash
+      (out_current_hash == found_bytearray)?,
+      //Spend(12) requirement: Check output extra field is within a certain size
+      (builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512)?,
+      // Spend(13) requirement: Check output interlink is correct
+      (fortuna.calculate_interlink(
+        interlink,
+        found_bytearray,
+        found_leading_zeros,
+        found_difficulty_number,
+        difficulty_number,
+        leading_zeros,
+      ) == out_interlink)?,
+    }
   }
 }
 
@@ -286,7 +287,7 @@ type HardForkStatus {
 
 type ForkDatum {
   HardForkState { status: HardForkStatus, fortuna_v1_height: Int }
-  MinerGlobalLockState { miner_locked_tuna: Int }
+  MinerGlobalLockState { miner_locked_tuna: Int, miner_readiness: ByteArray }
   GlobalLockState { locked_tuna: Int }
   NftState { nft_key: ByteArray }
 }
@@ -449,11 +450,12 @@ validator(
                     //
                     expect InlineDatum(datum) = lock_input.datum
 
-                    expect MinerGlobalLockState { miner_locked_tuna }: ForkDatum =
+                    expect MinerGlobalLockState { miner_locked_tuna, .. }: ForkDatum =
                       datum
 
                     expect MinerGlobalLockState {
                       miner_locked_tuna: out_miner_locked_tuna,
+                      ..
                     }: ForkDatum = out_lock_datum
 
                     let tuna_v1_input =
