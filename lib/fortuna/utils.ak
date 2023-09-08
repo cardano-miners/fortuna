@@ -8,7 +8,7 @@ use aiken/transaction.{
 use aiken/transaction/credential.{ScriptCredential}
 use aiken/transaction/value.{AssetName, PolicyId, Value}
 
-pub fn find_input_resolved(
+pub fn resolve_output_reference(
   inputs: List<Input>,
   output_ref: OutputReference,
 ) -> Output {
@@ -17,7 +17,7 @@ pub fn find_input_resolved(
   if input.output_reference == output_ref {
     input.output
   } else {
-    find_input_resolved(inputs, output_ref)
+    resolve_output_reference(inputs, output_ref)
   }
 }
 
