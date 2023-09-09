@@ -8,7 +8,7 @@ use aiken/transaction.{
 } as tx
 use aiken/transaction/credential.{Address, Inline, ScriptCredential}
 use aiken/transaction/value.{tokens}
-use fortuna.{master_token_name, token_name}
+use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
 use fortuna/types.{State}
 use fortuna/utils.{list_at, quantity_of}
@@ -285,15 +285,15 @@ type HardForkStatus {
   FailedFork
 }
 
-type ForkDatum {
-  HardForkState { status: HardForkStatus, fortuna_v1_height: Int }
-  GlobalLockState { locked_tuna: Int, miner_readiness: Option<ByteArray> }
-  NftState { nft_key: ByteArray }
+type LockStateType {
+  Miner(ByteArray)
+  Regular
 }
 
-type LockActionType {
-  MinerLock(OutputReference)
-  NormalLock
+type ForkDatum {
+  HardForkState { status: HardForkStatus, fortuna_v1_height: Int }
+  GlobalLockState { locked_tuna: Int, lock_state_type: LockStateType }
+  NftState { nft_key: ByteArray }
 }
 
 type NftForkAction {
@@ -336,6 +336,7 @@ validator(
       }
       tx.WithdrawFrom(stake_cred) -> {
         expect action: NftForkAction = redeemer
+
         expect Inline(ScriptCredential(own_policy)) = stake_cred
 
         let Transaction { inputs, reference_inputs, outputs, mint, .. } =
@@ -403,7 +404,7 @@ validator(
                 let (
                   prev_held_amount,
                   in_locked_tuna,
-                  in_miner_readiness,
+                  in_lock_state_type,
                   in_state_value,
                 ) =
                   when script_inputs is {
@@ -434,13 +435,13 @@ validator(
 
                       expect GlobalLockState {
                         locked_tuna: in_locked_tuna,
-                        miner_readiness: in_miner_readiness,
+                        lock_state_type: in_lock_state_type,
                       }: ForkDatum = datum
 
                       (
                         0,
                         in_locked_tuna,
-                        in_miner_readiness,
+                        in_lock_state_type,
                         script_input1.value,
                       )
                     }
@@ -448,6 +449,7 @@ validator(
                     [script_input1, script_input2] -> {
                       expect Some(out_key_index) = out_key_index
 
+                      // Check Nft Key is spent in the tx to prove ownership
                       expect
                         quantity_of(
                           list_at(outputs, out_key_index).value,
@@ -460,7 +462,7 @@ validator(
                       expect script1_datum: ForkDatum = datum
 
                       when script1_datum is {
-                        GlobalLockState { locked_tuna, miner_readiness } -> {
+                        GlobalLockState { locked_tuna, lock_state_type } -> {
                           expect InlineDatum(script2_datum) =
                             script_input2.datum
 
@@ -475,7 +477,7 @@ validator(
                           (
                             prev_held_amount,
                             locked_tuna,
-                            miner_readiness,
+                            lock_state_type,
                             script_input1.value,
                           )
                         }
@@ -487,7 +489,7 @@ validator(
 
                           expect GlobalLockState {
                             locked_tuna,
-                            miner_readiness,
+                            lock_state_type,
                           }: ForkDatum = script2_datum
 
                           let prev_held_amount =
@@ -497,11 +499,11 @@ validator(
                           (
                             prev_held_amount,
                             locked_tuna,
-                            miner_readiness,
+                            lock_state_type,
                             script_input2.value,
                           )
                         }
-                        _ -> fail @"Invalid script input"
+                        _ -> fail @"Invalid input script datum"
                       }
                     }
 
@@ -510,14 +512,14 @@ validator(
 
                 expect GlobalLockState {
                   locked_tuna: out_locked_tuna,
-                  miner_readiness: out_miner_readiness,
+                  lock_state_type: out_lock_state_type,
                 }: ForkDatum = out_lock_datum
 
-                // Fork Lock(5) requirement: Lock state output has the correct datum
                 and {
-                  when in_miner_readiness is {
-                    Some(in_miner_signal) -> {
-                      expect Some(out_miner_signal) = out_miner_readiness
+                  // Fork Lock(5) requirement: Lock state output has correct miner readiness
+                  when in_lock_state_type is {
+                    Miner(in_miner_signal) -> {
+                      expect Miner(out_miner_signal) = out_lock_state_type
 
                       expect Some(fortuna_v1_input_ref) = fortuna_v1_input_ref
                       //
@@ -537,15 +539,18 @@ validator(
                         in_miner_signal == out_miner_signal,
                       }
                     }
-                    None -> None == out_miner_readiness
+                    Regular -> Regular == out_lock_state_type
                   },
+                  // Fork Lock(6) requirement: Lock state output has correct locked tuna
                   in_locked_tuna + out_tuna_quantity - prev_held_amount == out_locked_tuna,
+                  // Fork Lock(7) requirement: Lock state output has same value
                   value.without_lovelace(in_state_value) == value.without_lovelace(
                     lock_output.value,
                   ),
                 }
               }
 
+              // In a hard forked state, we reference the miner lock state and modify the lock state
               Forked -> todo
               FailedFork -> False
             }

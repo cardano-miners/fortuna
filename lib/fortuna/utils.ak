@@ -1,11 +1,5 @@
-use aiken/builtin
 use aiken/dict
-use aiken/hash
-use aiken/list
-use aiken/transaction.{
-  InlineDatum, Input, Output, OutputReference, ScriptContext, Transaction,
-} as tx
-use aiken/transaction/credential.{ScriptCredential}
+use aiken/transaction.{Input, Output, OutputReference} as tx
 use aiken/transaction/value.{AssetName, PolicyId, Value}
 
 pub fn resolve_output_reference(
