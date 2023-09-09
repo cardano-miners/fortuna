@@ -151,6 +151,9 @@ impl SCLogic for Fortuna {
 
                 Ok(actions)
             }
+            Answer(_) => {
+                todo!()
+            }
         }
     }
 

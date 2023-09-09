@@ -7,6 +7,8 @@ pub mod queries;
 pub mod redeemers;
 pub mod util;
 
+pub mod sc_logic;
+
 use crate::submitter::Submitter;
 use crate::updater::Updater;
 use crate::worker_manager::WorkerManager;
@@ -26,7 +28,7 @@ pub struct Miner<U, S, W> {
     worker_manager: W,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Puzzle(String);
 #[derive(Clone, Debug)]
 pub struct Answer(String);
@@ -58,7 +60,14 @@ impl<U: Updater, S: Submitter, W: WorkerManager> Miner<U, S, W> {
                 maybe_answer = answer_receiver.recv() => {
                    if let Some(answer) = maybe_answer {
                         // TODO: can we start working on the next puzzle while we submit the answer?
-                        self.submitter.submit(answer).await?;
+                        match self.submitter.submit(answer).await {
+                            Ok(()) => {
+                                tracing::debug!("answer submitted");
+                            }
+                            Err(e) => {
+                                tracing::error!("failed to submit answer: {:?}", e);
+                            }
+                        }
                    } else {
                         tracing::debug!("no answer received");
                         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;

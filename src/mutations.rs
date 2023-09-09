@@ -1,4 +1,4 @@
-use crate::{datums::State, redeemers::InputNonce};
+use crate::{datums::State, redeemers::InputNonce, Answer};
 
 pub enum FortunaMutation {
     Genesis {
@@ -9,4 +9,5 @@ pub enum FortunaMutation {
         redeemer: InputNonce,
         current_slot_time: u64,
     },
+    Answer(Answer),
 }
