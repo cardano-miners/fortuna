@@ -96,9 +96,9 @@ validator(init_utxo_ref: OutputReference, fork_hash: ByteArray) {
 
     let MineAction { nonce, miner, nft_input_ref } = redeemer
 
-    // Spend(0) requirement: Contract has only one output going back to itself
-    expect [own_output] =
-      list.filter(outputs, fn(output: Output) { output.address == in_address })
+    // Spend(0) requirement: Contract has only one output with the master token going back to itself
+    expect Some(own_output) =
+      list.find(outputs, fn(output: Output) { output.address == in_address })
 
     let Output { datum: out_datum, value: out_value, .. } = own_output
 
@@ -287,31 +287,23 @@ type HardForkStatus {
 
 type ForkDatum {
   HardForkState { status: HardForkStatus, fortuna_v1_height: Int }
-  MinerGlobalLockState { miner_locked_tuna: Int, miner_readiness: ByteArray }
-  GlobalLockState { locked_tuna: Int }
+  GlobalLockState { locked_tuna: Int, miner_readiness: Option<ByteArray> }
   NftState { nft_key: ByteArray }
-}
-
-type KeyInput {
-  key: ByteArray,
-  input: OutputReference,
 }
 
 type LockActionType {
   MinerLock(OutputReference)
   NormalLock
-  AfterForkLock(OutputReference)
 }
 
 type NftForkAction {
   Initialize
   Lock {
     hard_fork_state_ref: OutputReference,
-    key: Option<KeyInput>,
-    lock_state_ref: OutputReference,
-    lock_type: LockActionType,
     lock_output_index: Int,
     nft_output_index: Int,
+    out_key_index: Option<Int>,
+    fortuna_v1_input_ref: Option<OutputReference>,
   }
   HardFork
   Unlock
@@ -354,11 +346,10 @@ validator(
           Initialize -> todo
           Lock {
             hard_fork_state_ref,
-            key,
+            out_key_index,
             nft_output_index,
             lock_output_index,
-            lock_type,
-            lock_state_ref,
+            fortuna_v1_input_ref,
           } -> {
             let hard_fork_state_input =
               utils.resolve_output_reference(
@@ -381,17 +372,52 @@ validator(
 
             when status is {
               NotForked -> {
-                let (nft_owner_key, prev_held_amount) =
-                  // Validate nft key is present or minted
-                  when key is {
-                    None -> {
+                let own_address =
+                  Address {
+                    payment_credential: ScriptCredential(own_policy),
+                    stake_credential: None,
+                  }
+
+                let script_inputs =
+                  utils.filter_resolved_inputs(
+                    inputs,
+                    fn(input) { input.output.address == own_address },
+                  )
+
+                // validate nft state output
+                let nft_output = list_at(outputs, nft_output_index)
+                //
+                expect InlineDatum(nft_datum) = nft_output.datum
+                //
+                expect NftState { nft_key: out_nft_key }: ForkDatum = nft_datum
+
+                let out_tuna_quantity =
+                  nft_output.value
+                    |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+                // validate lock state output
+                let lock_output = list_at(outputs, lock_output_index)
+
+                expect InlineDatum(out_lock_datum) = lock_output.datum
+
+                let (
+                  prev_held_amount,
+                  in_locked_tuna,
+                  in_miner_readiness,
+                  in_state_value,
+                ) =
+                  when script_inputs is {
+                    [] -> fail @"No script inputs"
+
+                    [script_input1] -> {
                       // validate mint
                       // Use blake hash since it's faster and this is unrelated to Proof of Work
                       let own_token_name =
                         builtin.head_list(inputs).output_reference
                           |> builtin.serialise_data
-                          |> hash.blake2b_256
+                          |> blake2b_256
 
+                      //
                       expect [(mint_token_name, 1)] =
                         mint
                           |> value.from_minted_value
@@ -401,105 +427,125 @@ validator(
                       // Fork Lock(0) requirement: Minted token name is derived from the input ref
                       expect own_token_name == mint_token_name
                       //
-                      (own_token_name, 0)
+                      // Fork Lock(1) requirement: NFT key is the same as the owner key at the output
+                      expect out_nft_key == own_token_name
+                      //
+                      expect InlineDatum(datum) = script_input1.datum
+
+                      expect GlobalLockState {
+                        locked_tuna: in_locked_tuna,
+                        miner_readiness: in_miner_readiness,
+                      }: ForkDatum = datum
+
+                      (
+                        0,
+                        in_locked_tuna,
+                        in_miner_readiness,
+                        script_input1.value,
+                      )
                     }
-                    Some(_) -> todo
+
+                    [script_input1, script_input2] -> {
+                      expect Some(out_key_index) = out_key_index
+
+                      expect
+                        quantity_of(
+                          list_at(outputs, out_key_index).value,
+                          own_policy,
+                          out_nft_key,
+                        ) == 1
+                      //
+                      expect InlineDatum(datum) = script_input1.datum
+
+                      expect script1_datum: ForkDatum = datum
+
+                      when script1_datum is {
+                        GlobalLockState { locked_tuna, miner_readiness } -> {
+                          expect InlineDatum(script2_datum) =
+                            script_input2.datum
+
+                          expect NftState { nft_key }: ForkDatum = script2_datum
+
+                          expect nft_key == out_nft_key
+                          //
+                          let prev_held_amount =
+                            script_input2.value
+                              |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+                          (
+                            prev_held_amount,
+                            locked_tuna,
+                            miner_readiness,
+                            script_input1.value,
+                          )
+                        }
+                        NftState { nft_key } -> {
+                          expect nft_key == out_nft_key
+                          //
+                          expect InlineDatum(script2_datum) =
+                            script_input2.datum
+
+                          expect GlobalLockState {
+                            locked_tuna,
+                            miner_readiness,
+                          }: ForkDatum = script2_datum
+
+                          let prev_held_amount =
+                            script_input1.value
+                              |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+                          (
+                            prev_held_amount,
+                            locked_tuna,
+                            miner_readiness,
+                            script_input2.value,
+                          )
+                        }
+                        _ -> fail @"Invalid script input"
+                      }
+                    }
+
+                    _ -> fail @"Too many script inputs"
                   }
 
-                // validate nft state output
-                let nft_output = list_at(outputs, nft_output_index)
+                expect GlobalLockState {
+                  locked_tuna: out_locked_tuna,
+                  miner_readiness: out_miner_readiness,
+                }: ForkDatum = out_lock_datum
 
-                expect InlineDatum(nft_datum) = nft_output.datum
+                // Fork Lock(5) requirement: Lock state output has the correct datum
+                and {
+                  when in_miner_readiness is {
+                    Some(in_miner_signal) -> {
+                      expect Some(out_miner_signal) = out_miner_readiness
 
-                expect NftState { nft_key }: ForkDatum = nft_datum
+                      expect Some(fortuna_v1_input_ref) = fortuna_v1_input_ref
+                      //
+                      let fortuna_input =
+                        utils.resolve_output_reference(
+                          inputs,
+                          fortuna_v1_input_ref,
+                        )
 
-                // Fork Lock(1) requirement: NFT key is the same as the owner key at the output
-                expect nft_key == nft_owner_key
-                //
-                let tuna_quantity =
-                  nft_output.value
-                    |> quantity_of(fortuna_v1_hash, token_name)
-
-                // Fork Lock(2) requirement: Tuna quantity is greater than the previous held amount
-                expect tuna_quantity > prev_held_amount
-                //
-                // validate lock state output
-                let lock_output = list_at(outputs, lock_output_index)
-
-                expect InlineDatum(out_lock_datum) = lock_output.datum
-
-                let lock_input =
-                  utils.resolve_output_reference(inputs, lock_state_ref)
-
-                when lock_type is {
-                  // In miner lock we also check for the presence of the fortuna v1 script
-                  MinerLock(fortuna_v1_input_ref) -> {
-                    expect
-                      utils.value_has_nft_and_lovelace(
-                        lock_input.value,
-                        own_policy,
-                        miner_lock_state_token,
-                      )
-                    //
-                    expect
-                      utils.value_has_nft_and_lovelace(
-                        lock_output.value,
-                        own_policy,
-                        miner_lock_state_token,
-                      )
-                    //
-                    expect InlineDatum(datum) = lock_input.datum
-
-                    expect MinerGlobalLockState { miner_locked_tuna, .. }: ForkDatum =
-                      datum
-
-                    expect MinerGlobalLockState {
-                      miner_locked_tuna: out_miner_locked_tuna,
-                      ..
-                    }: ForkDatum = out_lock_datum
-
-                    let tuna_v1_input =
-                      utils.resolve_output_reference(
-                        inputs,
-                        fortuna_v1_input_ref,
-                      )
-
-                    expect
-                      quantity_of(
-                        tuna_v1_input.value,
-                        fortuna_v1_hash,
-                        master_token_name,
-                      ) == 1
-                    //
-                    miner_locked_tuna + tuna_quantity - prev_held_amount == out_miner_locked_tuna
-                  }
-                  NormalLock -> {
-                    expect
-                      utils.value_has_nft_and_lovelace(
-                        lock_input.value,
-                        own_policy,
-                        lock_state_token,
-                      )
-                    //
-                    expect
-                      utils.value_has_nft_and_lovelace(
-                        lock_output.value,
-                        own_policy,
-                        lock_state_token,
-                      )
-                    //
-                    expect InlineDatum(datum) = lock_input.datum
-
-                    expect GlobalLockState { locked_tuna }: ForkDatum = datum
-
-                    expect GlobalLockState { locked_tuna: out_locked_tuna }: ForkDatum =
-                      out_lock_datum
-
-                    locked_tuna + tuna_quantity - prev_held_amount == out_locked_tuna
-                  }
-                  _ -> todo
+                      and {
+                        quantity_of(
+                          fortuna_input.value,
+                          fortuna_v1_hash,
+                          fortuna.master_token_name,
+                        ) == 1,
+                        // TODO: fix miner signal to be a calculation
+                        in_miner_signal == out_miner_signal,
+                      }
+                    }
+                    None -> None == out_miner_readiness
+                  },
+                  in_locked_tuna + out_tuna_quantity - prev_held_amount == out_locked_tuna,
+                  value.without_lovelace(in_state_value) == value.without_lovelace(
+                    lock_output.value,
+                  ),
                 }
               }
+
               Forked -> todo
               FailedFork -> False
             }
