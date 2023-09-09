@@ -46,6 +46,22 @@ pub fn quantity_of(
   }
 }
 
+pub fn filter_resolved_inputs(
+  self: List<Input>,
+  predicate: fn(Input) -> Bool,
+) -> List<Output> {
+  when self is {
+    [] ->
+      []
+    [x, ..xs] ->
+      if predicate(x) {
+        [x.output, ..filter_resolved_inputs(xs, predicate)]
+      } else {
+        filter_resolved_inputs(xs, predicate)
+      }
+  }
+}
+
 pub fn value_has_nft_and_lovelace(
   val: Value,
   policy: PolicyId,
