@@ -51,7 +51,16 @@ impl WorkerManager for MockWorkerManager {
                 let maybe_puzzle = update_receiver.borrow();
                 if let Some(puzzle) = maybe_puzzle.deref() {
                     tracing::debug!("received puzzle: {:?}", puzzle);
-                    answer_sender.send(Answer(puzzle.0.clone())).unwrap();
+
+                    // Obviously this is nothing like real mining,
+                    // but it's a way to check the values are handled by worker!
+                    // This test doesn't care about the accuracy of the values
+                    let nonce = puzzle.current_difficulty_hash[0..32].try_into().unwrap();
+                    let answer = Answer {
+                        nonce,
+                        new_hash: puzzle.current_difficulty_hash.clone(),
+                    };
+                    answer_sender.send(answer).unwrap();
                 }
             }
         });
@@ -69,9 +78,12 @@ async fn run__updater_puzzle_is_given_to_workers_and_appropriate_answer_given_to
         .with_max_level(tracing::Level::DEBUG)
         .try_init()
         .unwrap();
-    let word = "puzzle";
+    let puzzle = Puzzle {
+        current_difficulty_hash: [1; 32].to_vec(),
+        fields: vec![],
+    };
     let updater = MockUpdater {
-        puzzle: Puzzle(word.to_string()),
+        puzzle: puzzle.clone(),
     };
     let (answer_sender, mut answer_receiver) = tokio::sync::mpsc::unbounded_channel();
     let submitter = MockSubmitter {
@@ -84,6 +96,6 @@ async fn run__updater_puzzle_is_given_to_workers_and_appropriate_answer_given_to
         miner.run(shutdown_receiver).await.unwrap();
     });
     let answer = answer_receiver.recv().await.unwrap();
-    assert_eq!(answer.0, word);
+    assert_eq!(answer.new_hash, puzzle.current_difficulty_hash);
     shutdown_sender.send(()).unwrap();
 }

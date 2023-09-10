@@ -12,6 +12,7 @@ pub mod sc_logic;
 use crate::submitter::Submitter;
 use crate::updater::Updater;
 use crate::worker_manager::WorkerManager;
+use naumachia::scripts::raw_validator_script::plutus_data::PlutusData;
 use tokio::sync::oneshot;
 
 pub use crate::error::*;
@@ -29,9 +30,16 @@ pub struct Miner<U, S, W> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Puzzle(String);
+pub struct Puzzle {
+    current_difficulty_hash: Vec<u8>,
+    fields: Vec<PlutusData>,
+}
 #[derive(Clone, Debug)]
-pub struct Answer(String);
+pub struct Answer {
+    #[allow(unused)]
+    nonce: [u8; 32],
+    new_hash: Vec<u8>,
+}
 
 impl<U: Updater, S: Submitter, W: WorkerManager> Miner<U, S, W> {
     pub fn new(updater: U, submitter: S, worker_manager: W) -> Self {
