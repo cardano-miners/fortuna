@@ -1358,6 +1358,7 @@ dependencies = [
 [[package]]
 name = "naumachia"
 version = "0.2.0"
+source = "git+https://github.com/free-honey/naumachia.git#288dbc9cd780b35d1e0dadd70113e2c1b2fe0d8b"
 dependencies = [
  "async-trait",
  "bech32 0.9.1",
