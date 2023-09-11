@@ -1,14 +1,14 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use naumachia::scripts::raw_validator_script::plutus_data::{Constr, PlutusData};
 use naumachia::{
     address::PolicyId,
     backend::Backend,
     ledger_client::LedgerClient,
     logic::{SCLogic, SCLogicError, SCLogicResult},
     scripts::{
-        raw_policy_script::RawPolicy, raw_script::BlueprintFile,
-        raw_validator_script::RawPlutusValidator, MintingPolicy, ScriptError, ScriptResult,
-        ValidatorCode,
+        raw_policy_script::RawPolicy, raw_validator_script::RawPlutusValidator, MintingPolicy,
+        ScriptError, ScriptResult, ValidatorCode,
     },
     smart_contract::{SmartContract, SmartContractTrait},
     transaction::TxActions,
@@ -16,20 +16,29 @@ use naumachia::{
     values::Values,
 };
 use sha2::{Digest, Sha256};
+use thiserror::Error;
 
+use crate::queries::FortunaQuery;
 use crate::{
     datums::State,
     error, mutations, queries,
     redeemers::{FortunaRedeemer, InputNonce, MintingState},
+    Puzzle,
 };
 
-const BLUEPRINT: &str = include_str!("../genesis/mainnet.json");
-const SPEND_VALIDATOR_NAME: &str = "tuna.spend";
-const MINT_VALIDATOR_NAME: &str = "tuna.mint";
+const SCRIPT_VALUES: &str = include_str!("../genesis/mainnet.json");
 pub const MASTER_TOKEN_NAME: &str = "lord tuna";
 pub const TOKEN_NAME: &str = "TUNA";
 pub const CONVERSION_TIME_SEC: u64 = 1691996128;
 pub const SLOT_OFFSET: u64 = 25325728;
+
+#[derive(Error, Debug)]
+pub enum FortunaError {
+    #[error("No datum found")]
+    DatumNotFound,
+    #[error("Output containing NFT not found")]
+    MasterTokenNotFound,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Fortuna;
@@ -92,7 +101,7 @@ impl SCLogic for Fortuna {
                         FortunaRedeemer::Mint(MintingState::Genesis),
                         Box::new(mint),
                     )
-                    .with_valid_range(
+                    .with_valid_range_secs(
                         Some(current_slot_time.try_into().unwrap()),
                         Some((current_slot_time + 90).try_into().unwrap()),
                     );
@@ -144,28 +153,66 @@ impl SCLogic for Fortuna {
                         FortunaRedeemer::Mint(MintingState::Mine),
                         Box::new(mint),
                     )
-                    .with_valid_range(
+                    .with_valid_range_secs(
                         Some(current_slot_time as i64),
                         Some(current_slot_time as i64 + 90),
                     );
 
                 Ok(actions)
             }
+            Answer(_) => {
+                todo!()
+            }
         }
     }
 
     async fn lookup<Record: LedgerClient<Self::Datums, Self::Redeemers>>(
-        _query: Self::Lookups,
-        _ledger_client: &Record,
+        query: Self::Lookups,
+        ledger_client: &Record,
     ) -> SCLogicResult<Self::LookupResponses> {
-        todo!()
+        match query {
+            FortunaQuery::CurrentBlock => {
+                todo!()
+            }
+            FortunaQuery::LatestPuzzle => {
+                let (script, policy) = tuna_validators()?;
+                let network = ledger_client.network().await?;
+                let address = script.address(network)?;
+                let master_token = PolicyId::NativeToken(
+                    policy.id().unwrap(),
+                    Some(MASTER_TOKEN_NAME.to_string()),
+                );
+
+                let outputs = ledger_client.all_outputs_at_address(&address).await?;
+                let input = outputs
+                    .into_iter()
+                    .find(|output| output.values().get(&master_token).is_some())
+                    .ok_or(FortunaError::MasterTokenNotFound)
+                    .map_err(|e| SCLogicError::Lookup(Box::new(e)))?;
+                let state = input
+                    .typed_datum()
+                    .ok_or(FortunaError::DatumNotFound)
+                    .map_err(|e| SCLogicError::Lookup(Box::new(e)))?;
+                let current_difficulty_hash = state.current_hash.clone();
+                let untyped_datum: PlutusData = state.into();
+                let PlutusData::Constr(Constr { fields, .. }) = untyped_datum else {
+                    unreachable!()
+                };
+
+                let puzzle = Puzzle {
+                    current_difficulty_hash,
+                    fields,
+                };
+                Ok(queries::FortunaQueryResponse::Puzzle(puzzle))
+            }
+        }
     }
 }
 
 pub async fn mutate(mutation: mutations::FortunaMutation) -> error::Result<()> {
     let ledger_client = get_trireme_ledger_client_from_file().await?;
     let backend = Backend::new(ledger_client);
-    let contract = SmartContract::new(&Fortuna, &backend);
+    let contract = SmartContract::new(Fortuna, backend);
 
     contract.hit_endpoint(mutation).await?;
 
@@ -193,29 +240,21 @@ pub fn tuna_validators() -> ScriptResult<(
     RawPlutusValidator<State, FortunaRedeemer>,
     RawPolicy<FortunaRedeemer>,
 )> {
-    let blueprint: BlueprintFile = serde_json::from_str(BLUEPRINT)
+    let values: serde_json::Value = serde_json::from_str(SCRIPT_VALUES)
         .map_err(|e| ScriptError::FailedToConstruct(e.to_string()))?;
 
-    let spend_validator_blueprint =
-        blueprint
-            .get_validator(SPEND_VALIDATOR_NAME)
-            .ok_or(ScriptError::FailedToConstruct(format!(
-                "Validator not listed in Blueprint: {:?}",
-                SPEND_VALIDATOR_NAME
-            )))?;
+    let bytes =
+        &values
+            .get("validator")
+            .and_then(|v| v.as_str())
+            .ok_or(ScriptError::FailedToConstruct(
+                "validator not found".to_string(),
+            ))?;
 
-    let mint_validator_blueprint =
-        blueprint
-            .get_validator(MINT_VALIDATOR_NAME)
-            .ok_or(ScriptError::FailedToConstruct(format!(
-                "Validator not listed in Blueprint: {:?}",
-                MINT_VALIDATOR_NAME
-            )))?;
-
-    let raw_spend_script_validator = RawPlutusValidator::from_blueprint(spend_validator_blueprint)
+    let raw_spend_script_validator = RawPlutusValidator::v2_from_cbor(bytes.to_string())
         .map_err(|e| ScriptError::FailedToConstruct(e.to_string()))?;
 
-    let raw_mint_script_validator = RawPolicy::from_blueprint(mint_validator_blueprint)
+    let raw_mint_script_validator = RawPolicy::v2_from_cbor(bytes.to_string())
         .map_err(|e| ScriptError::FailedToConstruct(e.to_string()))?;
 
     Ok((raw_spend_script_validator, raw_mint_script_validator))

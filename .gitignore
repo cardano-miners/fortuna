@@ -12,3 +12,5 @@ docs/
 
 seed.txt
 .env
+
+.idea/
