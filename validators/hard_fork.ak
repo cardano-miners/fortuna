@@ -14,7 +14,7 @@ use fortuna/types.{State}
 use fortuna/utils.{list_at, quantity_of}
 
 type TunaAction {
-  Genesis(Int)
+  Genesis
   Mine
   Redeem(OutputReference)
 }
@@ -49,19 +49,23 @@ validator(
     expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
 
     when redeemer is {
-      Genesis(output_index) -> {
+      Genesis -> {
         // This time genesis mints "lord tuna" and hands it over to the hard fork contract
         // Then after the hard fork, "lord tuna" is handed back over to this miner contract
         // This allows us to maintain the miner contract with the same logic as the old one
         let Transaction { inputs, outputs, mint, .. } = tx
 
-        let output = list_at(outputs, output_index)
+        // To simplify the logic, we expect the first output to hold the hard fork state
+        let output = list_at(outputs, 0)
 
         let Output { address: out_address, value: out_value, .. } = output
 
         let mint = value.from_minted_value(mint)
 
-        expect [(token_name, 1)] = mint |> tokens(own_policy) |> dict.to_list
+        // The reason we check minted amount but not token name 
+        // is because we check the token name and presence in the output to the hard fork script
+        // Plus this action can only be run once in the lifetime of this script
+        expect [(_, 1)] = mint |> tokens(own_policy) |> dict.to_list
 
         let genesis_input =
           utils.resolve_output_reference(inputs, init_utxo_ref)
@@ -73,7 +77,6 @@ validator(
           },
           quantity_of(out_value, fork_hash, hard_fork_state_token) == 1,
           quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
-          token_name == fortuna.master_token_name,
           genesis_input == genesis_input,
         }
       }
@@ -346,7 +349,7 @@ type LockStateType {
 }
 
 type ForkDatum {
-  HardForkState { status: HardForkStatus, fortuna_v1_height: Int }
+  HardForkState { status: HardForkStatus, fork_block_height: Int }
   GlobalLockState { locked_tuna: Int, lock_state_type: LockStateType }
   NftState { nft_key: ByteArray }
 }
@@ -360,9 +363,9 @@ type NftForkAction {
     out_key_index: Option<Int>,
     fortuna_v1_input_ref: Option<OutputReference>,
   }
-  HardFork
-  Unlock
-  Burn
+  HardFork { hard_fork_state_ref: OutputReference }
+  Unlock { hard_fork_state_ref: OutputReference }
+  Burn { hard_fork_state_ref: OutputReference }
 }
 
 const miner_lock_state_token: ByteArray = "miner_lock_state"
@@ -371,12 +374,11 @@ const lock_state_token: ByteArray = "lock_state"
 
 const hard_fork_state_token: ByteArray = "hfs"
 
+const initial_readiness: ByteArray =
+  #"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+
 // maybe we should do time instead of block height?
-validator(
-  init_utxo_ref: OutputReference,
-  fortuna_v1_hash: ByteArray,
-  block_height: Int,
-) {
+validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
   fn nft_fork(redeemer: Data, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
@@ -399,7 +401,78 @@ validator(
 
         when action is {
           // Check if the input is spent and proper initial state is made
-          Initialize -> todo
+          // No need to check spends from own script hash in intialize
+          // The reason being is no meaningful locks can happen before initialize
+          Initialize -> {
+            let mint = value.from_minted_value(mint)
+
+            let hfs_output = list_at(outputs, 0)
+            let miner_state_output = list_at(outputs, 1)
+            let lock_state_output = list_at(outputs, 2)
+
+            let own_address =
+              Address {
+                payment_credential: ScriptCredential(own_policy),
+                stake_credential: None,
+              }
+
+            // The reason we check minted amount but not token name 
+            // is because we check the token names and presence in the outputs back to this script
+            // Plus this action can only be run once in the lifetime of this script
+            expect [(_, 1), (_, 1), (_, 1)] =
+              mint |> tokens(own_policy) |> dict.to_list
+
+            let genesis_input =
+              utils.resolve_output_reference(inputs, init_utxo_ref)
+
+            let Output {
+              address: hfs_address,
+              value: hfs_value,
+              datum: hfs_datum,
+              ..
+            } = hfs_output
+
+            let Output {
+              address: miner_state_address,
+              value: miner_state_value,
+              datum: miner_state_datum,
+              ..
+            } = miner_state_output
+
+            let Output {
+              address: lock_state_address,
+              value: lock_state_value,
+              datum: lock_state_datum,
+              ..
+            } = lock_state_output
+
+            expect InlineDatum(hfs_datum) = hfs_datum
+            expect InlineDatum(miner_state_datum) = miner_state_datum
+            expect InlineDatum(lock_state_datum) = lock_state_datum
+
+            expect HardForkState { status: NotForked, .. }: ForkDatum =
+              hfs_datum
+
+            expect GlobalLockState {
+              locked_tuna: 0,
+              lock_state_type: Miner(readiness),
+            }: ForkDatum = miner_state_datum
+
+            expect GlobalLockState { locked_tuna: 0, lock_state_type: Regular }: ForkDatum =
+              lock_state_datum
+
+            and {
+              own_address == hfs_address,
+              own_address == miner_state_address,
+              own_address == lock_state_address,
+              quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
+              quantity_of(miner_state_value, own_policy, miner_lock_state_token) == 1,
+              quantity_of(lock_state_value, own_policy, lock_state_token) == 1,
+              initial_readiness == readiness,
+              genesis_input == genesis_input,
+            }
+          }
+
           Lock {
             hard_fork_state_ref,
             out_key_index,
@@ -605,9 +678,89 @@ validator(
                 }
               }
 
-              // In a hard forked state, we reference the miner lock state and modify the lock state
-              Forked -> todo
+              // In a hard forked state, we reference the miner lock state and modify the regular lock state
+              // We also now ensure the total regular locked amount + miner locked amount can't exceed the `emitted amount`
+              // The emitted amount is based on hard fork block height
+              // By doing this we prevent users from locking more tokens than the emitted amount
+              // A user technically could still send to the address, but would be unable to mint the nft key that is essential to burn in order to redeem
+              // Thus any nft key that exists is proof that those locked funds were accounted for in the lock state already
+              // Miner lock state can't be modified anymore
+              Forked -> {
+                let own_address =
+                  Address {
+                    payment_credential: ScriptCredential(own_policy),
+                    stake_credential: None,
+                  }
+
+                let script_inputs =
+                  utils.filter_resolved_inputs(
+                    inputs,
+                    fn(input) { input.output.address == own_address },
+                  )
+
+                // validate nft state output
+                let nft_output = list_at(outputs, nft_output_index)
+                //
+                expect InlineDatum(nft_datum) = nft_output.datum
+                //
+                expect NftState { nft_key: out_nft_key }: ForkDatum = nft_datum
+
+                let out_tuna_quantity =
+                  nft_output.value
+                    |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+                // validate lock state output
+                let lock_output = list_at(outputs, lock_output_index)
+
+                expect InlineDatum(out_lock_datum) = lock_output.datum
+
+                todo
+              }
               FailedFork -> False
+            }
+          }
+          // We allow unlocking of fortuna v1 tokens in the case of a failed fork
+          // We only allow an input to be spent under the hard fork failed condition and when burning the nft key
+          Unlock { hard_fork_state_ref } -> {
+            let mint = value.from_minted_value(mint)
+
+            let hfs_input =
+              utils.resolve_output_reference(
+                reference_inputs,
+                hard_fork_state_ref,
+              )
+
+            let own_address =
+              Address {
+                payment_credential: ScriptCredential(own_policy),
+                stake_credential: None,
+              }
+
+            // Can only unlock one input at a time 
+            expect [locked_v1_input] =
+              utils.filter_resolved_inputs(
+                inputs,
+                fn(input) { input.output.address == own_address },
+              )
+
+            let Output { datum: hfs_datum, value: hfs_value, .. } = hfs_input
+
+            expect InlineDatum(hfs_datum) = hfs_datum
+            expect HardForkState { status: FailedFork, .. }: ForkDatum =
+              hfs_datum
+
+            let Output { datum: nft_state, .. } = locked_v1_input
+
+            expect InlineDatum(nft_state) = nft_state
+
+            expect NftState { nft_key }: ForkDatum = nft_state
+
+            expect [(token_name, -1)] =
+              mint |> tokens(own_policy) |> dict.to_list
+
+            and {
+              quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
+              token_name == nft_key,
             }
           }
 
