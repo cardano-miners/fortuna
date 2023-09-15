@@ -53,13 +53,18 @@ validator(
         // This time genesis mints "lord tuna" and hands it over to the hard fork contract
         // Then after the hard fork, "lord tuna" is handed back over to this miner contract
         // This allows us to maintain the miner contract with the same logic as the old one
-        let output = list_at(tx.outputs, output_index)
+        let Transaction { inputs, outputs, mint, .. } = tx
+
+        let output = list_at(outputs, output_index)
 
         let Output { address: out_address, value: out_value, .. } = output
 
-        let mint = value.from_minted_value(tx.mint)
+        let mint = value.from_minted_value(mint)
 
         expect [(token_name, 1)] = mint |> tokens(own_policy) |> dict.to_list
+
+        let genesis_input =
+          utils.resolve_output_reference(inputs, init_utxo_ref)
 
         and {
           out_address == Address {
@@ -69,6 +74,7 @@ validator(
           quantity_of(out_value, fork_hash, hard_fork_state_token) == 1,
           quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
           token_name == fortuna.master_token_name,
+          genesis_input == genesis_input,
         }
       }
 
