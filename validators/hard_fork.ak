@@ -14,9 +14,9 @@ use fortuna/types.{State}
 use fortuna/utils.{list_at, quantity_of}
 
 type TunaAction {
-  Genesis
+  Genesis(Int)
   Mine
-  Redeem
+  Redeem(OutputReference)
 }
 
 type Miner {
@@ -40,20 +40,34 @@ type TargetState {
   miner: ByteArray,
 }
 
-validator(init_utxo_ref: OutputReference, fork_hash: ByteArray) {
+validator(
+  init_utxo_ref: OutputReference,
+  fork_hash: ByteArray,
+  fortuna_v1_hash: ByteArray,
+) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
+    expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
+
     when redeemer is {
-      Genesis -> {
+      Genesis(output_index) -> {
         // This time genesis mints "lord tuna" and hands it over to the hard fork contract
         // Then after the hard fork, "lord tuna" is handed back over to this miner contract
         // This allows us to maintain the miner contract with the same logic as the old one
-        let _x = 1
-        todo
-      }
-      Mine -> {
-        expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } =
-          ctx
+        let output = list_at(tx.outputs, output_index)
 
+        let Output { address: out_address, value: out_value, .. } = output
+
+        and {
+          out_address == Address {
+            payment_credential: ScriptCredential(fork_hash),
+            stake_credential: None,
+          },
+          quantity_of(out_value, fork_hash, hard_fork_state_token) == 1,
+          quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
+        }
+      }
+
+      Mine -> {
         let own_credential = ScriptCredential(own_policy)
         let own_address =
           Address { payment_credential: own_credential, stake_credential: None }
@@ -61,7 +75,33 @@ validator(init_utxo_ref: OutputReference, fork_hash: ByteArray) {
         // Mint(0) Mine requirement: Contract has one spend input with the policy as the payment credential
         list.any(tx.inputs, fn(input) { input.output.address == own_address })?
       }
-      Redeem -> todo
+      Redeem(locked_tokens_ref) -> {
+        let Transaction { reference_inputs, mint, .. } = tx
+
+        let mint = value.from_minted_value(mint)
+
+        let own_input =
+          utils.resolve_output_reference(reference_inputs, locked_tokens_ref)
+
+        let Output { address: in_address, value: in_value, datum: in_datum, .. } =
+          own_input
+
+        let locked_tokens =
+          quantity_of(in_value, fortuna_v1_hash, fortuna.token_name)
+
+        expect InlineDatum(datum) = in_datum
+
+        expect NftState { nft_key }: ForkDatum = datum
+
+        and {
+          quantity_of(mint, fork_hash, nft_key) == -1,
+          quantity_of(mint, own_policy, fortuna.token_name) == locked_tokens,
+          in_address == Address {
+            payment_credential: ScriptCredential(fork_hash),
+            stake_credential: None,
+          },
+        }
+      }
     }
   }
 
