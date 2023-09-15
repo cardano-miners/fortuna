@@ -57,6 +57,10 @@ validator(
 
         let Output { address: out_address, value: out_value, .. } = output
 
+        let mint = value.from_minted_value(tx.mint)
+
+        expect [(token_name, 1)] = mint |> tokens(own_policy) |> dict.to_list
+
         and {
           out_address == Address {
             payment_credential: ScriptCredential(fork_hash),
@@ -64,6 +68,7 @@ validator(
           },
           quantity_of(out_value, fork_hash, hard_fork_state_token) == 1,
           quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
+          token_name == fortuna.master_token_name,
         }
       }
 
@@ -93,9 +98,13 @@ validator(
 
         expect NftState { nft_key }: ForkDatum = datum
 
+        expect [(token_name, quantity)] =
+          mint |> tokens(own_policy) |> dict.to_list
+
         and {
           quantity_of(mint, fork_hash, nft_key) == -1,
-          quantity_of(mint, own_policy, fortuna.token_name) == locked_tokens,
+          token_name == fortuna.token_name,
+          quantity == locked_tokens,
           in_address == Address {
             payment_credential: ScriptCredential(fork_hash),
             stake_credential: None,
