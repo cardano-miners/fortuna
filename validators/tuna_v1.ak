@@ -17,7 +17,7 @@ type TargetState {
   block_number: Int,
   current_hash: ByteArray,
   leading_zeros: Int,
-  difficulty_number: Int,
+  target_number: Int,
   epoch_time: Int,
 }
 
@@ -100,7 +100,7 @@ validator(utxo_ref: OutputReference) {
             block_number: 0,
             current_hash: bootstrap_hash,
             leading_zeros: 5,
-            difficulty_number: 65535,
+            target_number: 65535,
             epoch_time: 0,
             current_posix_time: averaged_current_time,
             extra: 0,
@@ -132,7 +132,7 @@ validator(utxo_ref: OutputReference) {
       block_number,
       current_hash,
       leading_zeros,
-      difficulty_number,
+      target_number,
       epoch_time,
       current_posix_time,
       interlink,
@@ -193,7 +193,7 @@ validator(utxo_ref: OutputReference) {
         block_number,
         current_hash,
         leading_zeros,
-        difficulty_number,
+        target_number,
       }
 
     let found_bytearray =
@@ -202,7 +202,7 @@ validator(utxo_ref: OutputReference) {
         |> sha2_256()
         |> sha2_256()
 
-    let (found_difficulty_number, found_leading_zeros) =
+    let (found_target_number, found_leading_zeros) =
       fortuna.format_found_bytearray(found_bytearray)
 
     // Mining Difficulty Met
@@ -212,7 +212,7 @@ validator(utxo_ref: OutputReference) {
         (found_leading_zeros > leading_zeros)?,
         and {
           (found_leading_zeros == leading_zeros)?,
-          (found_difficulty_number < difficulty_number)?,
+          (found_target_number < target_number)?,
         },
       }
     //
@@ -258,7 +258,7 @@ validator(utxo_ref: OutputReference) {
       current_posix_time: out_current_posix_time,
       interlink: out_interlink,
       extra,
-      difficulty_number: out_difficulty_number,
+      target_number: out_target_number,
     }: State = output_datum
 
     // Spend(8) requirement: Check output has correct difficulty number, leading zeros, and epoch time
@@ -273,7 +273,7 @@ validator(utxo_ref: OutputReference) {
         // Now use ratio to find new leading zeros difficulty
         let (new_difficulty, new_leading_zeroes) =
           fortuna.get_new_difficulty(
-            difficulty_number,
+            target_number,
             leading_zeros,
             adjustment_numerator,
             adjustment_denominator,
@@ -281,7 +281,7 @@ validator(utxo_ref: OutputReference) {
         //
         and {
           (new_leading_zeroes == out_leading_zeros)?,
-          (new_difficulty == out_difficulty_number)?,
+          (new_difficulty == out_target_number)?,
           (0 == out_epoch_time)?,
         }
       } else {
@@ -290,7 +290,7 @@ validator(utxo_ref: OutputReference) {
         // 
         and {
           (leading_zeros == out_leading_zeros)?,
-          (difficulty_number == out_difficulty_number)?,
+          (target_number == out_target_number)?,
           (new_epoch_time == out_epoch_time)?,
         }
       }
@@ -309,8 +309,8 @@ validator(utxo_ref: OutputReference) {
       interlink,
       found_bytearray,
       found_leading_zeros,
-      found_difficulty_number,
-      difficulty_number,
+      found_target_number,
+      target_number,
       leading_zeros,
     ) == out_interlink)?
   }
