@@ -17,7 +17,7 @@ use fortuna/utils.{list_at, quantity_of}
 use hardfork
 use hardfork/hftypes.{
   FailedFork, ForkDatum, Forked, GlobalLockState, HardForkState, LockStateType,
-  Miner, NftState, NotForked, Regular,
+  MinerOp, NftState, NotForked, Regular,
 }
 
 type TunaAction {
@@ -342,7 +342,7 @@ validator(
   }
 }
 
-pub type NftForkAction {
+type NftForkAction {
   Initialize
   Lock {
     hard_fork_state_ref: OutputReference,
@@ -444,7 +444,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             expect GlobalLockState {
               locked_tuna: 0,
-              lock_state_type: Miner(readiness),
+              lock_state_type: MinerOp(readiness),
             }: ForkDatum = miner_state_datum
 
             expect GlobalLockState { locked_tuna: 0, lock_state_type: Regular }: ForkDatum =
@@ -661,8 +661,8 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                   prev_held_tuna < out_locked_tuna,
                   // Check Lock type and status
                   when lock_type is {
-                    Miner(in_miner_signal) -> {
-                      expect Miner(out_miner_signal) = out_lock_state_type
+                    MinerOp(in_miner_signal) -> {
+                      expect MinerOp(out_miner_signal) = out_lock_state_type
 
                       and {
                         // Fork Lock(5) requirement: Lock state output has correct miner readiness
