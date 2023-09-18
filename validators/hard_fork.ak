@@ -539,6 +539,12 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 }
 
                 [script_input1, script_input2] -> {
+                  expect [] =
+                    mint
+                      |> value.from_minted_value
+                      |> value.tokens(own_policy)
+                      |> dict.to_list
+
                   expect InlineDatum(datum) = script_input1.datum
 
                   expect script1_datum: ForkDatum = datum
