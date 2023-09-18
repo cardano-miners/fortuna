@@ -354,7 +354,10 @@ type NftForkAction {
 
   HardFork { hard_fork_state_ref: OutputReference }
   Unlock { hard_fork_state_ref: OutputReference }
-  Burn { hard_fork_state_ref: OutputReference }
+  Burn {
+    hard_fork_state_ref: OutputReference,
+    locked_tokens_ref: OutputReference,
+  }
 }
 
 const miner_lock_state_token: ByteArray = "miner_lock_state"
@@ -753,6 +756,55 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             expect InlineDatum(hfs_datum) = hfs_datum
             expect HardForkState { status: FailedFork, .. }: ForkDatum =
               hfs_datum
+
+            let Output { datum: nft_state, .. } = locked_v1_input
+
+            expect InlineDatum(nft_state) = nft_state
+
+            expect NftState { nft_key }: ForkDatum = nft_state
+
+            expect [(token_name, -1)] =
+              mint |> tokens(own_policy) |> dict.to_list
+
+            and {
+              quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
+              token_name == nft_key,
+            }
+          }
+
+          Burn { hard_fork_state_ref, locked_tokens_ref } -> {
+            let mint = value.from_minted_value(mint)
+
+            let hfs_input =
+              utils.resolve_output_reference(
+                reference_inputs,
+                hard_fork_state_ref,
+              )
+
+            let own_address =
+              Address {
+                payment_credential: ScriptCredential(own_policy),
+                stake_credential: None,
+              }
+
+            // Can only not unlock any inputs
+            expect [] =
+              utils.filter_resolved_inputs(
+                inputs,
+                fn(input) { input.output.address == own_address },
+              )
+
+            let locked_v1_input =
+              utils.resolve_output_reference(
+                reference_inputs,
+                locked_tokens_ref,
+              )
+
+            let Output { datum: hfs_datum, value: hfs_value, .. } = hfs_input
+
+            expect InlineDatum(hfs_datum) = hfs_datum
+            //
+            expect HardForkState { status: Forked, .. }: ForkDatum = hfs_datum
 
             let Output { datum: nft_state, .. } = locked_v1_input
 
