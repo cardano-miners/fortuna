@@ -352,7 +352,12 @@ type NftForkAction {
     miner_output: Option<Int>,
   }
 
-  HardFork { hard_fork_state_ref: OutputReference }
+  HardFork {
+    hard_fork_state_input: OutputReference,
+    v1_miner_output: Option<Int>,
+    v2_miner_output: Option<Int>,
+  }
+
   Unlock { hard_fork_state_ref: OutputReference }
   Burn {
     hard_fork_state_ref: OutputReference,
@@ -365,9 +370,6 @@ const miner_lock_state_token: ByteArray = "miner_lock_state"
 const lock_state_token: ByteArray = "lock_state"
 
 const hard_fork_state_token: ByteArray = "hfs"
-
-const initial_readiness: ByteArray =
-  #"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 
 // maybe we should do time instead of block height?
 validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
@@ -447,7 +449,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             expect GlobalLockState {
               locked_tuna: 0,
-              lock_state_type: MinerOp(readiness),
+              lock_state_type: MinerOp(0),
             }: ForkDatum = miner_state_datum
 
             expect GlobalLockState { locked_tuna: 0, lock_state_type: Regular }: ForkDatum =
@@ -460,7 +462,6 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
               quantity_of(miner_state_value, own_policy, miner_lock_state_token) == 1,
               quantity_of(lock_state_value, own_policy, lock_state_token) == 1,
-              initial_readiness == readiness,
               genesis_input == genesis_input,
             }
           }
@@ -673,10 +674,15 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                     MinerOp(in_miner_signal) -> {
                       expect MinerOp(out_miner_signal) = out_lock_state_type
 
+                      expect Some(State { block_number, .. }) = miner_state
+
                       and {
                         // Fork Lock(5) requirement: Lock state output has correct miner readiness
                         // TODO: replace with actual miner readiness
-                        in_miner_signal == out_miner_signal,
+                        or {
+                          block_number + 1000 >= fork_block_height && in_miner_signal + 1 == out_miner_signal,
+                          block_number + 1000 < fork_block_height && in_miner_signal == out_miner_signal,
+                        },
                         NotForked == status,
                       }
                     }
@@ -821,7 +827,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             }
           }
 
-          _ -> False
+          HardFork { .. } -> todo
         }
       }
 

@@ -5,7 +5,7 @@ pub type HardForkStatus {
 }
 
 pub type LockStateType {
-  MinerOp(ByteArray)
+  MinerOp(Int)
   Regular
 }
 
