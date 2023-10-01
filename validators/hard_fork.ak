@@ -827,7 +827,116 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             }
           }
 
-          HardFork { .. } -> todo
+          HardFork { hard_fork_state_input, v1_miner_output, v2_miner_output } -> {
+            let own_address =
+              Address {
+                payment_credential: ScriptCredential(own_policy),
+                stake_credential: None,
+              }
+
+            let script_inputs =
+              utils.filter_resolved_inputs(
+                inputs,
+                fn(input) { input.output.address == own_address },
+              )
+
+            let input_state =
+              when script_inputs is {
+                [] -> fail @"No script inputs"
+
+                [script_input1] -> {
+                  // validate mint
+                  // Use blake hash since it's faster and this is unrelated to Proof of Work
+                  let own_token_name =
+                    builtin.head_list(inputs).output_reference
+                      |> builtin.serialise_data
+                      |> blake2b_256
+
+                  // Expect only 1 minted token, we validate the output to check token name
+                  expect [(_, 1)] =
+                    mint
+                      |> value.from_minted_value
+                      |> value.tokens(own_policy)
+                      |> dict.to_list
+
+                  let Output { datum: in_datum, value: in_value, .. } =
+                    script_input1
+
+                  expect InlineDatum(in_datum) = in_datum
+
+                  expect GlobalLockState { locked_tuna, lock_state_type }: ForkDatum =
+                    in_datum
+
+                  fn(validate) {
+                    validate(
+                      locked_tuna,
+                      lock_state_type,
+                      in_value,
+                      own_token_name,
+                      0,
+                    )
+                  }
+                }
+
+                [script_input1, script_input2] -> {
+                  expect [] =
+                    mint
+                      |> value.from_minted_value
+                      |> value.tokens(own_policy)
+                      |> dict.to_list
+
+                  expect InlineDatum(datum) = script_input1.datum
+
+                  expect script1_datum: ForkDatum = datum
+
+                  when script1_datum is {
+                    GlobalLockState { locked_tuna, lock_state_type } -> {
+                      expect InlineDatum(script2_datum) = script_input2.datum
+
+                      expect NftState { nft_key }: ForkDatum = script2_datum
+
+                      let prev_held_amount =
+                        script_input2.value
+                          |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+                      fn(validate) {
+                        validate(
+                          locked_tuna,
+                          lock_state_type,
+                          script_input1.value,
+                          nft_key,
+                          prev_held_amount,
+                        )
+                      }
+                    }
+                    NftState { nft_key } -> {
+                      expect InlineDatum(script2_datum) = script_input2.datum
+
+                      expect GlobalLockState { locked_tuna, lock_state_type }: ForkDatum =
+                        script2_datum
+
+                      let prev_held_amount =
+                        script_input1.value
+                          |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+                      fn(validate) {
+                        validate(
+                          locked_tuna,
+                          lock_state_type,
+                          script_input2.value,
+                          nft_key,
+                          prev_held_amount,
+                        )
+                      }
+                    }
+                    _ -> fail @"Invalid input script datum"
+                  }
+                }
+
+                _ -> fail @"Too many script inputs"
+              }
+            True
+          }
         }
       }
 
