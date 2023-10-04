@@ -353,8 +353,10 @@ type NftForkAction {
 
   HardFork {
     hard_fork_state_input: OutputReference,
-    v1_miner_output: Int,
     v2_miner_output: Int,
+    lock_output_index: Int,
+    nft_output_index: Int,
+    hardfork_output_index: Int,
     lock_action: LockAction,
   }
   Unlock { hard_fork_state_ref: OutputReference }
@@ -468,10 +470,28 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               locked_tokens_ref,
             )
 
-          HardFork { hard_fork_state_input, v1_miner_output, v2_miner_output, lock_action } ->
-            todo
+          HardFork {
+            hard_fork_state_input,
+            v2_miner_output,
+            lock_output_index,
+            nft_output_index,
+            hardfork_output_index,
+            lock_action,
+          } ->
+            hardfork.hard_fork(
+              fortuna_v1_hash,
+              hard_fork_state_input,
+              lock_output_index,
+              nft_output_index,
+              hardfork_output_index,
+              lock_action,
+              v2_miner_output,
+              transaction,
+              own_policy,
+            )
         }
       }
+
       tx.Publish(_) -> False
       _ -> False
     }

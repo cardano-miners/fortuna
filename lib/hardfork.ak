@@ -12,6 +12,7 @@ use hardfork/hftypes.{
   FailedFork, ForkDatum, Forked, HardForkState, LockAction, LockInit, LockMore,
   LockState, MinerLockInit, MinerLockMore, MinerLockState, NftState, NotForked,
 }
+use hardfork/params.{hardfork_threshold}
 
 pub const miner_lock_state_token: ByteArray = "miner_lock_state"
 
@@ -145,7 +146,12 @@ pub fn lock_not_forked(
       expect State { block_number, .. }: State = fortuna_v1_datum
 
       let (out_miner_lock_value, out_miner_lock_datum, out_nft_value, nft_datum) =
-        get_output_lock_state(outputs, lock_output_index, nft_output_index)
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
 
       expect MinerLockState {
         locked_tuna: out_locked_tuna,
@@ -227,7 +233,12 @@ pub fn lock_not_forked(
       expect State { block_number, .. }: State = fortuna_v1_datum
 
       let (out_miner_lock_value, out_miner_lock_datum, out_nft_value, nft_datum) =
-        get_output_lock_state(outputs, lock_output_index, nft_output_index)
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
 
       expect MinerLockState {
         locked_tuna: out_locked_tuna,
@@ -302,7 +313,12 @@ pub fn lock_not_forked(
 
       // Handle getting output states
       let (out_lock_value, out_lock_datum, out_nft_value, nft_datum) =
-        get_output_lock_state(outputs, lock_output_index, nft_output_index)
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
 
       expect LockState { locked_tuna: out_locked_tuna }: ForkDatum =
         out_lock_datum
@@ -359,7 +375,12 @@ pub fn lock_not_forked(
 
       // Handle getting output states
       let (out_lock_value, out_lock_datum, out_nft_value, nft_datum) =
-        get_output_lock_state(outputs, lock_output_index, nft_output_index)
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
 
       expect LockState { locked_tuna: out_locked_tuna }: ForkDatum =
         out_lock_datum
@@ -447,7 +468,12 @@ pub fn lock_after_fork(
 
       // Handle getting output states
       let (out_lock_value, out_lock_datum, out_nft_value, nft_datum) =
-        get_output_lock_state(outputs, lock_output_index, nft_output_index)
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
 
       expect LockState { locked_tuna: out_locked_tuna }: ForkDatum =
         out_lock_datum
@@ -505,7 +531,12 @@ pub fn lock_after_fork(
 
       // Handle getting output states
       let (out_lock_value, out_lock_datum, out_nft_value, nft_datum) =
-        get_output_lock_state(outputs, lock_output_index, nft_output_index)
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
 
       expect LockState { locked_tuna: out_locked_tuna }: ForkDatum =
         out_lock_datum
@@ -642,6 +673,187 @@ pub fn burn_forked(
   }
 }
 
+pub fn hard_fork(
+  fortuna_v1_hash: ByteArray,
+  hard_fork_state_input: OutputReference,
+  lock_output_index: Int,
+  nft_output_index: Int,
+  hardfork_output_index: Int,
+  lock_action: LockAction,
+  v2_miner_output: Int,
+  transaction: Transaction,
+  own_policy: ByteArray,
+) -> Bool {
+  let Transaction { inputs, outputs, mint, .. } = transaction
+
+  let own_address =
+    Address {
+      payment_credential: ScriptCredential(own_policy),
+      stake_credential: None,
+    }
+
+  let script_inputs =
+    utils.filter_resolved_inputs(
+      inputs,
+      fn(input) { input.output.address == own_address },
+    )
+
+  when lock_action is {
+    MinerLockInit { fortuna_v1_output } -> {
+      // Use blake hash since it's faster and this is unrelated to Proof of Work
+      let own_token_name =
+        builtin.head_list(inputs).output_reference
+          |> builtin.serialise_data
+          |> blake2b_256
+
+      // validate mint
+      // Expect only 1 minted token, we validate the output to check token name
+      expect [(_, 1)] =
+        mint
+          |> value.from_minted_value
+          |> value.tokens(own_policy)
+          |> dict.to_list
+
+      // Handle getting input state
+      expect [script_input1, script_input2] = script_inputs
+
+      let (hard_fork_state_input, miner_lock_input) =
+        if script_input1.output_reference == hard_fork_state_input {
+          (script_input1.output, script_input2.output)
+        } else {
+          (script_input2.output, script_input1.output)
+        }
+
+      let Output { value: miner_lock_value, datum: miner_lock_datum, .. } =
+        miner_lock_input
+
+      expect InlineDatum(miner_lock_datum) = miner_lock_datum
+
+      expect MinerLockState { locked_tuna, block_signals }: ForkDatum =
+        miner_lock_datum
+
+      let Output {
+        value: hard_fork_state_value,
+        datum: hard_fork_state_datum,
+        ..
+      } = hard_fork_state_input
+
+      expect InlineDatum(hard_fork_state_datum) = hard_fork_state_datum
+
+      expect HardForkState {
+        status: NotForked,
+        fork_block_height,
+        fortuna_v2_hash,
+      }: ForkDatum = hard_fork_state_datum
+
+      // Handle getting output states
+      let fortuna_v1_output = list_at(outputs, fortuna_v1_output)
+
+      let Output { value: fortuna_v1_value, datum: fortuna_v1_datum, .. } =
+        fortuna_v1_output
+
+      expect InlineDatum(fortuna_v1_datum) = fortuna_v1_datum
+
+      expect State { block_number, .. }: State = fortuna_v1_datum
+
+      let (out_miner_lock_value, out_miner_lock_datum, out_nft_value, nft_datum) =
+        get_output_lock_state(
+          outputs,
+          lock_output_index,
+          nft_output_index,
+          own_address,
+        )
+
+      expect MinerLockState {
+        locked_tuna: out_locked_tuna,
+        block_signals: out_block_signals,
+      }: ForkDatum = out_miner_lock_datum
+
+      expect NftState { nft_key }: ForkDatum = nft_datum
+
+      let hfs_output = list_at(outputs, hardfork_output_index)
+
+      let Output { address, value: out_hfs_value, datum: out_hfs_datum, .. } =
+        hfs_output
+
+      expect address == own_address
+      //
+      expect InlineDatum(out_hfs_datum) = out_hfs_datum
+
+      expect HardForkState {
+        status: Forked,
+        fork_block_height: out_fork_block_height,
+        fortuna_v2_hash: out_fortuna_v2_hash,
+      }: ForkDatum = out_hfs_datum
+
+      let fortuna_v2 = list_at(outputs, v2_miner_output)
+
+      let Output {
+        address,
+        value: fortuna_v2_value,
+        datum: fortuna_v2_datum,
+        ..
+      } = fortuna_v2
+
+      expect
+        address == Address {
+          payment_credential: ScriptCredential(fortuna_v2_hash),
+          stake_credential: None,
+        }
+      expect InlineDatum(fortuna_v2_datum) = fortuna_v2_datum
+
+      let user_locked_tuna =
+        quantity_of(out_nft_value, fortuna_v1_hash, fortuna.token_name)
+
+      and {
+        // Miner mined a valid fortuna v1 block
+        quantity_of(
+          fortuna_v1_value,
+          fortuna_v1_hash,
+          fortuna.master_token_name,
+        ) == 1,
+        // Hard fork state is run at correct block number
+        fork_block_height == block_number,
+        // Fortuna v2 Output state is correct
+        fortuna_v2_datum == fortuna_v1_datum,
+        // Fortuna v2 Output value is correct
+        utils.value_has_nft_and_lovelace(
+          fortuna_v2_value,
+          fortuna_v2_hash,
+          fortuna.master_token_name,
+        ),
+        // nft key at output datum has same token name as minted nft key
+        nft_key == own_token_name,
+        // Miner locked at least some tuna
+        user_locked_tuna > 0,
+        // Miner lock state is updated correctly
+        out_locked_tuna == user_locked_tuna + locked_tuna,
+        out_block_signals == block_signals + 1,
+        out_block_signals >= hardfork_threshold,
+        // Miner lock value is correct
+        value.without_lovelace(out_miner_lock_value) == value.without_lovelace(
+          miner_lock_value,
+        ),
+        quantity_of(out_miner_lock_value, own_policy, miner_lock_state_token) == 1,
+        // Hard fork state is updated correctly
+        out_fork_block_height == fork_block_height,
+        out_fortuna_v2_hash == fortuna_v2_hash,
+        // Hard fork state value is correct
+        quantity_of(hard_fork_state_value, own_policy, hard_fork_state_token) == 1,
+        utils.value_has_nft_and_lovelace(
+          out_hfs_value,
+          own_policy,
+          hard_fork_state_token,
+        ),
+      }
+    }
+
+    MinerLockMore { fortuna_v1_output, nft_input_ref, output_key_index } -> todo
+
+    _ -> False
+  }
+}
+
 pub fn calculate_emission(block_height: Int) -> Int {
   if block_height < halving_number {
     block_height * initial_payout
@@ -665,21 +877,31 @@ fn do_calculate_emission(block_height: Int, halving_epoch: Int) -> Int {
 }
 
 pub fn get_output_lock_state(
-  outputs,
-  lock_output_index,
-  nft_output_index,
+  outputs: List<Output>,
+  lock_output_index: Int,
+  nft_output_index: Int,
+  own_address: Address,
 ) -> (Value, Data, Value, Data) {
   let miner_lock_output = list_at(outputs, lock_output_index)
 
-  let Output { value: out_miner_lock_value, datum: out_miner_lock_datum, .. } =
-    miner_lock_output
+  let Output {
+    address,
+    value: out_miner_lock_value,
+    datum: out_miner_lock_datum,
+    ..
+  } = miner_lock_output
 
+  expect address == own_address
+  //
   expect InlineDatum(out_miner_lock_datum) = out_miner_lock_datum
 
   let nft_output = list_at(outputs, nft_output_index)
 
-  let Output { value: out_nft_value, datum: nft_datum, .. } = nft_output
+  let Output { address, value: out_nft_value, datum: nft_datum, .. } =
+    nft_output
 
+  expect address == own_address
+  //
   expect InlineDatum(nft_datum) = nft_datum
 
   (out_miner_lock_value, out_miner_lock_datum, out_nft_value, nft_datum)
