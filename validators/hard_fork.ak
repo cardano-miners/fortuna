@@ -353,8 +353,9 @@ type NftForkAction {
 
   HardFork {
     hard_fork_state_input: OutputReference,
-    v1_miner_output: Option<Int>,
-    v2_miner_output: Option<Int>,
+    v1_miner_output: Int,
+    v2_miner_output: Int,
+    lock_action: LockAction,
   }
   Unlock { hard_fork_state_ref: OutputReference }
   Burn {
@@ -467,7 +468,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               locked_tokens_ref,
             )
 
-          HardFork { hard_fork_state_input, v1_miner_output, v2_miner_output } ->
+          HardFork { hard_fork_state_input, v1_miner_output, v2_miner_output, lock_action } ->
             todo
         }
       }
