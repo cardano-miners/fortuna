@@ -117,8 +117,8 @@ pub fn lock_not_forked(
           |> blake2b_256
 
       // validate mint
-      // Expect only 1 minted token, we validate the output to check token name
-      expect [(_, 1)] =
+      // Expect only 1 minted token
+      expect [(minted_token, 1)] =
         mint
           |> value.from_minted_value
           |> value.tokens(own_policy)
@@ -172,6 +172,7 @@ pub fn lock_not_forked(
         ) == 1,
         // nft key at output datum has same token name as minted nft key
         nft_key == own_token_name,
+        minted_token == own_token_name,
         // Miner locked at least some tuna
         user_locked_tuna > 0,
         // Miner lock state is updated correctly
@@ -296,7 +297,7 @@ pub fn lock_not_forked(
 
       // validate mint
       // Expect only 1 minted token, we validate the output to check token name
-      expect [(_, 1)] =
+      expect [(minted_token, 1)] =
         mint
           |> value.from_minted_value
           |> value.tokens(own_policy)
@@ -331,6 +332,7 @@ pub fn lock_not_forked(
       and {
         // nft key at output datum has same token name as minted nft key
         nft_key == own_token_name,
+        minted_token == own_token_name,
         // User locked at least some tuna
         user_locked_tuna > 0,
         // User lock state is updated correctly
@@ -451,7 +453,7 @@ pub fn lock_after_fork(
 
       // validate mint
       // Expect only 1 minted token, we validate the output to check token name
-      expect [(_, 1)] =
+      expect [(minted_token, 1)] =
         mint
           |> value.from_minted_value
           |> value.tokens(own_policy)
@@ -486,6 +488,7 @@ pub fn lock_after_fork(
       and {
         // nft key at output datum has same token name as minted nft key
         nft_key == own_token_name,
+        minted_token == own_token_name,
         // User locked at least some tuna
         user_locked_tuna > 0,
         // User lock state is updated correctly
@@ -708,7 +711,7 @@ pub fn hard_fork(
 
       // validate mint
       // Expect only 1 minted token, we validate the output to check token name
-      expect [(_, 1)] =
+      expect [(minted_token, 1)] =
         mint
           |> value.from_minted_value
           |> value.tokens(own_policy)
@@ -824,6 +827,7 @@ pub fn hard_fork(
         ),
         // nft key at output datum has same token name as minted nft key
         nft_key == own_token_name,
+        minted_token == own_token_name,
         // Miner locked at least some tuna
         user_locked_tuna > 0,
         // Miner lock state is updated correctly
