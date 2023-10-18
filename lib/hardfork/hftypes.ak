@@ -10,7 +10,7 @@ pub type ForkDatum {
   HardForkState {
     status: HardForkStatus,
     fork_block_height: Int,
-    fortuna_v2_hash: ByteArray,
+    fortuna_next_validator_hash: ByteArray,
   }
   LockState { locked_tuna: Int }
   MinerLockState { locked_tuna: Int, block_signals: Int }
