@@ -15,8 +15,8 @@ use fortuna/types.{State}
 use fortuna/utils.{list_at, quantity_of}
 use hardfork
 use hardfork/hftypes.{
-  ForkDatum, Forked, HardForkState, LockAction, MinerLockState, NftState,
-  NotForked,
+  ForkDatum, Forked, HardForkState, LockAction, LockState, MinerLockState,
+  NftState, NotForked,
 }
 
 type TunaAction {
@@ -477,7 +477,25 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             nft_output_index,
             hardfork_output_index,
             lock_action,
-          } ->
+          } -> {
+            expect Some(miner_locked_state_output) =
+              list.find(
+                transaction.reference_inputs,
+                fn(input) {
+                  quantity_of(
+                    input.output.value,
+                    own_policy,
+                    hardfork.lock_state_token,
+                  ) == 1
+                },
+              )
+
+            expect InlineDatum(miner_locked_state_datum) =
+              miner_locked_state_output.output.datum
+
+            expect LockState { locked_tuna }: ForkDatum =
+              miner_locked_state_datum
+
             hardfork.hard_fork(
               fortuna_v1_hash,
               hard_fork_state_input,
@@ -488,7 +506,9 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               v2_miner_output,
               transaction,
               own_policy,
+              locked_tuna,
             )
+          }
         }
       }
 
