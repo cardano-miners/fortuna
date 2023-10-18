@@ -12,7 +12,10 @@ use hardfork/hftypes.{
   FailedFork, ForkDatum, Forked, HardForkState, LockAction, LockInit, LockMore,
   LockState, MinerLockInit, MinerLockMore, MinerLockState, NftState, NotForked,
 }
-use hardfork/params.{miner_hardfork_threshold, tuna_hardfork_threshold}
+use hardfork/params.{
+  miner_hardfork_threshold, tuna_hardfork_threshold_denominator,
+  tuna_hardfork_threshold_numerator,
+}
 
 pub const miner_lock_state_token: ByteArray = "miner_lock_state"
 
@@ -750,6 +753,8 @@ pub fn hard_fork(
         fortuna_next_validator_hash,
       }: ForkDatum = hard_fork_state_datum
 
+      let total_emitted = calculate_emission(fork_block_height)
+
       // Handle getting output states
       let fortuna_v1_output = list_at(outputs, fortuna_v1_output)
 
@@ -836,7 +841,7 @@ pub fn hard_fork(
         out_block_signals == block_signals + 1,
         // Thresholds are met
         out_block_signals >= miner_hardfork_threshold,
-        out_locked_tuna + ref_locked_tuna >= tuna_hardfork_threshold,
+        out_locked_tuna + ref_locked_tuna >= total_emitted * tuna_hardfork_threshold_numerator / tuna_hardfork_threshold_denominator,
         // Miner lock value is correct
         value.without_lovelace(out_miner_lock_value) == value.without_lovelace(
           miner_lock_value,
@@ -913,6 +918,8 @@ pub fn hard_fork(
         fork_block_height,
         fortuna_next_validator_hash,
       }: ForkDatum = hard_fork_state_datum
+
+      let total_emitted = calculate_emission(fork_block_height)
 
       // Handle getting output states
       let fortuna_v1_output = list_at(outputs, fortuna_v1_output)
@@ -1008,7 +1015,7 @@ pub fn hard_fork(
         out_block_signals == block_signals + 1,
         // Thresholds are met
         out_block_signals >= miner_hardfork_threshold,
-        out_locked_tuna + ref_locked_tuna >= tuna_hardfork_threshold,
+        out_locked_tuna + ref_locked_tuna >= total_emitted * tuna_hardfork_threshold_numerator / tuna_hardfork_threshold_denominator,
         // Miner lock value is correct
         value.without_lovelace(out_miner_lock_value) == value.without_lovelace(
           miner_lock_value,

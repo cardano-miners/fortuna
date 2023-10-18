@@ -44,6 +44,22 @@ pub fn format_found_bytearray(target: ByteArray) -> (Int, Int) {
   }
 }
 
+test format_found_bytearray_1() {
+  format_found_bytearray(#"00000000000000ffdd00000000") == (65501, 14)
+}
+
+test format_found_bytearray_2() {
+  format_found_bytearray(#"00000101000000ffdd00000000") == (4112, 5)
+}
+
+test format_found_bytearray_3() {
+  format_found_bytearray(#"ef0001000000000ffdd000000000") == (61184, 0)
+}
+
+test format_found_bytearray_4() {
+  format_found_bytearray(#"0000000000000000000000010000") == (4096, 23)
+}
+
 fn find_first_nonzero_byte(bytes: ByteArray, current_index) -> Int {
   let current_byte = builtin.index_bytearray(bytes, current_index)
 
@@ -54,6 +70,22 @@ fn find_first_nonzero_byte(bytes: ByteArray, current_index) -> Int {
   } else {
     0
   }
+}
+
+test find_first_nonzero_byte_1() {
+  find_first_nonzero_byte(#"00000000000000ffdd00000000", 0) == 14
+}
+
+test find_first_nonzero_byte_2() {
+  find_first_nonzero_byte(#"000001000000000ffdd000000000", 0) == 5
+}
+
+test find_first_nonzero_byte_3() {
+  find_first_nonzero_byte(#"ef0001000000000ffdd000000000", 0) == 0
+}
+
+test find_first_nonzero_byte_4() {
+  find_first_nonzero_byte(#"00000000000000000000000100", 0) == 23
 }
 
 fn do_two_exponential(exponent: Int) -> Int {
