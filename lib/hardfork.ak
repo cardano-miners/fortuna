@@ -747,7 +747,7 @@ pub fn hard_fork(
       expect HardForkState {
         status: NotForked,
         fork_block_height,
-        fortuna_v2_hash,
+        fortuna_next_validator_hash,
       }: ForkDatum = hard_fork_state_datum
 
       // Handle getting output states
@@ -787,7 +787,7 @@ pub fn hard_fork(
       expect HardForkState {
         status: Forked,
         fork_block_height: out_fork_block_height,
-        fortuna_v2_hash: out_fortuna_v2_hash,
+        fortuna_next_validator_hash: out_fortuna_next_validator_hash,
       }: ForkDatum = out_hfs_datum
 
       let fortuna_v2 = list_at(outputs, v2_miner_output)
@@ -801,7 +801,7 @@ pub fn hard_fork(
 
       expect
         address == Address {
-          payment_credential: ScriptCredential(fortuna_v2_hash),
+          payment_credential: ScriptCredential(fortuna_next_validator_hash),
           stake_credential: None,
         }
       expect InlineDatum(fortuna_v2_datum) = fortuna_v2_datum
@@ -823,7 +823,7 @@ pub fn hard_fork(
         // Fortuna v2 Output value is correct
         utils.value_has_nft_and_lovelace(
           fortuna_v2_value,
-          fortuna_v2_hash,
+          fortuna_next_validator_hash,
           fortuna.master_token_name,
         ),
         // nft key at output datum has same token name as minted nft key
@@ -844,7 +844,7 @@ pub fn hard_fork(
         quantity_of(out_miner_lock_value, own_policy, miner_lock_state_token) == 1,
         // Hard fork state is updated correctly
         out_fork_block_height == fork_block_height,
-        out_fortuna_v2_hash == fortuna_v2_hash,
+        out_fortuna_next_validator_hash == fortuna_next_validator_hash,
         // Hard fork state value is correct
         quantity_of(hard_fork_state_value, own_policy, hard_fork_state_token) == 1,
         utils.value_has_nft_and_lovelace(
@@ -911,7 +911,7 @@ pub fn hard_fork(
       expect HardForkState {
         status: NotForked,
         fork_block_height,
-        fortuna_v2_hash,
+        fortuna_next_validator_hash,
       }: ForkDatum = hard_fork_state_datum
 
       // Handle getting output states
@@ -951,7 +951,7 @@ pub fn hard_fork(
       expect HardForkState {
         status: Forked,
         fork_block_height: out_fork_block_height,
-        fortuna_v2_hash: out_fortuna_v2_hash,
+        fortuna_next_validator_hash: out_fortuna_v2_hash,
       }: ForkDatum = out_hfs_datum
 
       let fortuna_v2 = list_at(outputs, v2_miner_output)
@@ -965,7 +965,7 @@ pub fn hard_fork(
 
       expect
         address == Address {
-          payment_credential: ScriptCredential(fortuna_v2_hash),
+          payment_credential: ScriptCredential(fortuna_next_validator_hash),
           stake_credential: None,
         }
       expect InlineDatum(fortuna_v2_datum) = fortuna_v2_datum
@@ -995,7 +995,7 @@ pub fn hard_fork(
         // Fortuna v2 Output value is correct
         utils.value_has_nft_and_lovelace(
           fortuna_v2_value,
-          fortuna_v2_hash,
+          fortuna_next_validator_hash,
           fortuna.master_token_name,
         ),
         // nft key at output datum has same token name as nft key
@@ -1016,7 +1016,7 @@ pub fn hard_fork(
         quantity_of(out_miner_lock_value, own_policy, miner_lock_state_token) == 1,
         // Hard fork state is updated correctly
         out_fork_block_height == fork_block_height,
-        out_fortuna_v2_hash == fortuna_v2_hash,
+        out_fortuna_v2_hash == fortuna_next_validator_hash,
         // Hard fork state value is correct
         quantity_of(hard_fork_state_value, own_policy, hard_fork_state_token) == 1,
         utils.value_has_nft_and_lovelace(
