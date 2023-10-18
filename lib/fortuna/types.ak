@@ -1,4 +1,3 @@
-
 /// State Data stored on chain.
 /// Used by the validator to check the next state.
 pub type State {

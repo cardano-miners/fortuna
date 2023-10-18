@@ -359,7 +359,9 @@ type NftForkAction {
     hardfork_output_index: Int,
     lock_action: LockAction,
   }
+
   Unlock { hard_fork_state_ref: OutputReference }
+
   Burn {
     hard_fork_state_ref: OutputReference,
     locked_tokens_ref: OutputReference,
@@ -380,6 +382,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
         // Fork Mint(0) requirement: Withdrawal script is present
         dict.has_key(withdrawals, own_withdrawal)
       }
+
       tx.WithdrawFrom(stake_cred) -> {
         expect action: NftForkAction = redeemer
 
@@ -512,7 +515,6 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
         }
       }
 
-      tx.Publish(_) -> False
       _ -> False
     }
   }
