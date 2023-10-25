@@ -60,6 +60,18 @@ test format_found_bytearray_4() {
   format_found_bytearray(#"0000000000000000000000010000") == (4096, 23)
 }
 
+test format_found_bytearray_5() fail {
+  format_found_bytearray(#"00000000000000000000000100") == (1, 23)
+}
+
+test format_found_bytearray_6() fail {
+  format_found_bytearray(#"00000000000000000000000000") == (4096, 23)
+}
+
+test format_found_bytearray_7() {
+  format_found_bytearray(#"00000000000000000000001000") == (4096, 22)
+}
+
 fn find_first_nonzero_byte(bytes: ByteArray, current_index) -> Int {
   let current_byte = builtin.index_bytearray(bytes, current_index)
 

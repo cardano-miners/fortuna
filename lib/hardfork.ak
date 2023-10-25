@@ -1,5 +1,6 @@
 use aiken/builtin.{blake2b_256}
 use aiken/dict
+use aiken/list
 use aiken/math
 use aiken/transaction.{InlineDatum, Input, Output, OutputReference, Transaction}
 use aiken/transaction/credential.{Address, ScriptCredential}
@@ -106,10 +107,7 @@ pub fn lock_not_forked(
     }
 
   let script_inputs =
-    utils.filter_resolved_inputs(
-      inputs,
-      fn(input) { input.output.address == own_address },
-    )
+    list.filter(inputs, fn(input) { input.output.address == own_address })
 
   when lock_action is {
     MinerLockInit { fortuna_v1_output } -> {
@@ -441,10 +439,7 @@ pub fn lock_after_fork(
     }
 
   let script_inputs =
-    utils.filter_resolved_inputs(
-      inputs,
-      fn(input) { input.output.address == own_address },
-    )
+    list.filter(inputs, fn(input) { input.output.address == own_address })
 
   when lock_action is {
     LockInit -> {
@@ -596,10 +591,7 @@ pub fn unlock_failed_fork(
     }
 
   let script_inputs =
-    utils.filter_resolved_inputs(
-      inputs,
-      fn(input) { input.output.address == own_address },
-    )
+    list.filter(inputs, fn(input) { input.output.address == own_address })
 
   let mint = value.from_minted_value(mint)
 
@@ -643,10 +635,7 @@ pub fn burn_forked(
     }
 
   let script_inputs =
-    utils.filter_resolved_inputs(
-      inputs,
-      fn(input) { input.output.address == own_address },
-    )
+    list.filter(inputs, fn(input) { input.output.address == own_address })
 
   let mint = value.from_minted_value(mint)
 
@@ -700,10 +689,7 @@ pub fn hard_fork(
     }
 
   let script_inputs =
-    utils.filter_resolved_inputs(
-      inputs,
-      fn(input) { input.output.address == own_address },
-    )
+    list.filter(inputs, fn(input) { input.output.address == own_address })
 
   when lock_action is {
     MinerLockInit { fortuna_v1_output } -> {
@@ -1042,7 +1028,7 @@ pub fn calculate_emission(block_height: Int) -> Int {
   if block_height < halving_number {
     block_height * initial_payout
   } else {
-    block_height * initial_payout + do_calculate_emission(
+    halving_number * initial_payout + do_calculate_emission(
       block_height - halving_number,
       1,
     )
@@ -1053,11 +1039,23 @@ fn do_calculate_emission(block_height: Int, halving_epoch: Int) -> Int {
   if block_height < halving_number {
     block_height * initial_payout / math.pow2(halving_epoch)
   } else {
-    block_height * initial_payout / math.pow2(halving_epoch) + do_calculate_emission(
+    halving_number * initial_payout / math.pow2(halving_epoch) + do_calculate_emission(
       block_height - halving_number,
       halving_epoch + 1,
     )
   }
+}
+
+test calculate_emission_1() {
+  calculate_emission(3000) == 15000000000000
+}
+
+test calculate_emission_2() {
+  calculate_emission(210000) == 1050000000000000
+}
+
+test calculate_emission_3() {
+  calculate_emission(210001) == 1050002500000000
 }
 
 pub fn get_output_lock_state(
