@@ -72,7 +72,7 @@ test format_found_bytearray_7() {
   format_found_bytearray(#"00000000000000000000001000") == (4096, 22)
 }
 
-fn find_first_nonzero_byte(bytes: ByteArray, current_index) -> Int {
+fn find_first_nonzero_byte(bytes: ByteArray, current_index: Int) -> Int {
   let current_byte = builtin.index_bytearray(bytes, current_index)
 
   if current_byte == 0 {
