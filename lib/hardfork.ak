@@ -14,8 +14,8 @@ use hardfork/hftypes.{
   LockState, MinerLockInit, MinerLockMore, MinerLockState, NftState, NotForked,
 }
 use hardfork/params.{
-  miner_hardfork_threshold, tuna_hardfork_threshold_denominator,
-  tuna_hardfork_threshold_numerator,
+  miner_hardfork_threshold, tuna_count_blocks_from,
+  tuna_hardfork_threshold_denominator, tuna_hardfork_threshold_numerator,
 }
 
 pub const miner_lock_state_token: ByteArray = "miner_lock_state"
@@ -1111,9 +1111,29 @@ pub fn check_block_signal(
   block_signals,
   out_block_signals,
 ) -> Bool {
-  if block_height <= fork_block_height + 1000 {
+  if block_height >= fork_block_height - tuna_count_blocks_from {
     out_block_signals == block_signals + 1
   } else {
     out_block_signals == block_signals
   }
+}
+
+test check_block_signal_1() {
+  check_block_signal(0, 1000, 0, 1)
+}
+
+test check_block_signal_2() {
+  check_block_signal(0, 1001, 0, 0)
+}
+
+test check_block_signal_3() {
+  check_block_signal(1, 1000, 0, 1)
+}
+
+test check_block_signal_4() {
+  check_block_signal(1000, 1000, 0, 1)
+}
+
+test check_block_signal_5() {
+  check_block_signal(0, 1000, 10, 11)
 }
