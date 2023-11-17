@@ -12,8 +12,8 @@ pub type ForkDatum {
     fork_block_height: Int,
     fortuna_next_validator_hash: ByteArray,
   }
-  LockState { locked_tuna: Int }
   MinerLockState { locked_tuna: Int, block_signals: Int }
+  LockState { locked_tuna: Int }
   NftState { nft_key: ByteArray }
 }
 
