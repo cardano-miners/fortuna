@@ -856,6 +856,7 @@ pub fn hard_fork(
       // Handle getting input state
       expect [script_input1, script_input2, script_input3] = script_inputs
 
+      // I'll replace this with something better eventually
       let (hard_fork_state_input, miner_lock_input, nft_input) =
         if script_input1.output_reference == hard_fork_state_input {
           if script_input2.output_reference == nft_input_ref {
