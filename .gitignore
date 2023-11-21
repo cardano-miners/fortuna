@@ -8,10 +8,36 @@ docs/
 
 # Added by cargo
 
-/target
-
 seed.txt
-.env
 
 .idea/
 aiken.lock
+
+
+dist
+.solid
+.output
+.vercel
+.netlify
+netlify
+
+# Environment
+.env
+.env*.local
+
+# dependencies
+/node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+*.launch
+.settings/
+
+# Temp
+gitignore
+
+# System Files
+.DS_Store
+Thumbs.db

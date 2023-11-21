@@ -10,9 +10,9 @@ import {
   PROTOCOL_PARAMETERS_DEFAULT,
   Script,
   TxSigned,
-} from "https://deno.land/x/lucid@0.10.1/mod.ts";
+} from "lucid-cardano";
 
-import { printExecutionDetails, readValidator } from "./utils.ts";
+import { printExecutionDetails, readValidator } from "./utils";
 
 export type TestContext = {
   lucid: Lucid;
@@ -29,7 +29,7 @@ const validator = readValidator();
 
 export async function test(
   name: string,
-  fn: (ctx: TestContext) => Promise<TxSigned>,
+  fn: (ctx: TestContext) => Promise<TxSigned>
 ) {
   const minerPk = generatePrivateKey();
   const refPk = generatePrivateKey();
@@ -56,7 +56,7 @@ export async function test(
     ],
     {
       ...PROTOCOL_PARAMETERS_DEFAULT,
-    },
+    }
   );
 
   const lucid = await Lucid.new(emulator);
@@ -90,7 +90,7 @@ export async function test(
       { scriptRef: validator },
       {
         lovelace: 100000000n,
-      },
+      }
     )
     .complete({ coinSelection: false });
 
@@ -116,7 +116,7 @@ export async function test(
 
 export async function testFail(
   name: string,
-  fn: (ctx: TestContext) => Promise<TxSigned>,
+  fn: (ctx: TestContext) => Promise<TxSigned>
 ) {
   try {
     await test(name, fn);
@@ -132,11 +132,9 @@ export async function testFail(
       .join("");
 
     const message = `
-  ${colors.bold(colors.brightMagenta(name))} - ${
-      colors.green(
-        "passed",
-      )
-    }\n${error}`;
+  ${colors.bold(colors.brightMagenta(name))} - ${colors.green(
+      "passed"
+    )}\n${error}`;
 
     console.log(message);
   }

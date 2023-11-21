@@ -1,5 +1,0 @@
-{
-  "tasks": {
-    "cli": "deno run --allow-all miner/main.ts"
-  }
-}
