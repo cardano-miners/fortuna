@@ -99,6 +99,7 @@ validator(
 
         let mint = value.from_minted_value(mint)
 
+        // We reference the locked v1 tuan NFTState that we have the NFT key for.
         let own_input =
           utils.resolve_output_reference(reference_inputs, locked_tokens_ref)
 
@@ -128,9 +129,9 @@ validator(
     }
   }
 
-  fn mine(datum: State, redeemer: MineAction, ctx: ScriptContext) -> Bool {
+  fn mine(datum: Data, redeemer: MineAction, ctx: ScriptContext) -> Bool {
     // Access transaction information
-    let State {
+    expect State {
       block_number,
       current_hash,
       leading_zeros,
@@ -139,7 +140,7 @@ validator(
       current_posix_time,
       interlink,
       ..
-    } = datum
+    }: State = datum
 
     let ScriptContext { transaction, purpose } = ctx
 
@@ -253,7 +254,8 @@ validator(
     let halving_exponent = block_number / halving_number
 
     let expected_quantity =
-      if halving_exponent > 29 {
+      // This should be 32 not 29
+      if halving_exponent > 32 {
         0
       } else {
         initial_payout / math.pow2(halving_exponent)
