@@ -14,8 +14,9 @@ use hardfork/hftypes.{
   LockState, MinerLockInit, MinerLockMore, MinerLockState, NftState, NotForked,
 }
 use hardfork/params.{
-  miner_hardfork_threshold, tuna_count_blocks_from,
-  tuna_hardfork_threshold_denominator, tuna_hardfork_threshold_numerator,
+  hardfork_block_height, hardfork_next_hash, miner_hardfork_threshold,
+  tuna_count_blocks_from, tuna_hardfork_threshold_denominator,
+  tuna_hardfork_threshold_numerator,
 }
 
 pub const miner_lock_state_token: ByteArray = "miner_lock_state"
@@ -25,8 +26,11 @@ pub const lock_state_token: ByteArray = "lock_state"
 pub const hard_fork_state_token: ByteArray = "hfs"
 
 pub fn initialize(
+  // Input
   initializer_input: OutputReference,
+  // Tx
   transaction: Transaction,
+  // Purpose
   own_policy: ByteArray,
 ) -> Bool {
   let Transaction { inputs, outputs, mint, .. } = transaction
@@ -71,7 +75,12 @@ pub fn initialize(
   expect InlineDatum(miner_state_datum) = miner_state_datum
   expect InlineDatum(lock_state_datum) = lock_state_datum
 
-  expect HardForkState { status: NotForked, .. }: ForkDatum = hfs_datum
+  // The values are chosen by the 
+  expect HardForkState {
+    status: NotForked,
+    fork_block_height,
+    fortuna_next_validator_hash,
+  }: ForkDatum = hfs_datum
 
   expect MinerLockState { locked_tuna: 0, block_signals: 0 }: ForkDatum =
     miner_state_datum
@@ -85,7 +94,10 @@ pub fn initialize(
     quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
     quantity_of(miner_state_value, own_policy, miner_lock_state_token) == 1,
     quantity_of(lock_state_value, own_policy, lock_state_token) == 1,
+    // Needed to prevent removal of genesis input check
     genesis_input == genesis_input,
+    fork_block_height == hardfork_block_height,
+    fortuna_next_validator_hash == hardfork_next_hash,
   }
 }
 
@@ -106,10 +118,12 @@ pub fn lock_not_forked(
       stake_credential: None,
     }
 
+  // Needed to ensure all validator spends from this script hash are accounted for
   let script_inputs =
     list.filter(inputs, fn(input) { input.output.address == own_address })
 
   when lock_action is {
+    // TODO: refactor some the shared parts in code
     MinerLockInit { fortuna_v1_output } -> {
       // Use blake hash since it's faster and this is unrelated to Proof of Work
       let own_token_name =
