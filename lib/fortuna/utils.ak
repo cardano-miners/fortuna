@@ -1,3 +1,4 @@
+use aiken/builtin
 use aiken/dict
 use aiken/transaction.{Input, Output, OutputReference} as tx
 use aiken/transaction/value.{AssetName, PolicyId, Value}
@@ -6,24 +7,22 @@ pub fn resolve_output_reference(
   inputs: List<Input>,
   output_ref: OutputReference,
 ) -> Output {
-  expect [input, ..inputs] = inputs
+  expect [input, ..] = inputs
 
   if input.output_reference == output_ref {
     input.output
   } else {
-    resolve_output_reference(inputs, output_ref)
+    resolve_output_reference(builtin.tail_list(inputs), output_ref)
   }
 }
 
 /// Disallows negative values by spiraling off into infinity (or the end of the list)
 /// which will cause the transaction to fail.
 pub fn list_at(l: List<a>, index: Int) -> a {
-  expect [head, ..rest] = l
-
   if index == 0 {
-    head
+    builtin.head_list(l)
   } else {
-    list_at(rest, index - 1)
+    list_at(builtin.tail_list(l), index - 1)
   }
 }
 

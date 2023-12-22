@@ -3,6 +3,7 @@ use aiken/dict
 use aiken/hash.{sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
+use aiken/math.{pow2}
 use aiken/transaction.{
   InlineDatum, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 }
@@ -11,6 +12,7 @@ use aiken/transaction/value.{quantity_of, tokens}
 use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
 use fortuna/types.{State}
+use fortuna/utils.{resolve_output_reference}
 
 type TargetState {
   nonce: ByteArray,
@@ -147,7 +149,7 @@ validator(utxo_ref: OutputReference) {
 
     let mint = value.from_minted_value(mint)
 
-    let own_input = fortuna.own_validator_input_utxo(inputs, own_reference)
+    let own_input = resolve_output_reference(inputs, own_reference)
 
     let Output { address: in_address, value: in_value, .. } = own_input
 
@@ -232,7 +234,7 @@ validator(utxo_ref: OutputReference) {
       if halving_exponent > 29 {
         0
       } else {
-        initial_payout / fortuna.two_exponential(halving_exponent)
+        initial_payout / pow2(halving_exponent)
       }
 
     // Spend(5) requirement: Minted token is the correct name and amount
