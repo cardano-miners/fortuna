@@ -1,22 +1,11 @@
 use aiken/builtin
 use aiken/dict
-use aiken/list
-use aiken/transaction.{Input, Output, OutputReference}
 use aiken/transaction/value.{PolicyId, Value, tokens}
 use fortuna/parameters.{epoch_target, padding}
 
 pub const master_token_name = "lord tuna"
 
 pub const token_name = "TUNA"
-
-pub fn own_validator_input_utxo(
-  inputs: List<Input>,
-  output_reference: OutputReference,
-) -> Output {
-  expect Some(input) =
-    list.find(inputs, fn(input) { input.output_reference == output_reference })
-  input.output
-}
 
 pub fn format_found_bytearray(target: ByteArray) -> (Int, Int) {
   let leading_zeros = find_first_nonzero_byte(target, 0)
@@ -98,42 +87,6 @@ test find_first_nonzero_byte_3() {
 
 test find_first_nonzero_byte_4() {
   find_first_nonzero_byte(#"00000000000000000000000100", 0) == 23
-}
-
-fn do_two_exponential(exponent: Int) -> Int {
-  if exponent <= 0 {
-    1
-  } else {
-    do_two_exponential(exponent - 1) * 2
-  }
-}
-
-pub fn two_exponential(exponent: Int) -> Int {
-  if exponent >= 5 {
-    32 * two_exponential(exponent - 5)
-  } else {
-    do_two_exponential(exponent)
-  }
-}
-
-test two_exponential_1() {
-  two_exponential(0) == 1
-}
-
-test two_exponential_2() {
-  two_exponential(5) == 32
-}
-
-test two_exponential_3() {
-  two_exponential(27) == 134217728
-}
-
-test two_exponential_4() {
-  two_exponential(1) == 2
-}
-
-test two_exponential_5() {
-  two_exponential(29) == 536870912
 }
 
 pub fn value_has_only_master_and_lovelace(
