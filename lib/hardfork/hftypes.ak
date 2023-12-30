@@ -1,5 +1,3 @@
-use aiken/transaction.{OutputReference}
-
 pub type HardForkStatus {
   NotForked
   Forked
@@ -18,7 +16,6 @@ pub type ForkDatum {
 }
 
 pub type LockAction {
-  MinerLock { fortuna_v1_output: Int, ownership_key_index: Option<Int> }
-  LockInit
-  LockMore { ownership_key_index: Int }
+  MinerLock { fortuna_v1_output: Int }
+  UserLock
 }
