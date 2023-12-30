@@ -350,6 +350,7 @@ type NftForkAction {
     hard_fork_state_ref: OutputReference,
     lock_output_index: Int,
     nft_output_index: Int,
+    ownership_key_index: Option<Int>,
     lock_action: LockAction,
   }
 
@@ -401,6 +402,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             hard_fork_state_ref,
             lock_output_index,
             nft_output_index,
+            ownership_key_index,
             lock_action,
           } -> {
             expect HardForkState { status, fork_block_height, .. } =
@@ -419,6 +421,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                   fortuna_v1_hash,
                   lock_output_index,
                   nft_output_index,
+                  ownership_key_index,
                   lock_action,
                   transaction,
                   own_policy,
