@@ -18,12 +18,7 @@ pub type ForkDatum {
 }
 
 pub type LockAction {
-  MinerLockInit { fortuna_v1_output: Int }
-  MinerLockMore {
-    fortuna_v1_output: Int,
-    nft_input_ref: OutputReference,
-    output_key_index: Int,
-  }
+  MinerLock { fortuna_v1_output: Int, ownership_key_index: Option<Int> }
   LockInit
-  LockMore { nft_input_ref: OutputReference, output_key_index: Int }
+  LockMore { ownership_key_index: Int }
 }

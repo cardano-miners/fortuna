@@ -207,51 +207,6 @@ test get_new_difficulty_8() {
   get_new_difficulty(27000, 2, 3, 1) == (65535, 2)
 }
 
-fn do_calculate_interlink(
-  interlink: List<Data>,
-  current_hash: Data,
-  found_leading_zeros: Int,
-  found_difficulty_number: Int,
-  difficulty_number: Int,
-  leading_zeros: Int,
-) -> List<Data> {
-  let (halved_difficulty, halved_leading_zeroes) =
-    get_new_difficulty(difficulty_number, leading_zeros, 1, 2)
-
-  if
-  found_leading_zeros > halved_leading_zeroes || found_leading_zeros == halved_leading_zeroes && found_difficulty_number < halved_difficulty{
-  
-    when interlink is {
-      [] ->
-        [
-          current_hash,
-          ..do_calculate_interlink(
-            [],
-            current_hash,
-            found_leading_zeros,
-            found_difficulty_number,
-            halved_difficulty,
-            halved_leading_zeroes,
-          )
-        ]
-      [_, ..rest] ->
-        [
-          current_hash,
-          ..do_calculate_interlink(
-            rest,
-            current_hash,
-            found_leading_zeros,
-            found_difficulty_number,
-            halved_difficulty,
-            halved_leading_zeroes,
-          )
-        ]
-    }
-  } else {
-    interlink
-  }
-}
-
 pub fn calculate_interlink(
   interlink: List<Data>,
   current_hash: Data,
@@ -316,6 +271,51 @@ pub fn calculate_interlink(
       difficulty_number,
       leading_zeros,
     )
+  }
+}
+
+fn do_calculate_interlink(
+  interlink: List<Data>,
+  current_hash: Data,
+  found_leading_zeros: Int,
+  found_difficulty_number: Int,
+  difficulty_number: Int,
+  leading_zeros: Int,
+) -> List<Data> {
+  let (halved_difficulty, halved_leading_zeroes) =
+    get_new_difficulty(difficulty_number, leading_zeros, 1, 2)
+
+  if
+  found_leading_zeros > halved_leading_zeroes || found_leading_zeros == halved_leading_zeroes && found_difficulty_number < halved_difficulty{
+  
+    when interlink is {
+      [] ->
+        [
+          current_hash,
+          ..do_calculate_interlink(
+            [],
+            current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
+            halved_difficulty,
+            halved_leading_zeroes,
+          )
+        ]
+      [_, ..rest] ->
+        [
+          current_hash,
+          ..do_calculate_interlink(
+            rest,
+            current_hash,
+            found_leading_zeros,
+            found_difficulty_number,
+            halved_difficulty,
+            halved_leading_zeroes,
+          )
+        ]
+    }
+  } else {
+    interlink
   }
 }
 

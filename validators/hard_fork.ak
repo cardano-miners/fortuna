@@ -412,6 +412,9 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             when status is {
               NotForked ->
+                // Since this function is only used once
+                // the compiler will optimize it out so all the function param
+                // passing is free. Same with the others below
                 hardfork.lock_not_forked(
                   fortuna_v1_hash,
                   lock_output_index,
