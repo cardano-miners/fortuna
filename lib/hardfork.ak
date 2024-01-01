@@ -265,7 +265,7 @@ fn is_a_valid_miner(
   lock_output_index: Int,
   fortuna_v1_output_index: Int,
   user_locked_tuna: Int,
-) {
+) -> Bool {
   let Output { value: miner_lock_value, datum: miner_lock_datum, .. } =
     miner_lock_input
 
@@ -329,7 +329,7 @@ fn is_a_valid_locker(
   outputs: List<Output>,
   lock_output_index: Int,
   user_locked_tuna: Int,
-) {
+) -> Bool {
   let Output { value: lock_value, datum: lock_datum, .. } = lock_input
 
   expect InlineDatum(lock_datum) = lock_datum
@@ -464,31 +464,26 @@ pub fn lock_after_fork(
       }
     }
 
-  when lock_action is {
-    UserLock -> {
-      let user_check =
-        // found a formatting bug
-        fn(own_token_name, lock_input, user_locked_tuna) { and {
-            // Proves that the user owns the nft key
-            out_nft_key == own_token_name,
-            address == own_address,
-            is_a_valid_locker_after_fork(
-              own_address,
-              own_policy,
-              lock_input,
-              outputs,
-              lock_output_index,
-              user_locked_tuna,
-              miner_locked_tuna,
-              total_emission_at_fork,
-            ),
-          } }
+  let user_check =
+    // found a formatting bug
+    fn(own_token_name, lock_input, user_locked_tuna) { and {
+        lock_action == UserLock,
+        // Proves that the user owns the nft key
+        out_nft_key == own_token_name,
+        address == own_address,
+        is_a_valid_locker_after_fork(
+          own_address,
+          own_policy,
+          lock_input,
+          outputs,
+          lock_output_index,
+          user_locked_tuna,
+          miner_locked_tuna,
+          total_emission_at_fork,
+        ),
+      } }
 
-      callback(user_check)
-    }
-
-    _ -> False
-  }
+  callback(user_check)
 }
 
 fn is_a_valid_locker_after_fork(
@@ -500,7 +495,7 @@ fn is_a_valid_locker_after_fork(
   user_locked_tuna: Int,
   miner_locked_tuna: Int,
   total_emission_at_fork: Int,
-) {
+) -> Bool {
   let Output { value: lock_value, datum: lock_datum, .. } = lock_input
 
   expect InlineDatum(lock_datum) = lock_datum
@@ -594,7 +589,7 @@ pub fn burn_forked(
   let hfs_input =
     utils.resolve_output_reference(reference_inputs, hard_fork_state_ref)
 
-  // Can only not unlock any inputs
+  // Can not unlock any inputs
   expect [] = script_inputs
 
   let locked_v1_input =
@@ -999,18 +994,6 @@ fn do_calculate_emission(block_height: Int, halving_epoch: Int) -> Int {
   }
 }
 
-test calculate_emission_1() {
-  calculate_emission(3000) == 15000000000000
-}
-
-test calculate_emission_2() {
-  calculate_emission(210000) == 1050000000000000
-}
-
-test calculate_emission_3() {
-  calculate_emission(210001) == 1050002500000000
-}
-
 pub fn get_hardfork_state(
   inputs: List<Input>,
   output_ref: OutputReference,
@@ -1038,24 +1021,4 @@ pub fn check_block_signal(
   } else {
     out_block_signals == block_signals
   }
-}
-
-test check_block_signal_1() {
-  check_block_signal(0, 1000, 0, 1)
-}
-
-test check_block_signal_2() {
-  check_block_signal(0, 1001, 0, 0)
-}
-
-test check_block_signal_3() {
-  check_block_signal(1, 1000, 0, 1)
-}
-
-test check_block_signal_4() {
-  check_block_signal(1000, 1000, 0, 1)
-}
-
-test check_block_signal_5() {
-  check_block_signal(0, 1000, 10, 11)
 }

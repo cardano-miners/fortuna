@@ -359,6 +359,7 @@ type NftForkAction {
     v2_miner_output: Int,
     lock_output_index: Int,
     nft_output_index: Int,
+    ownership_key_index: Option<Int>,
     hardfork_output_index: Int,
     lock_action: LockAction,
   }
@@ -486,6 +487,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             hard_fork_state_input,
             v2_miner_output,
             lock_output_index,
+            ownership_key_index,
             nft_output_index,
             hardfork_output_index,
             lock_action,
