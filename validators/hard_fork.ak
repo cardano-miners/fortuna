@@ -47,8 +47,8 @@ type TargetState {
 
 validator(
   init_utxo_ref: OutputReference,
-  fork_hash: ByteArray,
   fortuna_v1_hash: ByteArray,
+  fork_script_hash: ByteArray,
 ) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
     expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
@@ -77,10 +77,14 @@ validator(
 
         and {
           out_address == Address {
-            payment_credential: ScriptCredential(fork_hash),
+            payment_credential: ScriptCredential(fork_script_hash),
             stake_credential: None,
           },
-          quantity_of(out_value, fork_hash, hardfork.hard_fork_state_token) == 1,
+          quantity_of(
+            out_value,
+            fork_script_hash,
+            hardfork.hard_fork_state_token,
+          ) == 1,
           quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
           genesis_input == genesis_input,
         }
@@ -117,11 +121,11 @@ validator(
           mint |> tokens(own_policy) |> dict.to_list
 
         and {
-          quantity_of(mint, fork_hash, nft_key) == -1,
+          quantity_of(mint, fork_script_hash, nft_key) == -1,
           token_name == fortuna.token_name,
           quantity == locked_tokens,
           in_address == Address {
-            payment_credential: ScriptCredential(fork_hash),
+            payment_credential: ScriptCredential(fork_script_hash),
             stake_credential: None,
           },
         }
@@ -407,7 +411,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             lock_action,
           } -> {
             expect HardForkState { status, fork_block_height, .. } =
-              hardfork.get_hardfork_state(
+              hardfork.validate_hardfork_state(
                 transaction.reference_inputs,
                 hard_fork_state_ref,
                 own_policy,

@@ -382,13 +382,12 @@ pub fn lock_after_fork(
   // Handle output NFT state first
   let nft_output = list_at(outputs, nft_output_index)
 
-  let Output { address, value: out_nft_value, datum: nft_datum, .. } =
+  let Output { address, value: out_nft_value, datum: out_nft_datum, .. } =
     nft_output
 
-  expect InlineDatum(nft_datum) = nft_datum
+  expect InlineDatum(nft_datum) = out_nft_datum
 
-  expect NftState { nft_key: out_nft_key } as out_nft_datum: ForkDatum =
-    nft_datum
+  expect NftState { nft_key: out_nft_key }: ForkDatum = nft_datum
 
   let callback =
     when ownership_key_index is {
@@ -432,7 +431,7 @@ pub fn lock_after_fork(
         expect [script_input1, script_input2] = script_inputs
 
         let (lock_input, nft_input) =
-          if script_input1.output.datum == InlineDatum(out_nft_datum) {
+          if script_input1.output.datum == out_nft_datum {
             (script_input2.output, script_input1.output)
           } else {
             (script_input1.output, script_input2.output)
@@ -642,13 +641,12 @@ pub fn hard_fork(
   // Handle output NFT state first
   let nft_output = list_at(outputs, nft_output_index)
 
-  let Output { address, value: out_nft_value, datum: nft_datum, .. } =
+  let Output { address, value: out_nft_value, datum: out_nft_datum, .. } =
     nft_output
 
-  expect InlineDatum(nft_datum) = nft_datum
+  expect InlineDatum(nft_datum) = out_nft_datum
 
-  expect NftState { nft_key: out_nft_key } as out_nft_datum: ForkDatum =
-    nft_datum
+  expect NftState { nft_key: out_nft_key }: ForkDatum = nft_datum
 
   let callback =
     when ownership_key_index is {
@@ -668,13 +666,31 @@ pub fn hard_fork(
             |> dict.to_list
 
         // Handle getting input state
-        expect [Input { output: lock_input, .. }] = script_inputs
+        expect [script_input1, script_input2] = script_inputs
+        let (Input { output: hard_fork_input, .. }, miner_lock_input) =
+          if hard_fork_state_input == script_input1.output_reference {
+            (script_input1, script_input2)
+          } else {
+            (script_input2, script_input1)
+          }
 
         let user_locked_tuna =
           quantity_of(out_nft_value, fortuna_v1_hash, fortuna.token_name)
 
+        expect
+          quantity_of(hard_fork_input.value, own_policy, hard_fork_state_token) == 1
+
+        expect InlineDatum(hard_fork_state_datum) = hard_fork_input.datum
+
         if minted_token == own_token_name {
-          fn(g) { g(own_token_name, lock_input, user_locked_tuna) }
+          fn(g) {
+            g(
+              own_token_name,
+              miner_lock_input,
+              user_locked_tuna,
+              hard_fork_state_datum,
+            )
+          }
         } else {
           fail @"Minted wrong token name"
         }
@@ -691,14 +707,28 @@ pub fn hard_fork(
         // Handle getting input state
         expect [script_input1, script_input2, script_input3] = script_inputs
 
-        let (lock_input, nft_input) =
-          if script_input1.output.datum == InlineDatum(out_nft_datum) {
-            (script_input2.output, script_input1.output)
+        let (Input { output: hard_fork_input, .. }, miner_lock_input, nft_input) =
+          if hard_fork_state_input == script_input1.output_reference {
+            if script_input3.output.datum == out_nft_datum {
+              (script_input1, script_input2, script_input3)
+            } else {
+              (script_input1, script_input3, script_input2)
+            }
+          } else if hard_fork_state_input == script_input2.output_reference {
+            if script_input3.output.datum == out_nft_datum {
+              (script_input2, script_input1, script_input3)
+            } else {
+              (script_input2, script_input3, script_input1)
+            }
           } else {
-            (script_input1.output, script_input2.output)
+            if script_input2.output.datum == out_nft_datum {
+              (script_input3, script_input1, script_input2)
+            } else {
+              (script_input3, script_input2, script_input1)
+            }
           }
 
-        let Output { value: nft_value, datum: nft_datum, .. } = nft_input
+        let Output { value: nft_value, datum: nft_datum, .. } = nft_input.output
 
         expect InlineDatum(nft_datum) = nft_datum
 
@@ -715,8 +745,20 @@ pub fn hard_fork(
             fortuna.token_name,
           )
 
+        expect
+          quantity_of(hard_fork_input.value, own_policy, hard_fork_state_token) == 1
+
+        expect InlineDatum(hard_fork_state_datum) = hard_fork_input.datum
+
         if quantity_of(proof_of_ownership_value, own_policy, nft_key) == 1 {
-          fn(g) { g(nft_key, lock_input, user_locked_tuna) }
+          fn(g) {
+            g(
+              nft_key,
+              miner_lock_input,
+              user_locked_tuna,
+              hard_fork_state_datum,
+            )
+          }
         } else {
           fail @"Ownership proof does not match NFT input state"
         }
@@ -1021,7 +1063,7 @@ fn do_calculate_emission(block_height: Int, halving_epoch: Int) -> Int {
   }
 }
 
-pub fn get_hardfork_state(
+pub fn validate_hardfork_state(
   inputs: List<Input>,
   output_ref: OutputReference,
   own_policy: ByteArray,
