@@ -359,7 +359,7 @@ type NftForkAction {
   }
 
   HardFork {
-    hard_fork_state_input: OutputReference,
+    hardfork_state_input: OutputReference,
     v2_miner_output: Int,
     lock_output_index: Int,
     nft_output_index: Int,
@@ -488,15 +488,15 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             )
 
           HardFork {
-            hard_fork_state_input,
-            v2_miner_output,
+            hardfork_state_input,
+            hardfork_output_index,
+            nft_output_index,
             lock_output_index,
             ownership_key_index,
-            nft_output_index,
-            hardfork_output_index,
+            v2_miner_output,
             lock_action,
           } -> {
-            expect Some(miner_locked_state_output) =
+            expect Some(locked_state_input) =
               list.find(
                 transaction.reference_inputs,
                 fn(input) {
@@ -508,24 +508,24 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 },
               )
 
-            expect InlineDatum(miner_locked_state_datum) =
-              miner_locked_state_output.output.datum
+            expect InlineDatum(locked_state_datum) =
+              locked_state_input.output.datum
 
-            expect LockState { locked_tuna }: ForkDatum =
-              miner_locked_state_datum
+            expect LockState { locked_tuna: user_locked_tuna }: ForkDatum =
+              locked_state_datum
 
             hardfork.hard_fork(
               fortuna_v1_hash,
-              hard_fork_state_input,
+              hardfork_state_input,
+              hardfork_output_index,
               lock_output_index,
               nft_output_index,
-              hardfork_output_index,
               ownership_key_index,
-              lock_action,
               v2_miner_output,
+              lock_action,
               transaction,
               own_policy,
-              locked_tuna,
+              user_locked_tuna,
             )
           }
         }
