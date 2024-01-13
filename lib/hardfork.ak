@@ -1,10 +1,12 @@
 use aiken/builtin.{blake2b_256}
-use aiken/dict
+use aiken/dict.{to_list}
 use aiken/list
 use aiken/math
 use aiken/transaction.{InlineDatum, Input, Output, OutputReference, Transaction}
 use aiken/transaction/credential.{Address, ScriptCredential}
-use aiken/transaction/value.{tokens}
+use aiken/transaction/value.{
+  from_minted_value, to_dict, tokens, without_lovelace,
+}
 use fortuna
 use fortuna/parameters.{halving_number, initial_payout}
 use fortuna/types.{State}
@@ -898,6 +900,71 @@ pub fn hard_fork(
       )
 
     _ -> False
+  }
+}
+
+pub fn failed_fork(
+  fortuna_v1_hash: ByteArray,
+  hardfork_state_input: OutputReference,
+  fortuna_v1_output: Int,
+  transaction: Transaction,
+  own_policy: ByteArray,
+) -> Bool {
+  // Every action here should ensure that all mints and inputs are checked
+  let Transaction { inputs, outputs, mint, .. } = transaction
+
+  let own_address =
+    Address {
+      payment_credential: ScriptCredential(own_policy),
+      stake_credential: None,
+    }
+
+  // Needed to ensure all validator spends from this script hash are accounted for
+  let script_inputs =
+    list.filter(inputs, fn(input) { input.output.address == own_address })
+
+  expect [Input { output: hfs_input, .. }] = script_inputs
+
+  expect [] = mint |> from_minted_value |> to_dict |> to_list
+
+  expect quantity_of(hfs_input.value, own_policy, hard_fork_state_token) == 1
+
+  expect InlineDatum(hardfork_state_datum) = hfs_input.datum
+
+  expect HardForkState {
+    status: NotForked,
+    fork_block_height,
+    fortuna_next_validator_hash,
+  }: ForkDatum = hardfork_state_datum
+
+  expect [hfs_output, ..] = outputs
+
+  expect without_lovelace(hfs_input.value) == without_lovelace(hfs_output.value)
+
+  let output_datum =
+    InlineDatum(
+      HardForkState {
+        status: FailedFork,
+        fork_block_height,
+        fortuna_next_validator_hash,
+      },
+    )
+
+  expect hfs_output.datum == output_datum
+
+  // Handle getting output states
+  let fortuna_v1_output = list_at(outputs, fortuna_v1_output)
+
+  let Output { value: fortuna_v1_value, datum: fortuna_v1_datum, .. } =
+    fortuna_v1_output
+
+  expect InlineDatum(fortuna_v1_datum) = fortuna_v1_datum
+
+  expect State { block_number, .. }: State = fortuna_v1_datum
+
+  and {
+    fork_block_height < block_number,
+    quantity_of(fortuna_v1_value, fortuna_v1_hash, fortuna.master_token_name) == 1,
   }
 }
 

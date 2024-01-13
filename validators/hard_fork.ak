@@ -529,7 +529,14 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               user_locked_tuna,
             )
           }
-          FailedFork { hardfork_state_input, fortuna_v1_output } -> todo
+          FailedFork { hardfork_state_input, fortuna_v1_output } ->
+            hardfork.failed_fork(
+              fortuna_v1_hash,
+              hardfork_state_input,
+              fortuna_v1_output,
+              transaction,
+              own_policy,
+            )
         }
       }
 
