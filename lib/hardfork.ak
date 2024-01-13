@@ -905,7 +905,6 @@ pub fn hard_fork(
 
 pub fn failed_fork(
   fortuna_v1_hash: ByteArray,
-  hardfork_state_input: OutputReference,
   fortuna_v1_output: Int,
   transaction: Transaction,
   own_policy: ByteArray,
