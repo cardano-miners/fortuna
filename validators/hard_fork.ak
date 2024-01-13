@@ -374,6 +374,7 @@ type NftForkAction {
     hard_fork_state_ref: OutputReference,
     locked_tokens_ref: OutputReference,
   }
+  FailedFork { hardfork_state_input: OutputReference, fortuna_v1_output: Int }
 }
 
 // maybe we should do time instead of block height?
@@ -528,6 +529,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               user_locked_tuna,
             )
           }
+          FailedFork { hardfork_state_input, fortuna_v1_output } -> todo
         }
       }
 
