@@ -15,7 +15,6 @@ aiken.lock
 
 
 dist
-.solid
 .output
 .vercel
 .netlify
@@ -41,3 +40,10 @@ gitignore
 # System Files
 .DS_Store
 Thumbs.db
+
+/.svelte-kit
+/package
+.env.*
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
