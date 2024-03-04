@@ -10,6 +10,9 @@ dependencies:
     version: git@github.com+txpipe/translucent/05847b9f22979818d7a65afe15a9b74eca24faaf(typescript@5.3.3)
 
 devDependencies:
+  '@commander-js/extra-typings':
+    specifier: ^12.0.1
+    version: 12.0.1(commander@12.0.0)
   '@playwright/test':
     specifier: ^1.28.1
     version: 1.41.2
@@ -167,6 +170,14 @@ packages:
     dependencies:
       tslib: 2.6.2
     dev: false
+
+  /@commander-js/extra-typings@12.0.1(commander@12.0.0):
+    resolution: {integrity: sha512-OvkMobb1eMqOCuJdbuSin/KJkkZr7n24/UNV+Lcz/0Dhepf3r2p9PaGwpRpAWej7A+gQnny4h8mGhpFl4giKkg==}
+    peerDependencies:
+      commander: ~12.0.0
+    dependencies:
+      commander: 12.0.0
+    dev: true
 
   /@dcspark/cardano-multiplatform-lib-browser@3.1.2:
     resolution: {integrity: sha512-BDIF33nqEKAGn72+ESD1fLgnWCZJbPWnVKHr0cy7Al2zhvM30rGsajcJNHLPh2XXZQh1H35fBiHHR2uUyZRRpw==}

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Command } from 'commander';
+import { Command, Option } from '@commander-js/extra-typings';
 import {
 	applyParamsToScript,
 	Constr,
@@ -41,13 +41,23 @@ const app = new Command();
 
 app.name('fortuna').description('Fortuna miner').version('0.0.1');
 
+const kupoUrlOption = new Option('-k, --kupo-url <string>', 'Kupo URL')
+	.env('KUPO_URL')
+	.makeOptionMandatory(true);
+
+const ogmiosUrlOption = new Option('-o, --ogmios-url <string>', 'Ogmios URL')
+	.env('OGMIOS_URL')
+	.makeOptionMandatory(true);
+
+const previewOption = new Option('-p, --preview', 'Use testnet').default(false);
+
 app
 	.command('mine')
 	.description('Start the miner')
-	// .env('KUPO_URL=<value:string>', 'Kupo URL', { required: true })
-	// .env('OGMIOS_URL=<value:string>', 'Ogmios URL', { required: true })
-	.option('-p, --preview', 'Use testnet')
-	.action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+	.addOption(kupoUrlOption)
+	.addOption(ogmiosUrlOption)
+	.addOption(previewOption)
+	.action(async ({ preview, kupoUrl, ogmiosUrl }) => {
 		while (true) {
 			const genesisFile = fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
 				encoding: 'utf8'
@@ -256,9 +266,9 @@ app
 app
 	.command('genesis')
 	.description('Create block 0')
-	// .env('KUPO_URL=<value:string>', 'Kupo URL', { required: true })
-	// .env('OGMIOS_URL=<value:string>', 'Ogmios URL', { required: true })
-	.option('-p, --preview', 'Use testnet')
+	.addOption(kupoUrlOption)
+	.addOption(ogmiosUrlOption)
+	.addOption(previewOption)
 	.action(async ({ preview, ogmiosUrl, kupoUrl }) => {
 		const unAppliedValidator = readValidator();
 
@@ -368,9 +378,9 @@ app
 app
 	.command('address')
 	.description('Check address balance')
-	// .env('KUPO_URL=<value:string>', 'Kupo URL', { required: true })
-	// .env('OGMIOS_URL=<value:string>', 'Ogmios URL', { required: true })
-	.option('-p, --preview', 'Use testnet')
+	.addOption(kupoUrlOption)
+	.addOption(ogmiosUrlOption)
+	.addOption(previewOption)
 	.action(async ({ preview, ogmiosUrl, kupoUrl }) => {
 		const provider = new Kupmios(kupoUrl, ogmiosUrl);
 		const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
