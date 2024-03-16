@@ -364,6 +364,107 @@ app
     }
   });
 
+	app
+	.command('fork')
+	.description('Create contracts for hard fork')
+	.addOption(kupoUrlOption)
+	.addOption(ogmiosUrlOption)
+	.addOption(previewOption)
+	.action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+		const unAppliedValidator = readValidator();
+
+		const provider = new Kupmios(kupoUrl, ogmiosUrl);
+		const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
+		lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+		const utxos = await lucid.wallet.getUtxos();
+
+		if (utxos.length === 0) {
+			throw new Error('No UTXOs Found');
+		}
+
+		const initOutputRef = new Constr(0, [
+			new Constr(0, [utxos[0].txHash]),
+			BigInt(utxos[0].outputIndex)
+		]);
+
+		const appliedValidator = applyParamsToScript(unAppliedValidator.script, [initOutputRef]);
+
+		const validator: Script = {
+			type: 'PlutusV2',
+			script: appliedValidator
+		};
+
+		const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(initOutputRef)))));
+
+		const validatorAddress = lucid.utils.validatorToAddress(validator);
+
+		const validatorHash = lucid.utils.validatorToScriptHash(validator);
+
+		const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
+
+		const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+
+		// State
+		const preDatum = new Constr(0, [
+			// block_number: Int
+			0n,
+			// current_hash: ByteArray
+			bootstrapHash,
+			// leading_zeros: Int
+			5n,
+			// difficulty_number: Int
+			65535n,
+			// epoch_time: Int
+			0n,
+			// current_posix_time: Int
+			BigInt(90000 + timeNow),
+			// extra: Data
+			0n,
+			// interlink: List<Data>
+			[]
+		]);
+
+		const datum = Data.to(preDatum);
+
+		const tx = await lucid
+			.newTx()
+			.collectFrom(utxos)
+			.payToContract(validatorAddress, { inline: datum }, masterToken)
+			.mintAssets(masterToken, Data.to(new Constr(1, [])))
+			.attachMintingPolicy(validator)
+			.validFrom(timeNow)
+			.validTo(timeNow + 180000)
+			.complete();
+
+		const signed = await tx.sign().complete();
+
+		try {
+			await signed.submit();
+
+			console.log(`TX Hash: ${signed.toHash()}`);
+
+			await lucid.awaitTx(signed.toHash());
+
+			console.log(`Completed and saving genesis file.`);
+
+			fs.writeFileSync(
+				`genesis/${preview ? 'preview' : 'mainnet'}.json`,
+				JSON.stringify({
+					validator: validator.script,
+					validatorHash,
+					validatorAddress,
+					bootstrapHash,
+					datum,
+					outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex }
+				}),
+				{ encoding: 'utf-8' }
+			);
+		} catch (e) {
+			console.log(e);
+		}
+	});
+
 app
   .command('init')
   .description('Initialize the miner')
