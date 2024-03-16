@@ -11,8 +11,13 @@ use hardfork/hftypes.{
 use hardfork_validation as hfv
 
 type NftForkAction {
+  /// Only run once to initialize the nft tokens
   Initialize
 
+  /// Allows locking of v1 tuna tokens in the hopes that the hard fork succeeds 
+  /// they would then be able to claim an equal amount of v2 tokens 
+  /// if the fork fails you get the v1 tuna back =)
+  /// Mints an ownership NFT or uses an existing one to prove ownership over who locked the funds
   Lock {
     hard_fork_state_ref: OutputReference,
     lock_output_index: Int,
@@ -21,6 +26,8 @@ type NftForkAction {
     lock_action: LockAction,
   }
 
+  /// Hardfork action is only run once and it permanently alters the state of 
+  /// the control token to either Forked or FailedFork
   HardFork {
     hardfork_state_input: OutputReference,
     v2_miner_output: Int,
@@ -31,13 +38,18 @@ type NftForkAction {
     lock_action: LockAction,
   }
 
+  /// Fork Failed so come get your tokens back
   Unlock { hard_fork_state_ref: OutputReference }
 
+  /// Congrats the forked succeeded, so burn your ownership NFT to get an 
+  /// amount of tuna v2 equal to your locked tuna
   Burn {
     hard_fork_state_ref: OutputReference,
     locked_tokens_ref: OutputReference,
   }
-  FailedFork { fortuna_v1_output: Int }
+  /// Backup function to run 
+  /// to get to Failed Fork status
+  FailForkAttempt { fortuna_v1_output: Int }
 }
 
 // maybe we should do time instead of block height?
@@ -86,14 +98,14 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 // the compiler will optimize it out so all the function param
                 // passing is free. Same with the others below
                 hfv.lock_not_forked(
-                  fortuna_v1_hash,
-                  lock_output_index,
-                  nft_output_index,
-                  ownership_key_index,
-                  lock_action,
-                  transaction,
-                  own_policy,
-                  fork_block_height,
+                  fv1h: fortuna_v1_hash,
+                  loi: lock_output_index,
+                  noi: nft_output_index,
+                  oki: ownership_key_index,
+                  la: lock_action,
+                  tx: transaction,
+                  op: own_policy,
+                  fbh: fork_block_height,
                 )
               Forked -> {
                 let total_emission_at_fork =
@@ -118,15 +130,15 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                   miner_locked_state_datum
 
                 hfv.lock_after_fork(
-                  fortuna_v1_hash,
-                  lock_output_index,
-                  nft_output_index,
-                  ownership_key_index,
-                  lock_action,
-                  transaction,
-                  own_policy,
-                  total_emission_at_fork,
-                  miner_locked_tuna,
+                  fv1h: fortuna_v1_hash,
+                  loi: lock_output_index,
+                  noi: nft_output_index,
+                  oki: ownership_key_index,
+                  la: lock_action,
+                  tx: transaction,
+                  op: own_policy,
+                  teaf: total_emission_at_fork,
+                  mlt: miner_locked_tuna,
                 )
               }
               _ -> False
@@ -187,7 +199,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               user_locked_tuna,
             )
           }
-          FailedFork { fortuna_v1_output } ->
+          FailForkAttempt { fortuna_v1_output } ->
             hfv.failed_fork(
               fortuna_v1_hash,
               fortuna_v1_output,
@@ -212,7 +224,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
     let own_withdrawal = Inline(own_input.address.payment_credential)
 
-    // Fork Spend(1) requirement: Withdrawal script is present
+    // Fork Spend(0) requirement: Withdrawal script is present
     dict.has_key(withdrawals, own_withdrawal)
   }
 }

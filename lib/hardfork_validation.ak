@@ -103,15 +103,16 @@ pub fn initialize(
   }
 }
 
+/// Use some labels for the amount of parameters
 pub fn lock_not_forked(
-  fortuna_v1_hash: ByteArray,
-  lock_output_index: Int,
-  nft_output_index: Int,
-  ownership_key_index: Option<Int>,
-  lock_action: LockAction,
-  transaction: Transaction,
-  own_policy: ByteArray,
-  fork_block_height: Int,
+  fv1h fortuna_v1_hash: ByteArray,
+  loi lock_output_index: Int,
+  noi nft_output_index: Int,
+  oki ownership_key_index: Option<Int>,
+  la lock_action: LockAction,
+  tx transaction: Transaction,
+  op own_policy: ByteArray,
+  fbh fork_block_height: Int,
 ) -> Bool {
   // Every action here should ensure that all mints and inputs are checked
   let Transaction { inputs, outputs, mint, .. } = transaction
@@ -212,26 +213,24 @@ pub fn lock_not_forked(
   when lock_action is {
     // TODO: refactor some the shared parts in code
     MinerLock { fortuna_v1_output } -> {
-      let miner_check =
-        // found a formatting bug
-        fn(own_token_name, miner_lock_input, user_locked_tuna) { and {
-            // Proves that the user owns the nft key
-            out_nft_key == own_token_name,
-            address == own_address,
-            is_a_valid_miner(
-              fork_block_height,
-              fortuna_v1_hash,
-              own_address,
-              own_policy,
-              miner_lock_input,
-              outputs,
-              lock_output_index,
-              fortuna_v1_output,
-              user_locked_tuna,
-            ),
-          } }
+      let own_token_name, miner_lock_input, user_locked_tuna <- callback
 
-      callback(miner_check)
+      and {
+        // Proves that the user owns the nft key
+        out_nft_key == own_token_name,
+        address == own_address,
+        is_a_valid_miner(
+          fork_block_height,
+          fortuna_v1_hash,
+          own_address,
+          own_policy,
+          miner_lock_input,
+          outputs,
+          lock_output_index,
+          fortuna_v1_output,
+          user_locked_tuna,
+        ),
+      }
     }
 
     UserLock -> {
@@ -360,15 +359,15 @@ fn is_a_valid_locker(
 }
 
 pub fn lock_after_fork(
-  fortuna_v1_hash: ByteArray,
-  lock_output_index: Int,
-  nft_output_index: Int,
-  ownership_key_index: Option<Int>,
-  lock_action: LockAction,
-  transaction: Transaction,
-  own_policy: ByteArray,
-  total_emission_at_fork: Int,
-  miner_locked_tuna: Int,
+  fv1h fortuna_v1_hash: ByteArray,
+  loi lock_output_index: Int,
+  noi nft_output_index: Int,
+  oki ownership_key_index: Option<Int>,
+  la lock_action: LockAction,
+  tx transaction: Transaction,
+  op own_policy: ByteArray,
+  teaf total_emission_at_fork: Int,
+  mlt miner_locked_tuna: Int,
 ) -> Bool {
   let Transaction { inputs, outputs, mint, .. } = transaction
 
