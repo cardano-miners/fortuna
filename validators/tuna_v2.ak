@@ -7,17 +7,14 @@ use aiken/math
 use aiken/transaction.{
   InlineDatum, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
-use aiken/transaction/credential.{Address, Inline, ScriptCredential}
+use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{tokens}
 use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
 use fortuna/types.{State}
 use fortuna/utils.{list_at, quantity_of, resolve_output_reference}
-use hardfork
-use hardfork/hftypes.{
-  ForkDatum, Forked, HardForkState, LockAction, LockState, MinerLockState,
-  NftState, NotForked,
-}
+use hardfork/hftypes.{ForkDatum, NftState}
+use hardfork_validation.{hard_fork_state_token}
 
 type TunaAction {
   Genesis
@@ -80,11 +77,7 @@ validator(
             payment_credential: ScriptCredential(fork_script_hash),
             stake_credential: None,
           },
-          quantity_of(
-            out_value,
-            fork_script_hash,
-            hardfork.hard_fork_state_token,
-          ) == 1,
+          quantity_of(out_value, fork_script_hash, hard_fork_state_token) == 1,
           quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
           genesis_input == genesis_input,
         }

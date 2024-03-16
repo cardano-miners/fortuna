@@ -1,4 +1,4 @@
-use hardfork.{calculate_emission, check_block_signal}
+use hardfork_validation.{calculate_emission, check_block_signal}
 
 test calculate_emission_1() {
   calculate_emission(3000) == 15000000000000

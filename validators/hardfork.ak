@@ -4,11 +4,11 @@ use aiken/transaction.{InlineDatum,
   OutputReference, ScriptContext, Transaction} as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use fortuna/utils.{quantity_of}
-use hardfork_validation
 use hardfork/hftypes.{
   ForkDatum, Forked, HardForkState, LockAction, LockState, MinerLockState,
   NotForked,
 }
+use hardfork_validation as hfv
 
 type NftForkAction {
   Initialize
@@ -64,8 +64,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
           // Check if the input is spent and proper initial state is made
           // No need to check spends from own script hash in intialize
           // The reason being is no meaningful locks can happen before initialize
-          Initialize ->
-            hardfork.initialize(init_utxo_ref, transaction, own_policy)
+          Initialize -> hfv.initialize(init_utxo_ref, transaction, own_policy)
 
           Lock {
             hard_fork_state_ref,
@@ -75,7 +74,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             lock_action,
           } -> {
             expect HardForkState { status, fork_block_height, .. } =
-              hardfork.validate_hardfork_state(
+              hfv.validate_hardfork_state(
                 transaction.reference_inputs,
                 hard_fork_state_ref,
                 own_policy,
@@ -86,7 +85,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 // Since this function is only used once
                 // the compiler will optimize it out so all the function param
                 // passing is free. Same with the others below
-                hardfork.lock_not_forked(
+                hfv.lock_not_forked(
                   fortuna_v1_hash,
                   lock_output_index,
                   nft_output_index,
@@ -98,7 +97,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 )
               Forked -> {
                 let total_emission_at_fork =
-                  hardfork.calculate_emission(fork_block_height)
+                  hfv.calculate_emission(fork_block_height)
 
                 expect Some(miner_locked_state_output) =
                   list.find(
@@ -107,7 +106,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                       quantity_of(
                         input.output.value,
                         own_policy,
-                        hardfork.miner_lock_state_token,
+                        hfv.miner_lock_state_token,
                       ) == 1
                     },
                   )
@@ -118,7 +117,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 expect MinerLockState { locked_tuna: miner_locked_tuna, .. }: ForkDatum =
                   miner_locked_state_datum
 
-                hardfork.lock_after_fork(
+                hfv.lock_after_fork(
                   fortuna_v1_hash,
                   lock_output_index,
                   nft_output_index,
@@ -137,14 +136,10 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
           // We allow unlocking of fortuna v1 tokens in the case of a failed fork
           // We only allow an input to be spent under the hard fork failed condition and when burning the nft key
           Unlock { hard_fork_state_ref } ->
-            hardfork.unlock_failed_fork(
-              transaction,
-              own_policy,
-              hard_fork_state_ref,
-            )
+            hfv.unlock_failed_fork(transaction, own_policy, hard_fork_state_ref)
 
           Burn { hard_fork_state_ref, locked_tokens_ref } ->
-            hardfork.burn_forked(
+            hfv.burn_forked(
               transaction,
               own_policy,
               hard_fork_state_ref,
@@ -167,7 +162,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                   quantity_of(
                     input.output.value,
                     own_policy,
-                    hardfork.lock_state_token,
+                    hfv.lock_state_token,
                   ) == 1
                 },
               )
@@ -178,7 +173,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             expect LockState { locked_tuna: user_locked_tuna }: ForkDatum =
               locked_state_datum
 
-            hardfork.hard_fork(
+            hfv.hard_fork(
               fortuna_v1_hash,
               hardfork_state_input,
               hardfork_output_index,
@@ -193,7 +188,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             )
           }
           FailedFork { fortuna_v1_output } ->
-            hardfork.failed_fork(
+            hfv.failed_fork(
               fortuna_v1_hash,
               fortuna_v1_output,
               transaction,
