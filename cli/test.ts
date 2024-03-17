@@ -1,131 +1,131 @@
 import colors from 'colors/safe';
 import {
-	applyParamsToScript,
-	Constr,
-	Credential,
-	Emulator,
-	generatePrivateKey,
-	getAddressDetails,
-	Translucent,
-	PROTOCOL_PARAMETERS_DEFAULT,
-	Script,
-	TxSigned
+  applyParamsToScript,
+  Constr,
+  Credential,
+  Emulator,
+  generatePrivateKey,
+  getAddressDetails,
+  Translucent,
+  PROTOCOL_PARAMETERS_DEFAULT,
+  Script,
+  TxSigned
 } from 'translucent-cardano';
 
 import { printExecutionDetails, readValidator } from './utils';
 
 export type TestContext = {
-	lucid: Translucent;
-	emulator: Emulator;
-	minerPaymentCredential?: Credential;
-	minerAddr: string;
-	minerPk: string;
-	initOutRef: Constr<bigint | Constr<string>>;
-	validator: Script;
-	refAddr: string;
+  lucid: Translucent;
+  emulator: Emulator;
+  minerPaymentCredential?: Credential;
+  minerAddr: string;
+  minerPk: string;
+  initOutRef: Constr<bigint | Constr<string>>;
+  validator: Script;
+  refAddr: string;
 };
 
 const validator = readValidator();
 
 export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSigned>) {
-	const minerPk = generatePrivateKey();
-	const refPk = generatePrivateKey();
+  const minerPk = generatePrivateKey();
+  const refPk = generatePrivateKey();
 
-	const l = await Translucent.new(undefined, 'Preprod');
+  const l = await Translucent.new(undefined, 'Preprod');
 
-	const minerAddr = await l.selectWalletFromPrivateKey(minerPk).wallet.address();
+  const minerAddr = await l.selectWalletFromPrivateKey(minerPk).wallet.address();
 
-	const refAddr = await l.selectWalletFromPrivateKey(refPk).wallet.address();
+  const refAddr = await l.selectWalletFromPrivateKey(refPk).wallet.address();
 
-	const { paymentCredential: minerPaymentCred } = getAddressDetails(minerAddr);
+  const { paymentCredential: minerPaymentCred } = getAddressDetails(minerAddr);
 
-	const emulator = new Emulator(
-		[
-			{
-				address: minerAddr,
-				assets: {
-					lovelace: BigInt(1e14)
-				}
-			},
-			{ address: refAddr, assets: { lovelace: BigInt(1e14) } }
-		],
-		{
-			...PROTOCOL_PARAMETERS_DEFAULT
-		}
-	);
+  const emulator = new Emulator(
+    [
+      {
+        address: minerAddr,
+        assets: {
+          lovelace: BigInt(1e14)
+        }
+      },
+      { address: refAddr, assets: { lovelace: BigInt(1e14) } }
+    ],
+    {
+      ...PROTOCOL_PARAMETERS_DEFAULT
+    }
+  );
 
-	const lucid = await Translucent.new(emulator);
+  const lucid = await Translucent.new(emulator);
 
-	lucid.selectWalletFromPrivateKey(minerPk);
+  lucid.selectWalletFromPrivateKey(minerPk);
 
-	const txInit = await lucid
-		.newTx()
-		.payToAddress(minerAddr, {
-			lovelace: 1000001n
-		})
-		.complete();
+  const txInit = await lucid
+    .newTx()
+    .payToAddress(minerAddr, {
+      lovelace: 1000001n
+    })
+    .complete();
 
-	const signedRef1 = await txInit.sign().complete();
+  const signedRef1 = await txInit.sign().complete();
 
-	await signedRef1.submit();
+  await signedRef1.submit();
 
-	emulator.awaitBlock(16);
+  emulator.awaitBlock(16);
 
-	const initOutputRef = new Constr(0, [new Constr(0, [txInit.toHash()]), 0n]);
+  const initOutputRef = new Constr(0, [new Constr(0, [txInit.toHash()]), 0n]);
 
-	validator.script = applyParamsToScript(validator.script, [initOutputRef]);
+  validator.script = applyParamsToScript(validator.script, [initOutputRef]);
 
-	const initUTXOs = await lucid.utxosAt(minerAddr);
+  const initUTXOs = await lucid.utxosAt(minerAddr);
 
-	const txRef = await lucid
-		.newTx()
-		.collectFrom(initUTXOs.filter((u) => u.outputIndex === 1))
-		.payToAddressWithData(
-			refAddr,
-			{ scriptRef: validator },
-			{
-				lovelace: 100000000n
-			}
-		)
-		.complete({ coinSelection: false });
+  const txRef = await lucid
+    .newTx()
+    .collectFrom(initUTXOs.filter((u) => u.outputIndex === 1))
+    .payToAddressWithData(
+      refAddr,
+      { scriptRef: validator },
+      {
+        lovelace: 100000000n
+      }
+    )
+    .complete({ coinSelection: false });
 
-	const signedRef2 = await txRef.sign().complete();
+  const signedRef2 = await txRef.sign().complete();
 
-	await signedRef2.submit();
+  await signedRef2.submit();
 
-	emulator.awaitBlock(16);
+  emulator.awaitBlock(16);
 
-	const txSigned = await fn({
-		lucid,
-		emulator,
-		minerPaymentCredential: minerPaymentCred,
-		minerAddr,
-		minerPk,
-		initOutRef: initOutputRef,
-		validator,
-		refAddr
-	});
+  const txSigned = await fn({
+    lucid,
+    emulator,
+    minerPaymentCredential: minerPaymentCred,
+    minerAddr,
+    minerPk,
+    initOutRef: initOutputRef,
+    validator,
+    refAddr
+  });
 
-	printExecutionDetails(txSigned, name);
+  printExecutionDetails(txSigned, name);
 }
 
 export async function testFail(name: string, fn: (ctx: TestContext) => Promise<TxSigned>) {
-	try {
-		await test(name, fn);
+  try {
+    await test(name, fn);
 
-		const err = `
+    const err = `
   ${colors.bold(colors.magenta(name))} - ${colors.red('failed')}`;
 
-		console.log(err);
-	} catch (e) {
-		const error = e
-			.split('\n')
-			.map((l: string) => `\n    ${l}`)
-			.join('');
+    console.log(err);
+  } catch (e) {
+    const error = e
+      .split('\n')
+      .map((l: string) => `\n    ${l}`)
+      .join('');
 
-		const message = `
+    const message = `
   ${colors.bold(colors.magenta(name))} - ${colors.green('passed')}\n${error}`;
 
-		console.log(message);
-	}
+    console.log(message);
+  }
 }
