@@ -1,5 +1,119 @@
 <script lang="ts">
   import SolarArrowRightBroken from '~icons/solar/arrow-right-broken';
+  import { onMount } from 'svelte';
+  import { type WalletOption, type WalletApi } from '../app.d';
+  import { Constr, Translucent, C, Data } from 'translucent-cardano';
+
+  let open = false;
+  let walletApi: WalletApi | undefined;
+  let wallet: WalletOption | undefined;
+  let tunaBalance = 0;
+  let wallets: [string, WalletOption][] = [];
+
+  // button states
+  let locking = false;
+
+  async function connect(walletKey: string) {
+    wallet = window.cardano?.[walletKey];
+    walletApi = await wallet?.enable();
+
+    open = false;
+  }
+
+  async function lockTuna() {
+    locking = true;
+
+    if (walletApi && wallet) {
+      // TODO: lock $TUNA
+      const lucid = await Translucent.new();
+
+      const tunav1Policy = '';
+      const hardforkScriptHash = '';
+
+      const hardforkRewardAddress = lucid.utils.credentialToRewardAddress(
+        lucid.utils.scriptHashToCredential(hardforkScriptHash),
+      );
+
+      const hardforkAddress = lucid.utils.credentialToAddress(
+        lucid.utils.scriptHashToCredential(hardforkScriptHash),
+      );
+
+      const forkStateUtxo = (await lucid.utxosAt(hardforkScriptHash))[0];
+      const lockStateUtxo = (await lucid.utxosAt(hardforkScriptHash))[1];
+      const lockStateNft = '';
+
+      const userTunaUtxos = await lucid.wallet.getUtxos();
+
+      const lockStateDatum = new Constr(2, [5000000000n]);
+
+      const hardforkStateRef = new Constr(0, [
+        new Constr(0, [forkStateUtxo.txHash]),
+        BigInt(forkStateUtxo.outputIndex),
+      ]);
+
+      const userNftOutputRef = new Constr(0, [
+        new Constr(0, [userTunaUtxos[0].txHash]),
+        BigInt(userTunaUtxos[0].outputIndex),
+      ]);
+
+      const userNftName = lucid.utils.datumToHash(Data.to(userNftOutputRef));
+
+      const userNftDatum = new Constr(3, [userNftName]);
+
+      const hardforkRedeemer = new Constr(1, [
+        // hard fork state reference input
+        hardforkStateRef,
+        // lock state output index
+        0n,
+        // user nft output index
+        1n,
+        // user NFT ownership proof (for locking more tuna)
+        new Constr(1, []),
+        // Lock action is UserLock
+        new Constr(1, []),
+      ]);
+
+      const lockTx = lucid
+        .newTx()
+        .readFrom([forkStateUtxo])
+        .mintAssets({ [hardforkScriptHash + userNftName]: 1n }, Data.to(0n))
+        .collectFrom([lockStateUtxo], Data.to(0n))
+        .collectFrom(userTunaUtxos)
+        .payToContract(
+          hardforkAddress,
+          { inline: Data.to(lockStateDatum) },
+          { [hardforkScriptHash + lockStateNft]: 1n },
+        )
+        .payToContract(
+          hardforkAddress,
+          { inline: Data.to(userNftDatum) },
+          {
+            [tunav1Policy + 'TUNA']: 5000000000n,
+          },
+        )
+        .withdraw(hardforkRewardAddress, 0n, Data.to(hardforkRedeemer))
+        .complete();
+    }
+
+    setTimeout(() => {
+      locking = false;
+    }, 5000);
+  }
+
+  onMount(async () => {
+    if (typeof window.cardano !== 'undefined') {
+      wallets = Object.entries(window.cardano);
+
+      for (const [key, walletOption] of wallets) {
+        const isEnabled = await walletOption.isEnabled();
+
+        if (isEnabled) {
+          connect(key);
+          break;
+        }
+      }
+    }
+  });
 </script>
 
 <div class="">
