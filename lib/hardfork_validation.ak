@@ -73,21 +73,18 @@ pub fn initialize(
     ..
   } = lock_state_output
 
-  expect InlineDatum(hfs_datum) = hfs_datum
-  expect InlineDatum(miner_state_datum) = miner_state_datum
-  expect InlineDatum(lock_state_datum) = lock_state_datum
-
   // The values are chosen by the 
   expect HardForkState {
     status: NotForked,
     fork_block_height,
     fortuna_next_validator_hash,
-  }: ForkDatum = hfs_datum
+  }: ForkDatum = get_inline_datum(hfs_datum)
 
   expect MinerLockState { locked_tuna: 0, block_signals: 0 }: ForkDatum =
-    miner_state_datum
+    get_inline_datum(miner_state_datum)
 
-  expect LockState { locked_tuna: 0 }: ForkDatum = lock_state_datum
+  expect LockState { locked_tuna: 0 }: ForkDatum =
+    get_inline_datum(lock_state_datum)
 
   and {
     own_address == hfs_address,
@@ -136,7 +133,8 @@ pub fn lock_not_forked(
   expect NftState { nft_key: out_nft_key }: ForkDatum =
     get_inline_datum(out_nft_datum)
 
-  // Checks lock state and returns a callback for accessing the input
+  // Checks lock state and returns a callback for accessing the input 
+  // and user locked tuna
   let callback =
     when ownership_key_index is {
       None -> {
@@ -420,9 +418,7 @@ pub fn lock_after_fork(
 
         let Output { value: nft_value, datum: nft_datum, .. } = nft_input
 
-        expect InlineDatum(nft_datum) = nft_datum
-
-        expect NftState { nft_key }: ForkDatum = nft_datum
+        expect NftState { nft_key }: ForkDatum = get_inline_datum(nft_datum)
 
         let proof_of_ownership = list_at(outputs, ownership_key_index)
 
@@ -652,15 +648,13 @@ pub fn hard_fork(
         expect
           quantity_of(hardfork_input.value, own_policy, hard_fork_state_token) == 1
 
-        expect InlineDatum(hard_fork_state_datum) = hardfork_input.datum
-
         if minted_token == own_token_name {
           fn(g) {
             g(
               own_token_name,
               miner_lock_input.output,
               miner_locked_tuna,
-              hard_fork_state_datum,
+              get_inline_datum(hardfork_input.datum),
             )
           }
         } else {
@@ -702,9 +696,7 @@ pub fn hard_fork(
 
         let Output { value: nft_value, datum: nft_datum, .. } = nft_input.output
 
-        expect InlineDatum(nft_datum) = nft_datum
-
-        expect NftState { nft_key }: ForkDatum = nft_datum
+        expect NftState { nft_key }: ForkDatum = get_inline_datum(nft_datum)
 
         let proof_of_ownership = list_at(outputs, ownership_key_index)
 
@@ -720,15 +712,13 @@ pub fn hard_fork(
         expect
           quantity_of(hardfork_input.value, own_policy, hard_fork_state_token) == 1
 
-        expect InlineDatum(hardfork_state_datum) = hardfork_input.datum
-
         if quantity_of(proof_of_ownership_value, own_policy, nft_key) == 1 {
           fn(g) {
             g(
               nft_key,
               miner_lock_input.output,
               miner_locked_tuna,
-              hardfork_state_datum,
+              get_inline_datum(hardfork_input.datum),
             )
           }
         } else {
@@ -744,10 +734,8 @@ pub fn hard_fork(
       let Output { value: miner_lock_value, datum: miner_lock_datum, .. } =
         miner_lock_input
 
-      expect InlineDatum(miner_lock_datum) = miner_lock_datum
-
       expect MinerLockState { locked_tuna, block_signals }: ForkDatum =
-        miner_lock_datum
+        get_inline_datum(miner_lock_datum)
 
       expect HardForkState {
         status: NotForked,
@@ -763,9 +751,8 @@ pub fn hard_fork(
       let Output { value: fortuna_v1_value, datum: fortuna_v1_datum, .. } =
         fortuna_v1_output
 
-      expect InlineDatum(fortuna_v1_datum) = fortuna_v1_datum
-
-      expect State { block_number, .. }: State = fortuna_v1_datum
+      expect State { block_number, .. }: State =
+        get_inline_datum(fortuna_v1_datum)
 
       let miner_lock_output = list_at(outputs, lock_output_index)
 
@@ -778,12 +765,10 @@ pub fn hard_fork(
 
       expect address == own_address
 
-      expect InlineDatum(out_miner_lock_datum) = out_miner_lock_datum
-
       expect MinerLockState {
         locked_tuna: out_locked_tuna,
         block_signals: out_block_signals,
-      }: ForkDatum = out_miner_lock_datum
+      }: ForkDatum = get_inline_datum(out_miner_lock_datum)
 
       let hfs_output = list_at(outputs, hardfork_output_index)
 
@@ -792,13 +777,11 @@ pub fn hard_fork(
 
       expect address == own_address
 
-      expect InlineDatum(out_hfs_datum) = out_hfs_datum
-
       expect HardForkState {
         status: Forked,
         fork_block_height: out_fork_block_height,
         fortuna_next_validator_hash: out_fortuna_v2_hash,
-      }: ForkDatum = out_hfs_datum
+      }: ForkDatum = get_inline_datum(out_hfs_datum)
 
       let fortuna_v2 = list_at(outputs, v2_miner_output)
 
@@ -814,8 +797,6 @@ pub fn hard_fork(
           payment_credential: ScriptCredential(fortuna_next_validator_hash),
           stake_credential: None,
         }
-
-      expect InlineDatum(fortuna_v2_datum) = fortuna_v2_datum
 
       and {
         // Miner mined a valid fortuna v1 block
@@ -890,13 +871,11 @@ pub fn failed_fork(
 
   expect quantity_of(hfs_input.value, own_policy, hard_fork_state_token) == 1
 
-  expect InlineDatum(hardfork_state_datum) = hfs_input.datum
-
   expect HardForkState {
     status: NotForked,
     fork_block_height,
     fortuna_next_validator_hash,
-  }: ForkDatum = hardfork_state_datum
+  }: ForkDatum = get_inline_datum(hfs_input.datum)
 
   expect [hfs_output, ..] = outputs
 
@@ -919,9 +898,7 @@ pub fn failed_fork(
   let Output { value: fortuna_v1_value, datum: fortuna_v1_datum, .. } =
     fortuna_v1_output
 
-  expect InlineDatum(fortuna_v1_datum) = fortuna_v1_datum
-
-  expect State { block_number, .. }: State = fortuna_v1_datum
+  expect State { block_number, .. }: State = get_inline_datum(fortuna_v1_datum)
 
   and {
     fork_block_height < block_number,
@@ -960,10 +937,9 @@ pub fn validate_hardfork_state(
 
   expect
     quantity_of(hard_fork_state_input.value, own_policy, hard_fork_state_token) == 1
-  //
-  expect InlineDatum(hard_fork_state_datum) = hard_fork_state_input.datum
 
-  expect HardForkState { .. } as datum: ForkDatum = hard_fork_state_datum
+  expect HardForkState { .. } as datum: ForkDatum =
+    get_inline_datum(hard_fork_state_input.datum)
   datum
 }
 
