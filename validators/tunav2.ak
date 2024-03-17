@@ -4,7 +4,8 @@ use aiken/transaction.{Mint,
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{tokens}
 use fortuna
-use fortuna/utils.{list_at, quantity_of}
+use fortuna/utils.{get_inline_datum, list_at, quantity_of}
+use hardfork/hftypes.{ForkDatum, NftState}
 use hardfork_validation.{hard_fork_state_token}
 
 type TunaAction {
@@ -39,7 +40,7 @@ type TargetState {
 
 validator(
   init_utxo_ref: OutputReference,
-  _fortuna_v1_hash: ByteArray,
+  fortuna_v1_hash: ByteArray,
   fork_script_hash: ByteArray,
 ) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
@@ -77,8 +78,37 @@ validator(
           genesis_input == genesis_input,
         }
       }
+      Redeem(locked_tokens_ref) -> {
+        let Transaction { reference_inputs, mint, .. } = tx
+
+        let mint = value.from_minted_value(mint)
+
+        // We reference the locked v1 tuan NFTState that we have the NFT key for.
+        let own_input =
+          utils.resolve_output_reference(reference_inputs, locked_tokens_ref)
+
+        let Output { address: in_address, value: in_value, datum: in_datum, .. } =
+          own_input
+
+        let locked_tokens =
+          quantity_of(in_value, fortuna_v1_hash, fortuna.token_name)
+
+        expect NftState { nft_key }: ForkDatum = get_inline_datum(in_datum)
+
+        expect [(token_name, quantity)] =
+          mint |> tokens(own_policy) |> dict.to_list
+
+        and {
+          quantity_of(mint, fork_script_hash, nft_key) == -1,
+          token_name == fortuna.token_name,
+          quantity == locked_tokens,
+          in_address == Address {
+            payment_credential: ScriptCredential(fork_script_hash),
+            stake_credential: None,
+          },
+        }
+      }
       Mine -> todo
-      Redeem(_locked_tokens_ref) -> todo
       NominateUpgradeContract -> todo
       VoteContractToken -> todo
       ApplyContractVote -> todo
