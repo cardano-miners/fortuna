@@ -12,6 +12,28 @@ test calculate_emission_3() {
   calculate_emission(210001) == 1050002500000000
 }
 
+test calculate_emission_4() {
+  calculate_emission(0) == 0
+}
+
+test calculate_emission_5() {
+  calculate_emission(2) == 10000000000
+}
+
+/// Final supply of Fortuna is 2099999999755520
+test calculate_emission_6() {
+  calculate_emission(6_930_001) == 2099999999755520
+}
+
+test calculate_emission_7() {
+  calculate_emission(6_929_999) == 2099999999755519
+}
+
+/// Final supply of Fortuna is 2099999999755520
+test calculate_emission_8() {
+  calculate_emission(6_930_000) == 2099999999755520
+}
+
 test check_block_signal_1() {
   check_block_signal(0, 1000, 0, 1)
 }
