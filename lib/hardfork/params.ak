@@ -10,4 +10,6 @@ pub const tuna_hardfork_version = 2
 
 pub const hardfork_block_height = 100
 
-pub const hardfork_next_hash = ""
+pub const hardfork_mint_hash = ""
+
+pub const hardfork_spend_hash = ""
