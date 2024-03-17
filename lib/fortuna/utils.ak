@@ -1,6 +1,6 @@
 use aiken/builtin
 use aiken/dict
-use aiken/transaction.{Input, Output, OutputReference} as tx
+use aiken/transaction.{Datum, InlineDatum, Input, Output, OutputReference} as tx
 use aiken/transaction/value.{AssetName, PolicyId, Value}
 
 pub fn resolve_output_reference(
@@ -119,4 +119,11 @@ test value_has_nft_and_lovelace_4() fail {
       |> value.add("policy2", "asset", 1)
 
   value_has_nft_and_lovelace(val_t, "policy", "asset")
+}
+
+pub fn get_inline_datum(datum: Datum) -> Data {
+  when datum is {
+    InlineDatum(d) -> d
+    _ -> fail @"Expected inline datum"
+  }
 }

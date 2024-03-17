@@ -26,8 +26,8 @@ type NftForkAction {
     lock_action: LockAction,
   }
 
-  /// Hardfork action is only run once and it permanently alters the state of 
-  /// the control token to either Forked or FailedFork
+  /// This action is only run once and it permanently alters the state of 
+  /// the control token to Forked
   HardFork {
     hardfork_state_input: OutputReference,
     v2_miner_output: Int,
@@ -47,8 +47,9 @@ type NftForkAction {
     hard_fork_state_ref: OutputReference,
     locked_tokens_ref: OutputReference,
   }
-  /// Backup function to run 
-  /// to get to Failed Fork status
+
+  /// This action is only run once and if HardFork was not run.
+  /// It permanently alters the state of the control token to FailedFork
   FailForkAttempt { fortuna_v1_output: Int }
 }
 
