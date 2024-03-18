@@ -4,12 +4,13 @@
     import geroIcon from '$lib/assets/geroicon.png'
     import { fetchWalletData } from '$lib/utils/fetchWalletData'
     import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png'
-   
+    import { v1tunaContext } from '$lib/store/store'
+
     let open = false;
     let walletApi: WalletApi | undefined;
     let wallet: WalletOption | undefined;
     let tunaAmount = 0;
-
+    
     // delete userAddr after fixing the stakeAddrHex
     let userAddr = 'stake1u9nar6f0pyx6h6mxeptmu5uw0vqc2rsl3njgzgyn8yj8stswwuz6d';
     let wallets: [string, WalletOption][] = [];
@@ -17,7 +18,8 @@
     //change to the new address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
     let tunaMinswap = 'https://app.minswap.org/pt-BR/swap?currencySymbolA=&tokenNameA=&currencySymbolB=279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a&tokenNameB=54554e41'
     const WalletNames = ['flint', 'nami', 'eternl', 'gerowallet', 'nufi', 'begin', 'lace', 'yoroi', 'begin', 'typhoncip30'];
-
+  
+    
     function disconnect() {
     wallet = undefined;
     walletApi = undefined;
@@ -30,14 +32,18 @@
   }
 
   $: if (walletApi) {
-    (async () => {
-      const stakeAddr = await walletApi.getRewardAddresses();
-      const stakeAddrHex = stakeAddr[0];
-       // the stakeAddrHex value needs to be converted to bench32
-       // and passed in the function below replacing userAddr
-      tunaAmount = await fetchWalletData(userAddr);
-    })();
-  }
+  (async () => {
+    //const stakeAddr = await walletApi.getRewardAddresses();
+    // const stakeAddrHex = stakeAddr[0];
+
+    // the stakeAddrHex value needs to be converted to bench32
+    // and passed in the function below replacing userAddr
+    tunaAmount = await fetchWalletData(userAddr);
+    v1tunaContext.set(tunaAmount);
+    console.log('v1tunacontext', v1tunaContext);
+
+  })();
+}
 
 onMount(async () => {
     console.log(window.cardano);
