@@ -5,7 +5,9 @@
 </script>
 
 <Navbar />
-<div class="bg-base-100 mx-[19vh] ">
-  <img src={fortunaBackground} alt="background" class="mt-5 ml-[45vw] w-[42vw] h-[42vw] absolute z-99" />
+<div class="bg-base-100 mx-[19vh] relative">
+  <img src={fortunaBackground} alt="background" class="mt-5 ml-[45vw] w-[42vw] h-[42vw] absolute z-0" />
+  <div class="relative z-10">
   <slot />
+</div>
 </div>
