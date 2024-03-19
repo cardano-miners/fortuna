@@ -1,14 +1,12 @@
 <script lang="ts">
-
 </script>
 
-<div class=''>
+<div class="">
   <div
     class="flex max-w-[100vw] flex-col items-center justify-start xl:flex-row xl:items-start xl:justify-between">
     <div class="shrink xl:w-1/2">
-      <div
-        class="flex mt-[5vw] justify-center px-2 text-center xl:justify-start  xl:text-start">
-        <div class='py-5'>
+      <div class="flex mt-[5vw] justify-center px-2 text-center xl:justify-start xl:text-start">
+        <div class="py-5">
           <h1
             class="font-title xl:w-[115%] xl:text-start text-center text-[clamp(2rem,6vw,4.2rem)] font-black leading-[1.1] [word-break:auto-phrase] [:root[dir=rtl]_&]:leading-[1.35]">
             <span
@@ -28,11 +26,9 @@
               </span>
             </span>
             <br />
-
           </h1>
           <div>
-            <p
-              class="text-base-content/70 py-4 font-medium md:text-lg xl:text-2xl">
+            <p class="text-base-content/70 py-4 font-medium md:text-lg xl:text-2xl">
               A open-source Bitcoin PoW smart contract on Cardano
             </p>
           </div>
@@ -41,7 +37,7 @@
             The hardfork is coming. In order to prepare for the hardfork<br /> lock your $TUNA using
             the page below. Locked $TUNA will<br /> be claimable on a new policy after the hardfork.
           </p>
-          <div/>
+          <div />
           <div class="h-10">
             <div
               class="inline-flex w-full flex-col items-stretch justify-center gap-2 px-4 md:flex-row xl:justify-start xl:px-0">
@@ -63,12 +59,10 @@
                     d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
                 </svg>
               </a>
-            
             </div>
           </div>
-      </div>
+        </div>
       </div>
     </div>
   </div>
-  
 </div>
