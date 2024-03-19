@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Fortuna Miner",
+    "description": "This is a dummy repository",
+    "repoLink": "#",
+    "author": "Author",
+    "category": "tool",
+    "toolLink": "#"
+  },
+  {
+    "name": "Repo 2",
+    "description": "This is another dummy repository",
+    "repoLink": "#",
+    "author": "Author",
+    "category": "tool",
+    "toolLink": ""
+  },
+  {
+    "name": "Repo 3",
+    "description": "This is another dummy repository",
+    "repoLink": "#",
+    "author": "Author",
+    "category": "miner",
+    "toolLink": ""
+  },
+  {
+    "name": "Repo 4",
+    "description": "This is another dummy repository",
+    "repoLink": "#",
+    "author": "Author",
+    "category": "explorer",
+    "toolLink": ""
+  },
+  {
+    "name": "Repo 5",
+    "description": "This is another dummy repository",
+    "repoLink": "#",
+    "author": "Author",
+    "category": "tool",
+    "toolLink": ""
+  },
+  {
+    "name": "Repo 6",
+    "description": "This is another dummy repository",
+    "repoLink": "#",
+    "author": "Author",
+    "category": "miner",
+    "toolLink": ""
+  }
+]

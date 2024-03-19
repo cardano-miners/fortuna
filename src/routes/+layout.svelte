@@ -6,8 +6,11 @@
 
 <Navbar />
 <div class="bg-base-100 mx-[19vh] relative">
-  <img src={fortunaBackground} alt="background" class="mt-5 ml-[45vw] w-[42vw] h-[42vw] absolute z-0" />
-  <div class="relative z-10">
-  <slot />
-</div>
+  <img
+    src={fortunaBackground}
+    alt="background"
+    class="mt-6 ml-[45vw] w-[42vw] h-[42vw] absolute -z-1" />
+  <div class="relative z-0">
+    <slot />
+  </div>
 </div>
