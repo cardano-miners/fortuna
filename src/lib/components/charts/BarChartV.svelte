@@ -35,12 +35,11 @@
       padding={{ left: 16, bottom: 24 }}
       tooltip={{ mode: 'band' }}>
       <Svg label="Bar Chart">
-        <Axis placement="left" grid rule />
         <Axis placement="bottom" format={(d) => format(d, 'dd MMM ')} rule />
         <Bars
           radius={4}
           strokeWidth={1}
-          class="fill-secondary  group-hover:fill-red-300 transition-colors" />
+          class="fill-white/95  group-hover:fill-base-300 transition-colors" />
         <Highlight
           area={{
             class: 'fill-black/15'

@@ -6,9 +6,9 @@
   export let title: string;
 </script>
 
-<div class="card bg-base-300 w-[45vh] p-4">
+<div class="card bg-base-300 size-full p-4">
   <div class="card-title">{title}</div>
-  <div class="h-[300px] p-4 rounded card-body">
+  <div class="h-full w-full p-8 rounded card-body">
     <Chart>
       <Svg>
         <Group center>

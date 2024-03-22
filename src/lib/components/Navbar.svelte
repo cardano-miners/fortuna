@@ -1,7 +1,7 @@
 <script lang="ts">
-  import ConnectButton from './ConnectButton.svelte';
-  import fortunaLogo from '$lib/assets/fortunaLogo.png';
   import { page } from '$app/stores';
+  import fortunaLogo from '$lib/assets/fortunaLogo.png';
+  import ConnectButton from './ConnectButton.svelte';
 </script>
 
 <nav class="px-6 py-3 pt-6 shadow border-b border-slate-700">
@@ -11,13 +11,33 @@
         <a href="/"><img src={fortunaLogo} alt="logo" class="md:max-w-[200px] max-w-[20vh]" /></a>
       </div>
     </div>
-    <div class="md:flex flex-col md:flex-row md:-mx-4 hidden items-center font-medium text-white">
-      <a href="/hardfork" class="my-1 hover:text-primary md:mx-4 md:my-0">Hardfork</a>
-      <a href="/mine" class="my-1 hover:text-primary md:mx-4 md:my-0">Mine</a>
-      <a href="/explorer" class="my-1 hover:text-primary md:mx-4 md:my-0">Explorer</a>
 
-      <a href="/community" class="my-1 hover:text-primary md:mx-4 md:my-0">Community</a>
+    <div class="md:flex flex-col md:flex-row md:-mx-4 hidden items-center font-medium text-white">
+      <a
+        href="/hardfork"
+        class="my-1 hover:text-primary hover:border-primary md:mx-4 md:my-0"
+        class:border-b-2={$page.url.pathname === '/hardfork'}
+        class:border-secondary={$page.url.pathname === '/hardfork'}>Hardfork</a>
+
+      <a
+        href="/mine"
+        class="my-1 hover:text-primary hover:border-primary md:mx-4 md:my-0"
+        class:border-b-2={$page.url.pathname === '/mine'}
+        class:border-secondary={$page.url.pathname === '/mine'}>Mine</a>
+
+      <a
+        href="/explorer"
+        class="my-1 hover:text-primary hover:border-primary md:mx-4 md:my-0"
+        class:border-b-2={$page.url.pathname === '/explorer'}
+        class:border-secondary={$page.url.pathname === '/explorer'}>Explorer</a>
+
+      <a
+        href="/community"
+        class="my-1 hover:text-primary hover:border-primary md:mx-4 md:my-0"
+        class:border-b-2={$page.url.pathname === '/community'}
+        class:border-secondary={$page.url.pathname === '/community'}>Community</a>
     </div>
+
     <div class="md:flex">
       <div class="md:flex flex-col md:flex-row md:-mx-2 items-center">
         <!-- {github icon} -->
@@ -28,7 +48,7 @@
               fill="currentColor" /></svg
           ></a>
         <!-- {discord icon} -->
-        <a href="/" class="mx-4"
+        <a href="https://discord.gg/Vc3x8N9nz2" target="_blank" class="mx-4"
           ><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 256 256"
             ><g fill="none"
               ><rect width="256" height="256" fill="#5865F2" rx="60" /><g

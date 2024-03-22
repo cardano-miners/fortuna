@@ -10,7 +10,7 @@
     TooltipItem,
     Highlight
   } from 'layerchart';
-  import { line, type CurveFactory } from 'd3-shape';
+  import { type CurveFactory } from 'd3-shape';
   import { format } from 'date-fns';
 
   // props to make the AreaChart modular

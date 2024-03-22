@@ -11,3 +11,10 @@
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+
+  @property --border-angle {
+    inherits: false;
+    initial-value: 0deg;
+    syntax: '<angle>';
+  }    
