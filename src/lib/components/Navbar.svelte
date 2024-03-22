@@ -1,6 +1,7 @@
 <script lang="ts">
   import ConnectButton from './ConnectButton.svelte';
   import fortunaLogo from '$lib/assets/fortunaLogo.png';
+  import { page } from '$app/stores';
 </script>
 
 <nav class="px-6 py-3 pt-6 shadow border-b border-slate-700">
