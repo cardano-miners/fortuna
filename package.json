@@ -25,6 +25,7 @@
     "@tailwindcss/typography": "^0.5.10",
     "@types/eslint": "^8.56.0",
     "@types/node": "^20.11.24",
+    "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "autoprefixer": "^10.4.17",
@@ -51,6 +52,8 @@
   },
   "type": "module",
   "dependencies": {
-    "translucent-cardano": "github:txpipe/translucent#micah/no-mathjs"
+    "@dcspark/cardano-multiplatform-lib-nodejs": "^5.2.0",
+    "translucent-cardano": "^0.0.6",
+    "ws": "^8.16.0"
   }
 }

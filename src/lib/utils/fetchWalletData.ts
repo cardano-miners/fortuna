@@ -7,11 +7,10 @@ export async function fetchWalletData(walletAddr: string) {
   console.log('project id value', import.meta.env.BLOCKFROST_APIKEY);
   const response = await fetch(`${API_URL}${walletAddr}/addresses/assets`, {
     headers: {
-      'project_id': `${PROJECT_ID}`
-    }
+      project_id: `${PROJECT_ID}`,
+    },
   });
 
-  
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
@@ -25,6 +24,6 @@ export async function fetchWalletData(walletAddr: string) {
   }
 
   const dividedQuantity = Number(tunaData.quantity) / 100000000;
-  
+
   return dividedQuantity;
 }

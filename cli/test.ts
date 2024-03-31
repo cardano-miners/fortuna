@@ -9,7 +9,7 @@ import {
   Translucent,
   PROTOCOL_PARAMETERS_DEFAULT,
   Script,
-  TxSigned
+  TxSigned,
 } from 'translucent-cardano';
 
 import { printExecutionDetails, readValidator } from './utils';
@@ -44,14 +44,14 @@ export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSig
       {
         address: minerAddr,
         assets: {
-          lovelace: BigInt(1e14)
-        }
+          lovelace: BigInt(1e14),
+        },
       },
-      { address: refAddr, assets: { lovelace: BigInt(1e14) } }
+      { address: refAddr, assets: { lovelace: BigInt(1e14) } },
     ],
     {
-      ...PROTOCOL_PARAMETERS_DEFAULT
-    }
+      ...PROTOCOL_PARAMETERS_DEFAULT,
+    },
   );
 
   const lucid = await Translucent.new(emulator);
@@ -61,7 +61,7 @@ export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSig
   const txInit = await lucid
     .newTx()
     .payToAddress(minerAddr, {
-      lovelace: 1000001n
+      lovelace: 1000001n,
     })
     .complete();
 
@@ -84,8 +84,8 @@ export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSig
       refAddr,
       { scriptRef: validator },
       {
-        lovelace: 100000000n
-      }
+        lovelace: 100000000n,
+      },
     )
     .complete({ coinSelection: false });
 
@@ -103,7 +103,7 @@ export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSig
     minerPk,
     initOutRef: initOutputRef,
     validator,
-    refAddr
+    refAddr,
   });
 
   printExecutionDetails(txSigned, name);

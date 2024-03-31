@@ -28,7 +28,7 @@
     'lace',
     'yoroi',
     'begin',
-    'typhoncip30'
+    'typhoncip30',
   ];
 
   function disconnect() {

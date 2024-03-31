@@ -1,6 +1,6 @@
 import colors from 'colors/safe';
 import cbor from 'cbor';
-import { fromHex, SpendingValidator, toHex, TxSigned } from 'translucent-cardano';
+import { fromHex, SpendingValidator, toHex, TxSigned } from 'translucent-cardano/index';
 import crypto from 'crypto';
 
 import blueprint from '../plutus.json' assert { type: 'json' };
@@ -20,7 +20,7 @@ export function readValidator(): SpendingValidator {
 
   return {
     type: 'PlutusV2',
-    script: toHex(cbor.encode(fromHex(validator.compiledCode)))
+    script: toHex(cbor.encode(fromHex(validator.compiledCode))),
   };
 }
 
@@ -91,14 +91,14 @@ export function getDifficulty(hash: Uint8Array): {
         difficulty_number += Math.floor(hash[indx + 2] / 16);
         return {
           leadingZeros: BigInt(leadingZeros),
-          difficulty_number: BigInt(difficulty_number)
+          difficulty_number: BigInt(difficulty_number),
         };
       } else {
         difficulty_number += chr * 256;
         difficulty_number += hash[indx + 1];
         return {
           leadingZeros: BigInt(leadingZeros),
-          difficulty_number: BigInt(difficulty_number)
+          difficulty_number: BigInt(difficulty_number),
         };
       }
     } else {
@@ -127,19 +127,19 @@ export function halfDifficultyNumber(a: { leadingZeros: bigint; difficulty_numbe
   if (new_a < 4096n) {
     return {
       leadingZeros: a.leadingZeros + 1n,
-      difficulty_number: new_a * 16n
+      difficulty_number: new_a * 16n,
     };
   } else {
     return {
       leadingZeros: a.leadingZeros,
-      difficulty_number: new_a
+      difficulty_number: new_a,
     };
   }
 }
 
 export function getDifficultyAdjustement(
   total_epoch_time: bigint,
-  epoch_target: bigint
+  epoch_target: bigint,
 ): { numerator: bigint; denominator: bigint } {
   if (epoch_target / total_epoch_time >= 4 && epoch_target % total_epoch_time > 0) {
     return { numerator: 1n, denominator: 4n };
@@ -153,7 +153,7 @@ export function getDifficultyAdjustement(
 export function calculateDifficultyNumber(
   a: { leadingZeros: bigint; difficulty_number: bigint },
   numerator: bigint,
-  denominator: bigint
+  denominator: bigint,
 ): { leadingZeros: bigint; difficulty_number: bigint } {
   const new_padded_difficulty = (a.difficulty_number * 16n * numerator) / denominator;
 
@@ -165,7 +165,7 @@ export function calculateDifficultyNumber(
     } else {
       return {
         difficulty_number: new_padded_difficulty,
-        leadingZeros: a.leadingZeros + 1n
+        leadingZeros: a.leadingZeros + 1n,
       };
     }
   } else if (new_difficulty / 65536n > 0n) {
@@ -174,13 +174,13 @@ export function calculateDifficultyNumber(
     } else {
       return {
         difficulty_number: new_difficulty / 16n,
-        leadingZeros: a.leadingZeros - 1n
+        leadingZeros: a.leadingZeros - 1n,
       };
     }
   } else {
     return {
       difficulty_number: new_difficulty,
-      leadingZeros: a.leadingZeros
+      leadingZeros: a.leadingZeros,
     };
   }
 }
@@ -189,7 +189,7 @@ export function calculateInterlink(
   currentHash: string,
   a: { leadingZeros: bigint; difficulty_number: bigint },
   b: { leadingZeros: bigint; difficulty_number: bigint },
-  currentInterlink: string[]
+  currentInterlink: string[],
 ): string[] {
   let b_half = halfDifficultyNumber(b);
 

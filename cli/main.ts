@@ -7,13 +7,14 @@ import {
   fromHex,
   fromText,
   generateSeedPhrase,
-  Kupmios,
+  KupmiosV5 as Kupmios,
   Translucent,
   Script,
-  toHex
-} from 'translucent-cardano';
+  toHex,
+} from 'translucent-cardano/index';
 import fs from 'fs';
 import crypto from 'crypto';
+import { WebSocket } from 'ws';
 
 import {
   calculateDifficultyNumber,
@@ -22,8 +23,10 @@ import {
   getDifficultyAdjustement,
   incrementU8Array,
   readValidator,
-  sha256
+  sha256,
 } from './utils';
+
+Object.assign(global, { WebSocket });
 
 // Excludes datum field because it is not needed
 // and it's annoying to type.
@@ -60,7 +63,7 @@ app
   .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
     while (true) {
       const genesisFile = fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
-        encoding: 'utf8'
+        encoding: 'utf8',
       });
 
       const { validatorHash, validatorAddress }: Genesis = JSON.parse(genesisFile);
@@ -73,7 +76,7 @@ app
       let validatorUTXOs = await lucid.utxosAt(validatorAddress);
 
       let validatorOutRef = validatorUTXOs.find(
-        (u) => u.assets[validatorHash + fromText('lord tuna')]
+        (u) => u.assets[validatorHash + fromText('lord tuna')],
       )!;
 
       let validatorState = validatorOutRef.datum!;
@@ -96,7 +99,7 @@ app
         // difficulty_number: Int
         state.fields[3] as bigint,
         //epoch_time: Int
-        state.fields[4] as bigint
+        state.fields[4] as bigint,
       ]);
 
       let targetHash: Uint8Array;
@@ -117,7 +120,7 @@ app
           validatorUTXOs = await lucid.utxosAt(validatorAddress);
 
           validatorOutRef = validatorUTXOs.find(
-            (u) => u.assets[validatorHash + fromText('lord tuna')]
+            (u) => u.assets[validatorHash + fromText('lord tuna')],
           )!;
 
           if (validatorState !== validatorOutRef.datum!) {
@@ -141,7 +144,7 @@ app
               // difficulty_number: Int
               state.fields[3] as bigint,
               //epoch_time: Int
-              state.fields[4] as bigint
+              state.fields[4] as bigint,
             ]);
           }
         }
@@ -183,9 +186,9 @@ app
         difficulty,
         {
           leadingZeros: state.fields[2] as bigint,
-          difficulty_number: state.fields[3] as bigint
+          difficulty_number: state.fields[3] as bigint,
         },
-        state.fields[7] as string[]
+        state.fields[7] as string[],
       );
 
       let epoch_time =
@@ -202,10 +205,10 @@ app
         const new_difficulty = calculateDifficultyNumber(
           {
             leadingZeros: state.fields[2] as bigint,
-            difficulty_number: state.fields[3] as bigint
+            difficulty_number: state.fields[3] as bigint,
           },
           adjustment.numerator,
-          adjustment.denominator
+          adjustment.denominator,
         );
 
         difficulty_number = new_difficulty.difficulty_number;
@@ -222,7 +225,7 @@ app
         epoch_time,
         BigInt(90000 + realTimeNow),
         fromText('AlL HaIl tUnA'),
-        interlink
+        interlink,
       ]);
 
       const outDat = Data.to(postDatum);
@@ -235,8 +238,8 @@ app
         const readUtxo = await lucid.utxosByOutRef([
           {
             txHash: '01751095ea408a3ebe6083b4de4de8a24b635085183ab8a2ac76273ef8fff5dd',
-            outputIndex: 0
-          }
+            outputIndex: 0,
+          },
         ]);
         const txMine = await lucid
           .newTx()
@@ -284,14 +287,14 @@ app
 
     const initOutputRef = new Constr(0, [
       new Constr(0, [utxos[0].txHash]),
-      BigInt(utxos[0].outputIndex)
+      BigInt(utxos[0].outputIndex),
     ]);
 
     const appliedValidator = applyParamsToScript(unAppliedValidator.script, [initOutputRef]);
 
     const validator: Script = {
       type: 'PlutusV2',
-      script: appliedValidator
+      script: appliedValidator,
     };
 
     const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(initOutputRef)))));
@@ -321,7 +324,7 @@ app
       // extra: Data
       0n,
       // interlink: List<Data>
-      []
+      [],
     ]);
 
     const datum = Data.to(preDatum);
@@ -355,115 +358,115 @@ app
           validatorAddress,
           bootstrapHash,
           datum,
-          outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex }
+          outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
         }),
-        { encoding: 'utf-8' }
+        { encoding: 'utf-8' },
       );
     } catch (e) {
       console.log(e);
     }
   });
 
-	app
-	.command('fork')
-	.description('Create contracts for hard fork')
-	.addOption(kupoUrlOption)
-	.addOption(ogmiosUrlOption)
-	.addOption(previewOption)
-	.action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-		const unAppliedValidator = readValidator();
+app
+  .command('fork')
+  .description('Create contracts for hard fork')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+    const unAppliedValidator = readValidator();
 
-		const provider = new Kupmios(kupoUrl, ogmiosUrl);
-		const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
-		lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
-		const utxos = await lucid.wallet.getUtxos();
+    const utxos = await lucid.wallet.getUtxos();
 
-		if (utxos.length === 0) {
-			throw new Error('No UTXOs Found');
-		}
+    if (utxos.length === 0) {
+      throw new Error('No UTXOs Found');
+    }
 
-		const initOutputRef = new Constr(0, [
-			new Constr(0, [utxos[0].txHash]),
-			BigInt(utxos[0].outputIndex)
-		]);
+    const initOutputRef = new Constr(0, [
+      new Constr(0, [utxos[0].txHash]),
+      BigInt(utxos[0].outputIndex),
+    ]);
 
-		const appliedValidator = applyParamsToScript(unAppliedValidator.script, [initOutputRef]);
+    const appliedValidator = applyParamsToScript(unAppliedValidator.script, [initOutputRef]);
 
-		const validator: Script = {
-			type: 'PlutusV2',
-			script: appliedValidator
-		};
+    const validator: Script = {
+      type: 'PlutusV2',
+      script: appliedValidator,
+    };
 
-		const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(initOutputRef)))));
+    const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(initOutputRef)))));
 
-		const validatorAddress = lucid.utils.validatorToAddress(validator);
+    const validatorAddress = lucid.utils.validatorToAddress(validator);
 
-		const validatorHash = lucid.utils.validatorToScriptHash(validator);
+    const validatorHash = lucid.utils.validatorToScriptHash(validator);
 
-		const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
+    const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
 
-		const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+    const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
-		// State
-		const preDatum = new Constr(0, [
-			// block_number: Int
-			0n,
-			// current_hash: ByteArray
-			bootstrapHash,
-			// leading_zeros: Int
-			5n,
-			// difficulty_number: Int
-			65535n,
-			// epoch_time: Int
-			0n,
-			// current_posix_time: Int
-			BigInt(90000 + timeNow),
-			// extra: Data
-			0n,
-			// interlink: List<Data>
-			[]
-		]);
+    // State
+    const preDatum = new Constr(0, [
+      // block_number: Int
+      0n,
+      // current_hash: ByteArray
+      bootstrapHash,
+      // leading_zeros: Int
+      5n,
+      // difficulty_number: Int
+      65535n,
+      // epoch_time: Int
+      0n,
+      // current_posix_time: Int
+      BigInt(90000 + timeNow),
+      // extra: Data
+      0n,
+      // interlink: List<Data>
+      [],
+    ]);
 
-		const datum = Data.to(preDatum);
+    const datum = Data.to(preDatum);
 
-		const tx = await lucid
-			.newTx()
-			.collectFrom(utxos)
-			.payToContract(validatorAddress, { inline: datum }, masterToken)
-			.mintAssets(masterToken, Data.to(new Constr(1, [])))
-			.attachMintingPolicy(validator)
-			.validFrom(timeNow)
-			.validTo(timeNow + 180000)
-			.complete();
+    const tx = await lucid
+      .newTx()
+      .collectFrom(utxos)
+      .payToContract(validatorAddress, { inline: datum }, masterToken)
+      .mintAssets(masterToken, Data.to(new Constr(1, [])))
+      .attachMintingPolicy(validator)
+      .validFrom(timeNow)
+      .validTo(timeNow + 180000)
+      .complete();
 
-		const signed = await tx.sign().complete();
+    const signed = await tx.sign().complete();
 
-		try {
-			await signed.submit();
+    try {
+      await signed.submit();
 
-			console.log(`TX Hash: ${signed.toHash()}`);
+      console.log(`TX Hash: ${signed.toHash()}`);
 
-			await lucid.awaitTx(signed.toHash());
+      await lucid.awaitTx(signed.toHash());
 
-			console.log(`Completed and saving genesis file.`);
+      console.log(`Completed and saving genesis file.`);
 
-			fs.writeFileSync(
-				`genesis/${preview ? 'preview' : 'mainnet'}.json`,
-				JSON.stringify({
-					validator: validator.script,
-					validatorHash,
-					validatorAddress,
-					bootstrapHash,
-					datum,
-					outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex }
-				}),
-				{ encoding: 'utf-8' }
-			);
-		} catch (e) {
-			console.log(e);
-		}
-	});
+      fs.writeFileSync(
+        `genesis/${preview ? 'preview' : 'mainnet'}.json`,
+        JSON.stringify({
+          validator: validator.script,
+          validatorHash,
+          validatorAddress,
+          bootstrapHash,
+          datum,
+          outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
+        }),
+        { encoding: 'utf-8' },
+      );
+    } catch (e) {
+      console.log(e);
+    }
+  });
 
 app
   .command('init')
@@ -501,7 +504,7 @@ app
 
     try {
       const genesisFile = fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
-        encoding: 'utf8'
+        encoding: 'utf8',
       });
 
       const { validatorHash }: Genesis = JSON.parse(genesisFile);
@@ -514,6 +517,8 @@ app
     } catch {
       console.log(`TUNA Balance: 0`);
     }
+
+    process.exit(0);
   });
 
 app.parse();
