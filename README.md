@@ -1,7 +1,10 @@
 <div align="center">
-<img src="https://raw.githubusercontent.com/aiken-lang/fortuna/main/public/assets/logo_white/Fortuna_circle_horizontal.png?sanitize=true#gh-dark-mode-only" alt="Fortuna" height="200" />
-  <img src="https://raw.githubusercontent.com/aiken-lang/fortuna/main/public/assets/logo_razzy_blue/Fortuna_circle_horizontal.png?sanitize=true#gh-light-mode-only" alt="Fortuna" height="200" />
-  <hr />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/aiken-lang/fortuna/main/static/assets/logo_white/Fortuna_circle_horizontal.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/aiken-lang/fortuna/main/static/assets/logo_razzy_blue/Fortuna_circle_horizontal.png">
+  <img alt="Fortuna" src="https://raw.githubusercontent.com/aiken-lang/fortuna/main/static/assets/logo_razzy_blue/Fortuna_circle_horizontal.png" height="150">
+</picture>
+<hr />
     <h2 align="center" style="border-bottom: none">Bitcoin style proof of work in smart contract form</h2>
 
 [![Licence](https://img.shields.io/github/license/aiken-lang/fortuna)](https://github.com/aiken-lang/fortuna/blob/main/LICENSE)

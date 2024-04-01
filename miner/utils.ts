@@ -31,15 +31,15 @@ export function printExecutionDetails(tx: TxSigned, name: string) {
 
   for (let i = 0; i < redeemers.len(); i++) {
     const red = redeemers.get(i);
-    steps += parseInt(red.ex_units().steps().to_str(), 10);
-    mem += parseInt(red.ex_units().mem().to_str(), 10);
+    steps += parseInt(red.ex_units().steps().toString(), 10);
+    mem += parseInt(red.ex_units().mem().toString(), 10);
   }
 
   const remainingMem = MAX_TX_EX_MEM - mem;
   const remainingSteps = MAX_TX_EX_STEPS - steps;
-  const txBytes = tx.txSigned.to_bytes().length;
+  const txBytes = tx.txSigned.to_cbor_bytes().length;
   const remainingTxBytes = MAX_TX_SIZE - txBytes;
-  const fee = tx.txSigned.body().fee().to_str();
+  const fee = tx.txSigned.body().fee().toString();
 
   const text = `
   ${colors.bold(colors.magenta(name))} - ${colors.green('passed')}
