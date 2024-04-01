@@ -63,7 +63,9 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    while (true) {
+    const alwaysLoop = true;
+
+    while (alwaysLoop) {
       const genesisFile = fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
         encoding: 'utf8',
       });
@@ -104,18 +106,23 @@ app
         state.fields[4] as bigint,
       ]);
 
-      let targetHash: Uint8Array;
+      let targetHash: Uint8Array | undefined;
 
-      let difficulty: {
-        leadingZeros: bigint;
-        difficulty_number: bigint;
-      };
+      let difficulty:
+        | {
+            leadingZeros: bigint;
+            difficulty_number: bigint;
+          }
+        | undefined;
 
       console.log('Mining...');
       let timer = new Date().valueOf();
       let hashCounter = 0;
       let startTime = Date.now();
-      while (true) {
+
+      const alwaysLoop2 = true;
+
+      while (alwaysLoop2) {
         if (new Date().valueOf() - timer > 5000) {
           console.log('New block not found in 5 seconds, updating state');
           timer = new Date().valueOf();
@@ -184,8 +191,8 @@ app
       const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
       const interlink = calculateInterlink(
-        toHex(targetHash),
-        difficulty,
+        toHex(targetHash!),
+        difficulty!,
         {
           leadingZeros: state.fields[2] as bigint,
           difficulty_number: state.fields[3] as bigint,
@@ -221,7 +228,7 @@ app
 
       const postDatum = new Constr(0, [
         (state.fields[0] as bigint) + 1n,
-        toHex(targetHash),
+        toHex(targetHash!),
         leading_zeros,
         difficulty_number,
         epoch_time,
