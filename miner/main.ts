@@ -9,12 +9,14 @@ import {
   generateSeedPhrase,
   KupmiosV5 as Kupmios,
   Translucent,
-  Script,
+  type Script,
   toHex,
 } from 'translucent-cardano/index';
 import fs from 'fs';
 import crypto from 'crypto';
 import { WebSocket } from 'ws';
+
+import { plus100 } from './sha-gpu';
 
 import {
   calculateDifficultyNumber,
@@ -519,6 +521,13 @@ app
     }
 
     process.exit(0);
+  });
+
+app
+  .command('test')
+  .description('does nothing')
+  .action(async () => {
+    console.log(plus100(3));
   });
 
 app.parse();

@@ -22,6 +22,9 @@ devDependencies:
   '@iconify/json':
     specifier: ^2.2.192
     version: 2.2.192
+  '@napi-rs/cli':
+    specifier: ^2.18.0
+    version: 2.18.0
   '@playwright/test':
     specifier: ^1.28.1
     version: 1.41.2
@@ -505,6 +508,12 @@ packages:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.1
       '@jridgewell/sourcemap-codec': 1.4.15
+    dev: true
+
+  /@napi-rs/cli@2.18.0:
+    resolution: {integrity: sha512-lfSRT7cs3iC4L+kv9suGYQEezn5Nii7Kpu+THsYVI0tA1Vh59LH45p4QADaD7hvIkmOz79eEGtoKQ9nAkAPkzA==}
+    engines: {node: '>= 10'}
+    hasBin: true
     dev: true
 
   /@nodelib/fs.scandir@2.1.5:

@@ -50,3 +50,7 @@ vite.config.ts.timestamp-*
 
 package-lock.json
 .vscode/
+
+# napi
+miner/sha-gpu/index.*
+target/

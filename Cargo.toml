@@ -1,0 +1,19 @@
+[package]
+authors = ["Lucas Rosa <x@rvcas.dev>", "Kasey White <kwhitemsg@gmail.com>"]
+edition = "2021"
+name = "sha-gpu"
+version = "0.1.0"
+
+[lib]
+path = "miner/lib.rs"
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+
+[dependencies]
+napi = "2.16.1"
+napi-derive = "2.16.1"
+
+[build-dependencies]
+napi-build = "2.1.2"
