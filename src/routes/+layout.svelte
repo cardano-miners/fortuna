@@ -1,21 +1,8 @@
 <script>
   import '../app.css';
 
-  import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
-
   import Navbar from '$lib/components/Navbar.svelte';
   import fortunaBackground from '$lib/assets/fortuna-bg.png';
-  import { createTranslucent } from '$lib/utils/provider';
-  import { translucent } from '$lib/store';
-
-  onMount(async () => {
-    if (!browser) return;
-
-    const t = await createTranslucent();
-
-    $translucent = t;
-  });
 </script>
 
 <Navbar />

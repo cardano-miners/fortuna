@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { Cardano } from 'translucent-cardano';
+  import { fromText, type Cardano } from 'translucent-cardano';
 
   import geroIcon from '$lib/assets/geroicon.png';
-  import { fetchWalletData } from '$lib/utils/fetchWalletData';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
   import { walletApi, v1TunaAmount, wallet, userAddress, translucent } from '$lib/store';
+  import { V1_TUNA_SUBJECT } from '$lib/constants';
 
   let open = false;
 
@@ -38,22 +38,28 @@
 
     $walletApi = await $wallet?.enable();
 
+    translucent.selectWallet($walletApi!);
+
     open = false;
   }
 
-  $: if ($walletApi && $translucent) {
+  $: if ($walletApi) {
     (async () => {
       //const stakeAddr = await walletApi.getRewardAddresses();
       //const stakeAddrHex = stakeAddr[0];
 
       // the stakeAddrHex value needs to be converted to bench32
       // and passed in the function below replacing userAddr
-      $translucent.selectWallet($walletApi);
 
-      $userAddress = await $translucent.wallet.address();
+      $userAddress = await translucent.wallet.address();
 
       console.log('User address:', $userAddress);
-      console.log(await $translucent.utxosAt($userAddress));
+
+      const utxos = await translucent.utxosAt($userAddress);
+
+      $v1TunaAmount = utxos.reduce((acc, u) => {
+        return acc + (u.assets[V1_TUNA_SUBJECT] ?? 0n);
+      }, 0n);
     })();
   }
 
@@ -85,12 +91,12 @@
     </div>
     <ul
       tabIndex={0}
-      class="dropdown-content bg-slate-800 z-[1] menu p-2 shadow rounded-box w-52 gap-1">
+      class="dropdown-content bg-slate-800 z-[1] menu md:-ml-36 p-2 shadow rounded-box w-52 gap-1">
       {#if $v1TunaAmount > 0}
         <li class="mt-2">
           <button class="indicator w-full btn btn-sm btn-accent">
-            <img src={fortunaIconBlack} alt="fortuna icon" class="w-6 h-6 justify-center" />
-            {$v1TunaAmount.toLocaleString('en-US')}
+            <img src={fortunaIconBlack} alt="fortuna icon" class="w-4 h-4 justify-center" />
+            {($v1TunaAmount / 100_000_000n).toLocaleString('en-US')}
           </button>
         </li>
       {:else}
@@ -128,7 +134,7 @@
       {/if}
 
       <li class="mt-4">
-        <button class="btn btn-danger" on:click={disconnect}>Disconnect </button>
+        <button class="btn btn-danger" on:click={disconnect}>Disconnect</button>
       </li>
     </ul>
   </div>
