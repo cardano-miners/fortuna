@@ -1,7 +1,7 @@
 <script>
   import '../app.css';
 
-  import { onMount, setContext } from 'svelte';
+  import { onMount } from 'svelte';
   import { browser } from '$app/environment';
 
   import Navbar from '$lib/components/Navbar.svelte';
@@ -10,7 +10,10 @@
   import { translucent } from '$lib/store';
 
   onMount(async () => {
+    if (!browser) return;
+
     const t = await createTranslucent();
+
     $translucent = t;
   });
 </script>
