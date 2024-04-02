@@ -24,6 +24,7 @@ export async function GET() {
 
   const params = await new Promise((res, rej) => {
     client.addEventListener(
+      // @ts-expect-error typescript is trippin
       'message',
       (msg: MessageEvent<string>) => {
         try {
