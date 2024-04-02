@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy, getContext } from 'svelte';
-  import { v1tunaContext } from '$lib/store/store';
+  import { onMount } from 'svelte';
+  import { v1TunaAmount } from '$lib/store';
 
   // types
   interface TimeLeft {
@@ -11,23 +11,11 @@
   }
   let timeLeft: TimeLeft;
 
-  // global values for tuna to be set by the backend
-  let tunaAvailable = 0;
-
   // parse address transactions / mint transactions or any other data to check how many tuna was sent already
   let lockedTuna = 89400;
 
-  // get tuna amount from connectButton component
-
-  const unsubscribe = v1tunaContext.subscribe((value) => {
-    tunaAvailable = value;
-  });
-
-  onDestroy(unsubscribe);
-
   // unix timestamp and timer
   let targetTime = 1718719528 * 1000; // convert to milliseconds
-  let interval: any;
 
   // get the minted %, can pass real data but a static value is ok tho
   const totalAssets = 21000000;
@@ -39,7 +27,7 @@
     'https://app.minswap.org/pt-BR/swap?currencySymbolA=&tokenNameA=&currencySymbolB=279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a&token';
 
   onMount(() => {
-    interval = setInterval(() => {
+    const interval = setInterval(() => {
       const now = Date.now();
       const distance = targetTime - now;
 
@@ -50,10 +38,8 @@
         seconds: Math.floor((distance % (1000 * 60)) / 1000),
       };
     }, 1000);
-  });
 
-  onDestroy(() => {
-    clearInterval(interval);
+    return () => clearInterval(interval);
   });
 
   const tunaTx = () => {
@@ -119,7 +105,7 @@
       <div class="stat">
         <div class="stat-title text-success">$TUNA V1 Available</div>
         <div class="stat-figure text-primary">
-          {#if tunaAvailable > 0}
+          {#if $v1TunaAmount > 0}
             <button class="btn btn-md btn-success" on:click={tunaTx}
               ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
                 ><path
@@ -142,7 +128,7 @@
               ></button>
           {/if}
         </div>
-        <div class="stat-value text-white">{tunaAvailable.toLocaleString('en-US')}</div>
+        <div class="stat-value text-white">{$v1TunaAmount.toLocaleString('en-US')}</div>
         <div class="stat-actions"></div>
       </div>
 

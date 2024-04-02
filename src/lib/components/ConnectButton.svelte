@@ -1,23 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type WalletOption, type WalletApi } from '../../app.d';
+  import { type Cardano } from 'translucent-cardano';
+
   import geroIcon from '$lib/assets/geroicon.png';
   import { fetchWalletData } from '$lib/utils/fetchWalletData';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
-  import { v1tunaContext } from '$lib/store/store';
+  import { walletApi, v1TunaAmount, wallet, userAddress } from '$lib/store';
+  import { translucent } from '$lib/utils/translucent';
 
   let open = false;
-  let walletApi: WalletApi | undefined;
-  let wallet: WalletOption | undefined;
-  let tunaAmount = 0;
 
-  // delete userAddr after fixing the stakeAddrHex, this is just a placeholder, to see disconnect behaviour delete the value inside
-  let userAddr = 'stake1u9nar6f0pyx6h6mxeptmu5uw0vqc2rsl3njgzgyn8yj8stswwuz6d';
-  let wallets: [string, WalletOption][] = [];
+  let wallets: [string, Cardano['']][] = [];
 
-  //change to the new address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
+  // change to the new address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
   let tunaMinswap =
     'https://app.minswap.org/pt-BR/swap?currencySymbolA=&tokenNameA=&currencySymbolB=279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a&tokenNameB=54554e41';
+
   const WalletNames = [
     'flint',
     'nami',
@@ -32,42 +30,43 @@
   ];
 
   function disconnect() {
-    wallet = undefined;
-    walletApi = undefined;
+    $wallet = undefined;
+    $walletApi = undefined;
   }
 
   async function connect(walletKey: string) {
-    wallet = window.cardano?.[walletKey];
-    walletApi = await wallet?.enable();
+    $wallet = window.cardano?.[walletKey];
+
+    $walletApi = await $wallet?.enable();
+
     open = false;
   }
 
-  $: if (walletApi) {
+  $: if ($walletApi) {
     (async () => {
       //const stakeAddr = await walletApi.getRewardAddresses();
       //const stakeAddrHex = stakeAddr[0];
 
       // the stakeAddrHex value needs to be converted to bench32
       // and passed in the function below replacing userAddr
-      tunaAmount = await fetchWalletData(userAddr);
-      v1tunaContext.set(tunaAmount);
-      console.log('v1tunacontext', v1tunaContext);
+      translucent.selectWallet($walletApi);
+
+      $userAddress = await translucent.wallet.address();
+
+      console.log(await translucent.utxosAt($userAddress));
+
+      $v1TunaAmount = await fetchWalletData($userAddress);
     })();
   }
 
   onMount(async () => {
-    console.log(window.cardano);
-
     if (typeof window.cardano !== 'undefined') {
       wallets = Object.entries(window.cardano)
         .filter(([key, value]) => typeof value === 'object' && WalletNames.includes(key))
         .map(([key, value]) => [key, value]);
 
-      console.log('wallet value', wallet);
-
       for (const [key, walletOption] of wallets) {
         const isEnabled = await walletOption.isEnabled();
-        console.log('is enabled?', isEnabled);
 
         if (isEnabled) {
           connect(key);
@@ -78,22 +77,22 @@
   });
 </script>
 
-{#if walletApi && wallet}
+{#if $walletApi && $wallet}
   <div class="dropdown dropdown-hover">
-    <div tabIndex={0} role="button" class="btn btn-secondary m-1">
-      Connected with <img
-        src={wallet.name === 'GeroWallet' ? geroIcon : wallet.icon}
+    <div tabIndex={0} role="button" class="btn btn-accent btn-outline">
+      <img
+        src={$wallet.name === 'GeroWallet' ? geroIcon : $wallet.icon}
         alt="logo"
         class="w-6 h-6 justify-center" />
     </div>
     <ul
       tabIndex={0}
       class="dropdown-content bg-slate-800 z-[1] menu p-2 shadow rounded-box w-52 gap-1">
-      {#if tunaAmount > 0}
+      {#if $v1TunaAmount > 0}
         <li class="mt-2">
           <button class="indicator w-full btn btn-sm btn-accent">
             <img src={fortunaIconBlack} alt="fortuna icon" class="w-6 h-6 justify-center" />
-            {tunaAmount.toLocaleString('en-US')}
+            {$v1TunaAmount.toLocaleString('en-US')}
           </button>
         </li>
       {:else}
@@ -104,7 +103,7 @@
           </button>
         </li>
       {/if}
-      {#if tunaAmount > 0}
+      {#if $v1TunaAmount > 0}
         <li class="mt-2">
           <button class="indicator w-full btn btn-sm">
             <span class="indicator-item indicator-top indicator-end badge badge-secondary">
