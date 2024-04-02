@@ -7,9 +7,10 @@ import type {
   ProtocolParameters,
   Address,
   Credential,
-  CostModels,
+  UTxO,
+  Assets,
 } from 'translucent-cardano';
-import { Translucent } from 'translucent-cardano';
+import { PROTOCOL_PARAMETERS_DEFAULT, Translucent, fromHex, toHex, C } from 'translucent-cardano';
 
 export class BrowserProvider implements Provider {
   private readonly baseUrl: string = '/api/provider';
@@ -17,44 +18,18 @@ export class BrowserProvider implements Provider {
   constructor() {}
 
   async getProtocolParameters(): Promise<ProtocolParameters> {
-    const response = await fetch(`${this.baseUrl}/protocol-parameters`);
-
-    const result = await response.json();
-
-    // @ts-expect-error typecript is trippin
-    const costModels: CostModels = Object.keys(result.costModels).reduce((acc, v) => {
-      const version = v.split(':')[1].toUpperCase();
-
-      const plutusVersion = 'Plutus' + version;
-
-      return { ...acc, [plutusVersion]: result.costModels[v] };
-    }, {});
-
-    const [memNum, memDenom] = result.prices.memory.split('/');
-    const [stepsNum, stepsDenom] = result.prices.steps.split('/');
-
-    const params: ProtocolParameters = {
-      minFeeA: parseInt(result.minFeeCoefficient),
-      minFeeB: parseInt(result.minFeeConstant),
-      maxTxSize: parseInt(result.maxTxSize),
-      maxValSize: parseInt(result.maxValueSize),
-      keyDeposit: BigInt(result.stakeKeyDeposit),
-      poolDeposit: BigInt(result.poolDeposit),
-      priceMem: [BigInt(memNum), BigInt(memDenom)],
-      priceStep: [BigInt(stepsNum), BigInt(stepsDenom)],
-      maxTxExMem: BigInt(result.maxExecutionUnitsPerTransaction.memory),
-      maxTxExSteps: BigInt(result.maxExecutionUnitsPerTransaction.steps),
-      coinsPerUtxoByte: BigInt(result.coinsPerUtxoByte),
-      collateralPercentage: parseInt(result.collateralPercentage),
-      maxCollateralInputs: parseInt(result.maxCollateralInputs),
-      costModels,
-    };
-
-    return params;
+    return new Promise((resolve) => resolve(PROTOCOL_PARAMETERS_DEFAULT));
   }
 
   async getUtxos(addressOrCredential: Address | Credential): Promise<UTxO[]> {
-    throw new Error('Provider does not implement getUtxos');
+    const isAddress = typeof addressOrCredential === 'string';
+    const queryPredicate = isAddress ? addressOrCredential : addressOrCredential.hash;
+
+    const response = await fetch(`${this.baseUrl}/utxos/${queryPredicate}?isAddress=${isAddress}`);
+
+    const { utxos } = await response.json();
+
+    return this.kupmiosUtxosToUtxos(utxos);
   }
 
   getUtxosWithUnit(addressOrCredential: Address | Credential, unit: Unit): Promise<UTxO[]> {
@@ -85,6 +60,48 @@ export class BrowserProvider implements Provider {
 
   async submitTx(tx: Transaction): Promise<TxHash> {
     throw new Error(`Provider does not implement submitTx(${tx}), use walletApi directly`);
+  }
+
+  private kupmiosUtxosToUtxos(utxos: unknown): Promise<UTxO[]> {
+    return Promise.all(
+      (utxos as any).map(async (utxo: any) => {
+        return {
+          txHash: utxo.transaction_id,
+          outputIndex: parseInt(utxo.output_index),
+          address: utxo.address,
+          assets: (() => {
+            const a: Assets = { lovelace: BigInt(utxo.value.coins) };
+            Object.keys(utxo.value.assets).forEach((unit) => {
+              a[unit.replace('.', '')] = BigInt(utxo.value.assets[unit]);
+            });
+            return a;
+          })(),
+          datumHash: utxo?.datum_type === 'hash' ? utxo.datum_hash : null,
+          datum: utxo?.datum_type === 'inline' ? await this.getDatum(utxo.datum_hash) : null,
+          scriptRef:
+            utxo.script_hash &&
+            (await (async () => {
+              const response = await fetch(`${this.baseUrl}/scripts/${utxo.script_hash}`);
+
+              const { script, language } = await response.json();
+
+              if (language === 'native') {
+                return { type: 'Native', script };
+              } else if (language === 'plutus:v1') {
+                return {
+                  type: 'PlutusV1',
+                  script: toHex(C.PlutusV1Script.new(fromHex(script)).to_bytes()),
+                };
+              } else if (language === 'plutus:v2') {
+                return {
+                  type: 'PlutusV2',
+                  script: toHex(C.PlutusV2Script.new(fromHex(script)).to_bytes()),
+                };
+              }
+            })()),
+        } as UTxO;
+      }),
+    );
   }
 }
 
