@@ -88,4 +88,6 @@ export class BrowserProvider implements Provider {
   }
 }
 
-export const translucent: Translucent = new Translucent();
+export function createTranslucent(): Promise<Translucent> {
+  return Translucent.new(new BrowserProvider());
+}

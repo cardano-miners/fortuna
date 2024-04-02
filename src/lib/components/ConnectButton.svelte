@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type Cardano } from 'translucent-cardano';
+  import type { Cardano } from 'translucent-cardano';
 
   import geroIcon from '$lib/assets/geroicon.png';
   import { fetchWalletData } from '$lib/utils/fetchWalletData';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
-  import { walletApi, v1TunaAmount, wallet, userAddress } from '$lib/store';
-  import { translucent } from '$lib/utils/translucent';
+  import { walletApi, v1TunaAmount, wallet, userAddress, translucent } from '$lib/store';
 
   let open = false;
 
@@ -42,20 +41,21 @@
     open = false;
   }
 
-  $: if ($walletApi) {
+  $: if ($walletApi && $translucent) {
     (async () => {
       //const stakeAddr = await walletApi.getRewardAddresses();
       //const stakeAddrHex = stakeAddr[0];
 
       // the stakeAddrHex value needs to be converted to bench32
       // and passed in the function below replacing userAddr
-      translucent.selectWallet($walletApi);
+      $translucent.selectWallet($walletApi);
 
-      $userAddress = await translucent.wallet.address();
+      $userAddress = await $translucent.wallet.address();
 
-      console.log(await translucent.utxosAt($userAddress));
-
-      $v1TunaAmount = await fetchWalletData($userAddress);
+      if ($userAddress) {
+        console.log('User address:', $userAddress);
+        console.log(await $translucent.utxosAt($userAddress));
+      }
     })();
   }
 
