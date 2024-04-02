@@ -71,7 +71,7 @@ fn get_bytes_and_difficulty() -> Fuzzer<(ByteArray, Int, Int)> {
 
   let bytes <- map(bytearray_between(bytearray_size, bytearray_size))
 
-  let bytes = bytearray_append_filler_byte(bytes, leading_zeros % 2 == 0)
+  let bytes = bytearray_append_filler_byte(bytes, leading_zeros % 2 == 1)
 
   let bytes = bytearray_append_zero(bytes, 32 - bytearray_size - 1)
 

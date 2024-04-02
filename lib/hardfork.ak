@@ -2,14 +2,16 @@ use aiken/builtin.{blake2b_256}
 use aiken/dict.{to_list}
 use aiken/list
 use aiken/math
-use aiken/transaction.{InlineDatum, Input, Output, OutputReference, Transaction}
+use aiken/transaction.{
+  Datum, InlineDatum, Input, Output, OutputReference, Transaction,
+}
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{
   from_minted_value, to_dict, tokens, without_lovelace,
 }
 use fortuna
 use fortuna/parameters.{halving_number, initial_payout}
-use fortuna/types.{State}
+use fortuna/types.{State, Statev2}
 use fortuna/utils.{get_inline_datum, list_at, quantity_of}
 use hardfork/hftypes.{
   FailedFork, ForkDatum, Forked, HardForkState, LockAction, LockState, MinerLock,
@@ -797,13 +799,16 @@ pub fn hard_fork(
       stake_credential: None,
     }
 
+  let expected_fortuna_v2_datum: Datum =
+    InlineDatum(Statev2 { mining_state: todo, extra: todo })
+
   and {
     // Miner mined a valid fortuna v1 block
     quantity_of(fortuna_v1_value, fortuna_v1_hash, fortuna.master_token_name) == 1,
     // Hard fork state is run at correct block number
     fork_block_height == block_number,
     // Fortuna v2 Output state is correct
-    fortuna_v2_datum == fortuna_v1_datum,
+    fortuna_v2_datum == expected_fortuna_v2_datum,
     // Fortuna v2 Output value is correct
     utils.value_has_nft_and_lovelace(
       fortuna_v2_value,
