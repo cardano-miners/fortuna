@@ -52,10 +52,8 @@
 
       $userAddress = await $translucent.wallet.address();
 
-      if ($userAddress) {
-        console.log('User address:', $userAddress);
-        console.log(await $translucent.utxosAt($userAddress));
-      }
+      console.log('User address:', $userAddress);
+      console.log(await $translucent.utxosAt($userAddress));
     })();
   }
 
