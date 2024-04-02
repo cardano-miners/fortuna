@@ -30,5 +30,5 @@ pub type MineState {
 pub type ExtraState {
   nominated_hash: Option<ByteArray>,
   extra: Data,
-  interlink: List<Data>,
+  merkle: ByteArray,
 }

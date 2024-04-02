@@ -1,4 +1,4 @@
-pub const miner_hardfork_threshold = 2
+pub const miner_hardfork_threshold = 0
 
 pub const tuna_hardfork_threshold_numerator = 2
 

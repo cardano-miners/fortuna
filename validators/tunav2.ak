@@ -48,6 +48,14 @@ type TargetState {
   target_number: Int,
 }
 
+const activated_prefix = "ACT"
+
+const proposed_prefix = "PRO"
+
+const rejected_prefix = "REJ"
+
+const nominated_prefix = "NOM"
+
 validator(
   init_utxo_ref: OutputReference,
   fortuna_v1_hash: ByteArray,
@@ -138,7 +146,7 @@ validator(tunav2_minting_policy: ByteArray) {
         epoch_time,
         current_posix_time,
       },
-      extra: ExtraState { interlink, .. },
+      extra: ExtraState { merkle, .. },
     } = datum
 
     let ScriptContext { transaction, purpose } = ctx
@@ -283,7 +291,7 @@ validator(tunav2_minting_policy: ByteArray) {
         target_number: out_target_number,
         current_posix_time: out_current_posix_time,
       },
-      extra: ExtraState { interlink: out_interlink, extra, .. },
+      extra: ExtraState { merkle: out_merkle, extra, .. },
     }: Statev2 = get_inline_datum(out_datum)
 
     // Spend(8) requirement: Check output has correct difficulty number, leading zeros, and epoch time
@@ -329,15 +337,8 @@ validator(tunav2_minting_policy: ByteArray) {
       (out_current_hash == found_bytearray)?,
       //Spend(12) requirement: Check output extra field is within a certain size
       (builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512)?,
-      // Spend(13) requirement: Check output interlink is correct
-      (fortuna.calculate_interlink(
-        interlink,
-        found_bytearray,
-        found_leading_zeros,
-        found_target_number,
-        target_number,
-        leading_zeros,
-      ) == out_interlink)?,
+      // Spend(13) requirement: Check output merkle is correct
+      todo,
     }
   }
 }
