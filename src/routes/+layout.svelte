@@ -16,11 +16,11 @@
 </script>
 
 <Navbar />
-<div class="bg-base-100 mx-[19vh] relative">
+<div class="bg-base-100 md:mx-[19vh] relative">
   <img
     src={fortunaBackground}
     alt="background"
-    class="mt-6 ml-[45vw] w-[42vw] h-[42vw] absolute -z-1" />
+    class="mt-6 ml-[45vw] md:w-[42vw] md:h-[42vw] w-[55vw] h-[55vw] absolute -z-1" />
   <div class="relative z-0">
     <slot />
   </div>
