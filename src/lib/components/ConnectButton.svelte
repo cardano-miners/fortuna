@@ -82,7 +82,7 @@
 </script>
 
 {#if $walletApi && $wallet}
-  <div class="dropdown dropdown-hover">
+  <div class="dropdown dropdown-hover dropdown-left md:dropdown-right md:dropdown-bottom">
     <div tabIndex={0} role="button" class="btn btn-accent btn-outline">
       <img
         src={$wallet.name === 'GeroWallet' ? geroIcon : $wallet.icon}
