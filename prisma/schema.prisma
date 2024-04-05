@@ -1,0 +1,749 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ada_pots {
+  id       BigInt  @id @default(autoincrement())
+  slot_no  BigInt
+  epoch_no Int
+  treasury Decimal @db.Decimal(20, 0)
+  reserves Decimal @db.Decimal(20, 0)
+  rewards  Decimal @db.Decimal(20, 0)
+  utxo     Decimal @db.Decimal(20, 0)
+  deposits Decimal @db.Decimal(20, 0)
+  fees     Decimal @db.Decimal(20, 0)
+  block_id BigInt  @unique(map: "unique_ada_pots")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model block {
+  id              BigInt   @id @default(autoincrement())
+  hash            Bytes    @unique(map: "unique_block")
+  epoch_no        Int?
+  slot_no         BigInt?
+  epoch_slot_no   Int?
+  block_no        Int?
+  previous_id     BigInt?
+  slot_leader_id  BigInt
+  size            Int
+  time            DateTime @db.Timestamp(6)
+  tx_count        BigInt
+  proto_major     Int
+  proto_minor     Int
+  vrf_key         String?  @db.VarChar
+  op_cert         Bytes?
+  op_cert_counter BigInt?
+
+  txs tx[]
+
+  @@index([block_no], map: "idx_block_block_no")
+  @@index([epoch_no], map: "idx_block_epoch_no")
+  @@index([hash], map: "idx_block_hash")
+  @@index([previous_id], map: "idx_block_previous_id")
+  @@index([slot_leader_id], map: "idx_block_slot_leader_id")
+  @@index([slot_no], map: "idx_block_slot_no")
+  @@index([time], map: "idx_block_time")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model blocks_in_interest {
+  id   BigInt?
+  time DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "idx_blocks_in_interest_id")
+  @@ignore
+}
+
+model collateral_tx_in {
+  id           BigInt @id @default(autoincrement())
+  tx_in_id     BigInt
+  tx_out_id    BigInt
+  tx_out_index Int    @db.SmallInt
+
+  @@unique([tx_in_id, tx_out_id, tx_out_index], map: "unique_col_txin")
+  @@index([tx_in_id], map: "bf_idx_collateral_tx_in_tx_in_id")
+  @@index([tx_out_id], map: "idx_collateral_tx_in_tx_out_id")
+}
+
+model collateral_tx_out {
+  id                  BigInt  @id @default(autoincrement())
+  tx_id               BigInt
+  index               Int     @db.SmallInt
+  address             String  @db.VarChar
+  address_raw         Bytes
+  address_has_script  Boolean
+  payment_cred        Bytes?
+  stake_address_id    BigInt?
+  value               Decimal @db.Decimal(20, 0)
+  data_hash           Bytes?
+  multi_assets_descr  String  @db.VarChar
+  inline_datum_id     BigInt?
+  reference_script_id BigInt?
+
+  @@unique([tx_id, index], map: "unique_col_txout")
+  @@index([tx_id], map: "bf_idx_col_tx_out")
+  @@index([inline_datum_id])
+  @@index([reference_script_id])
+  @@index([stake_address_id])
+}
+
+model cost_model {
+  id    BigInt @id @default(autoincrement())
+  costs Json
+  hash  Bytes  @unique(map: "unique_cost_model")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model datum {
+  id    BigInt @id @default(autoincrement())
+  hash  Bytes  @unique(map: "unique_datum")
+  value Json?
+  bytes Bytes
+
+  tx    tx     @relation(fields: [tx_id], references: [id])
+  tx_id BigInt
+
+  tx_out tx_out[]
+
+  @@index([tx_id], map: "idx_datum_tx_id")
+}
+
+model delegation {
+  id              BigInt @id @default(autoincrement())
+  addr_id         BigInt
+  cert_index      Int
+  pool_hash_id    BigInt
+  active_epoch_no BigInt
+  tx_id           BigInt
+  slot_no         BigInt
+
+  redeemer    redeemer? @relation(fields: [redeemer_id], references: [id])
+  redeemer_id BigInt?
+
+  @@unique([tx_id, cert_index], map: "unique_delegation")
+  @@index([active_epoch_no], map: "idx_delegation_active_epoch_no")
+  @@index([addr_id], map: "idx_delegation_addr_id")
+  @@index([pool_hash_id], map: "idx_delegation_pool_hash_id")
+  @@index([redeemer_id], map: "idx_delegation_redeemer_id")
+  @@index([tx_id], map: "idx_delegation_tx_id")
+}
+
+model delisted_pool {
+  id       BigInt @id @default(autoincrement())
+  hash_raw Bytes  @unique(map: "unique_delisted_pool")
+}
+
+model epoch {
+  id         BigInt   @id @default(autoincrement())
+  out_sum    Decimal  @db.Decimal(39, 0)
+  fees       Decimal  @db.Decimal(20, 0)
+  tx_count   Int
+  blk_count  Int
+  no         Int      @unique(map: "unique_epoch")
+  start_time DateTime @db.Timestamp(6)
+  end_time   DateTime @db.Timestamp(6)
+
+  @@index([no], map: "idx_epoch_no")
+}
+
+model epoch_param {
+  id                    BigInt   @id @default(autoincrement())
+  epoch_no              Int
+  min_fee_a             Int
+  min_fee_b             Int
+  max_block_size        Int
+  max_tx_size           Int
+  max_bh_size           Int
+  key_deposit           Decimal  @db.Decimal(20, 0)
+  pool_deposit          Decimal  @db.Decimal(20, 0)
+  max_epoch             Int
+  optimal_pool_count    Int
+  influence             Float
+  monetary_expand_rate  Float
+  treasury_growth_rate  Float
+  decentralisation      Float
+  protocol_major        Int
+  protocol_minor        Int
+  min_utxo_value        Decimal  @db.Decimal(20, 0)
+  min_pool_cost         Decimal  @db.Decimal(20, 0)
+  nonce                 Bytes?
+  cost_model_id         BigInt?
+  price_mem             Float?
+  price_step            Float?
+  max_tx_ex_mem         Decimal? @db.Decimal(20, 0)
+  max_tx_ex_steps       Decimal? @db.Decimal(20, 0)
+  max_block_ex_mem      Decimal? @db.Decimal(20, 0)
+  max_block_ex_steps    Decimal? @db.Decimal(20, 0)
+  max_val_size          Decimal? @db.Decimal(20, 0)
+  collateral_percent    Int?
+  max_collateral_inputs Int?
+  block_id              BigInt
+  extra_entropy         Bytes?
+  coins_per_utxo_size   Decimal? @db.Decimal(20, 0)
+
+  @@unique([epoch_no, block_id], map: "unique_epoch_param")
+  @@index([block_id], map: "idx_epoch_param_block_id")
+  @@index([cost_model_id], map: "idx_epoch_param_cost_model_id")
+}
+
+model epoch_stake {
+  id       BigInt  @id @default(autoincrement())
+  addr_id  BigInt
+  pool_id  BigInt
+  amount   Decimal @db.Decimal(20, 0)
+  epoch_no Int
+
+  @@unique([epoch_no, id], map: "bf_u_idx_epoch_stake_epoch_and_id")
+  @@unique([epoch_no, addr_id, pool_id], map: "unique_stake")
+  @@index([addr_id], map: "idx_epoch_stake_addr_id")
+  @@index([epoch_no], map: "idx_epoch_stake_epoch_no")
+  @@index([pool_id], map: "idx_epoch_stake_pool_id")
+}
+
+model epoch_sync_time {
+  id      BigInt        @id @default(autoincrement())
+  no      BigInt        @unique(map: "unique_epoch_sync_time")
+  seconds BigInt
+  state   syncstatetype
+}
+
+model extra_key_witness {
+  id    BigInt @id @default(autoincrement())
+  hash  Bytes
+  tx_id BigInt
+
+  @@index([tx_id], map: "idx_extra_key_witness_tx_id")
+}
+
+model ma_tx_mint {
+  id       BigInt  @id @default(autoincrement())
+  quantity Decimal @db.Decimal(20, 0)
+  tx_id    BigInt
+  ident    BigInt
+
+  @@unique([ident, tx_id], map: "unique_ma_tx_mint")
+  @@index([ident], map: "bf_idx_ma_tx_mint_ident")
+  @@index([tx_id], map: "idx_ma_tx_mint_tx_id")
+}
+
+model ma_tx_out {
+  id       BigInt  @id @default(autoincrement())
+  quantity Decimal @db.Decimal(20, 0)
+
+  tx_out    tx_out @relation(fields: [tx_out_id], references: [id])
+  tx_out_id BigInt
+
+  multi_asset multi_asset @relation(fields: [ident], references: [id])
+  ident       BigInt
+
+  @@unique([ident, tx_out_id], map: "unique_ma_tx_out")
+  @@index([ident], map: "bf_idx_ma_tx_out_ident")
+  @@index([ident], map: "idx_ident")
+  @@index([tx_out_id], map: "idx_ma_tx_out_tx_out_id")
+  @@index([ident(sort: Desc)], map: "ma_tx_out_ident_index")
+}
+
+model meta {
+  id           BigInt   @id @default(autoincrement())
+  start_time   DateTime @unique(map: "unique_meta") @db.Timestamp(6)
+  network_name String   @db.VarChar
+  version      String   @db.VarChar
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model multi_asset {
+  id          BigInt      @id @default(autoincrement())
+  policy      Bytes
+  name        Bytes
+  fingerprint String      @db.VarChar
+  ma_tx_out   ma_tx_out[]
+
+  @@unique([policy, name], map: "unique_multi_asset")
+  @@index([name], map: "idx_multi_asset_name")
+  @@index([policy], map: "idx_multi_asset_policy")
+  @@index([fingerprint], map: "multi_asset_fingerprint")
+}
+
+model param_proposal {
+  id                    BigInt   @id @default(autoincrement())
+  epoch_no              Int
+  key                   Bytes
+  min_fee_a             Decimal? @db.Decimal(20, 0)
+  min_fee_b             Decimal? @db.Decimal(20, 0)
+  max_block_size        Decimal? @db.Decimal(20, 0)
+  max_tx_size           Decimal? @db.Decimal(20, 0)
+  max_bh_size           Decimal? @db.Decimal(20, 0)
+  key_deposit           Decimal? @db.Decimal(20, 0)
+  pool_deposit          Decimal? @db.Decimal(20, 0)
+  max_epoch             Decimal? @db.Decimal(20, 0)
+  optimal_pool_count    Decimal? @db.Decimal(20, 0)
+  influence             Float?
+  monetary_expand_rate  Float?
+  treasury_growth_rate  Float?
+  decentralisation      Float?
+  entropy               Bytes?
+  protocol_major        Int?
+  protocol_minor        Int?
+  min_utxo_value        Decimal? @db.Decimal(20, 0)
+  min_pool_cost         Decimal? @db.Decimal(20, 0)
+  cost_model_id         BigInt?
+  price_mem             Float?
+  price_step            Float?
+  max_tx_ex_mem         Decimal? @db.Decimal(20, 0)
+  max_tx_ex_steps       Decimal? @db.Decimal(20, 0)
+  max_block_ex_mem      Decimal? @db.Decimal(20, 0)
+  max_block_ex_steps    Decimal? @db.Decimal(20, 0)
+  max_val_size          Decimal? @db.Decimal(20, 0)
+  collateral_percent    Int?
+  max_collateral_inputs Int?
+  registered_tx_id      BigInt
+  coins_per_utxo_size   Decimal? @db.Decimal(20, 0)
+
+  @@unique([key, registered_tx_id], map: "unique_param_proposal")
+  @@index([cost_model_id], map: "idx_param_proposal_cost_model_id")
+  @@index([registered_tx_id], map: "idx_param_proposal_registered_tx_id")
+}
+
+model pool_hash {
+  id       BigInt @id @default(autoincrement())
+  hash_raw Bytes  @unique(map: "unique_pool_hash")
+  view     String @db.VarChar
+
+  @@index([view], map: "bf_idx_pool_hash_view", type: Hash)
+}
+
+model pool_metadata_ref {
+  id               BigInt @id @default(autoincrement())
+  pool_id          BigInt
+  url              String @db.VarChar
+  hash             Bytes
+  registered_tx_id BigInt
+
+  @@unique([pool_id, url, hash], map: "unique_pool_metadata_ref")
+  @@index([pool_id], map: "idx_pool_metadata_ref_pool_id")
+  @@index([registered_tx_id], map: "idx_pool_metadata_ref_registered_tx_id")
+}
+
+model pool_offline_data {
+  id          BigInt @id @default(autoincrement())
+  pool_id     BigInt
+  ticker_name String @db.VarChar
+  hash        Bytes
+  json        Json
+  bytes       Bytes
+  pmr_id      BigInt
+
+  @@unique([pool_id, hash], map: "unique_pool_offline_data")
+  @@index([pmr_id], map: "idx_pool_offline_data_pmr_id")
+}
+
+model pool_offline_fetch_error {
+  id          BigInt   @id @default(autoincrement())
+  pool_id     BigInt
+  fetch_time  DateTime @db.Timestamp(6)
+  pmr_id      BigInt
+  fetch_error String   @db.VarChar
+  retry_count Int
+
+  @@unique([pool_id, fetch_time, retry_count], map: "unique_pool_offline_fetch_error")
+  @@index([pmr_id], map: "idx_pool_offline_fetch_error_pmr_id")
+}
+
+model pool_owner {
+  id             BigInt @id @default(autoincrement())
+  addr_id        BigInt
+  pool_update_id BigInt
+
+  @@unique([addr_id, pool_update_id], map: "unique_pool_owner")
+  @@index([pool_update_id])
+}
+
+model pool_relay {
+  id           BigInt  @id @default(autoincrement())
+  update_id    BigInt
+  ipv4         String? @db.VarChar
+  ipv6         String? @db.VarChar
+  dns_name     String? @db.VarChar
+  dns_srv_name String? @db.VarChar
+  port         Int?
+
+  @@unique([update_id, ipv4, ipv6, dns_name], map: "unique_pool_relay")
+  @@index([update_id], map: "idx_pool_relay_update_id")
+}
+
+model pool_retire {
+  id              BigInt @id @default(autoincrement())
+  hash_id         BigInt
+  cert_index      Int
+  announced_tx_id BigInt
+  retiring_epoch  Int
+
+  @@unique([announced_tx_id, cert_index], map: "unique_pool_retiring")
+  @@index([announced_tx_id], map: "idx_pool_retire_announced_tx_id")
+  @@index([hash_id], map: "idx_pool_retire_hash_id")
+}
+
+model pool_update {
+  id               BigInt  @id @default(autoincrement())
+  hash_id          BigInt
+  cert_index       Int
+  vrf_key_hash     Bytes
+  pledge           Decimal @db.Decimal(20, 0)
+  active_epoch_no  BigInt
+  meta_id          BigInt?
+  margin           Float
+  fixed_cost       Decimal @db.Decimal(20, 0)
+  registered_tx_id BigInt
+  reward_addr_id   BigInt
+
+  @@unique([registered_tx_id, cert_index], map: "unique_pool_update")
+  @@index([active_epoch_no], map: "idx_pool_update_active_epoch_no")
+  @@index([hash_id], map: "idx_pool_update_hash_id")
+  @@index([meta_id], map: "idx_pool_update_meta_id")
+  @@index([registered_tx_id], map: "idx_pool_update_registered_tx_id")
+  @@index([reward_addr_id], map: "idx_pool_update_reward_addr")
+}
+
+model pot_transfer {
+  id         BigInt  @id @default(autoincrement())
+  cert_index Int
+  treasury   Decimal @db.Decimal(20, 0)
+  reserves   Decimal @db.Decimal(20, 0)
+  tx_id      BigInt
+
+  @@unique([tx_id, cert_index], map: "unique_pot_transfer")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model redeemer {
+  id BigInt @id @default(autoincrement())
+
+  tx    tx     @relation(fields: [tx_id], references: [id])
+  tx_id BigInt
+
+  unit_mem    BigInt
+  unit_steps  BigInt
+  fee         Decimal?          @db.Decimal(20, 0)
+  purpose     scriptpurposetype
+  index       Int
+  script_hash Bytes?
+
+  redeemer_data    redeemer_data @relation(fields: [redeemer_data_id], references: [id])
+  redeemer_data_id BigInt
+
+  delegations delegation[]
+  tx_in       tx_in[]
+
+  @@unique([tx_id, purpose, index], map: "unique_redeemer")
+  @@index([tx_id], map: "bf_idx_redeemer_tx_id")
+  @@index([redeemer_data_id])
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model redeemer_data {
+  id    BigInt @id @default(autoincrement())
+  hash  Bytes  @unique(map: "unique_redeemer_data")
+  tx_id BigInt
+  value Json?
+  bytes Bytes
+
+  redeemers redeemer[]
+
+  @@index([tx_id])
+}
+
+model reference_tx_in {
+  id           BigInt @id @default(autoincrement())
+  tx_in_id     BigInt
+  tx_out_id    BigInt
+  tx_out_index Int    @db.SmallInt
+
+  @@unique([tx_in_id, tx_out_id, tx_out_index], map: "unique_ref_txin")
+  @@index([tx_in_id], map: "bf_idx_reference_tx_in_tx_in_id")
+  @@index([tx_out_id])
+}
+
+model reserve {
+  id         BigInt  @id @default(autoincrement())
+  addr_id    BigInt
+  cert_index Int
+  amount     Decimal @db.Decimal(20, 0)
+  tx_id      BigInt
+
+  @@unique([addr_id, tx_id, cert_index], map: "unique_reserves")
+  @@index([addr_id], map: "idx_reserve_addr_id")
+  @@index([tx_id], map: "idx_reserve_tx_id")
+}
+
+model reserved_pool_ticker {
+  id        BigInt @id @default(autoincrement())
+  name      String @unique(map: "unique_reserved_pool_ticker") @db.VarChar
+  pool_hash Bytes
+
+  @@index([pool_hash], map: "idx_reserved_pool_ticker_pool_hash")
+}
+
+model reverse_index {
+  id       BigInt  @id @default(autoincrement())
+  block_id BigInt
+  min_ids  String? @db.VarChar
+}
+
+model reward {
+  id              BigInt     @id @default(autoincrement())
+  addr_id         BigInt
+  type            rewardtype
+  amount          Decimal    @db.Decimal(20, 0)
+  earned_epoch    BigInt
+  spendable_epoch BigInt
+  pool_id         BigInt?
+
+  @@unique([addr_id, type, earned_epoch, pool_id], map: "unique_reward")
+  @@index([addr_id], map: "idx_reward_addr_id")
+  @@index([earned_epoch], map: "idx_reward_earned_epoch")
+  @@index([pool_id], map: "idx_reward_pool_id")
+  @@index([spendable_epoch], map: "idx_reward_spendable_epoch")
+  @@index([type], map: "idx_reward_type")
+}
+
+model schema_version {
+  id          BigInt @id @default(autoincrement())
+  stage_one   BigInt
+  stage_two   BigInt
+  stage_three BigInt
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model script {
+  id              BigInt     @id @default(autoincrement())
+  tx_id           BigInt
+  hash            Bytes      @unique(map: "unique_script")
+  type            scripttype
+  json            Json?
+  bytes           Bytes?
+  serialised_size Int?
+
+  @@index([tx_id], map: "idx_script_tx_id")
+}
+
+model slot_leader {
+  id           BigInt  @id @default(autoincrement())
+  hash         Bytes   @unique(map: "unique_slot_leader")
+  pool_hash_id BigInt?
+  description  String  @db.VarChar
+
+  @@index([pool_hash_id], map: "idx_slot_leader_pool_hash_id")
+}
+
+model stake_address {
+  id          BigInt   @id @default(autoincrement())
+  hash_raw    Bytes    @unique(map: "unique_stake_address")
+  view        String   @db.VarChar
+  script_hash Bytes?
+  tx_out      tx_out[]
+
+  @@index([hash_raw], map: "idx_stake_address_hash_raw")
+  @@index([view], map: "idx_stake_address_view", type: Hash)
+  @@index([view], map: "stake_address_idx")
+}
+
+model stake_deregistration {
+  id          BigInt  @id @default(autoincrement())
+  addr_id     BigInt
+  cert_index  Int
+  epoch_no    Int
+  tx_id       BigInt
+  redeemer_id BigInt?
+
+  @@unique([tx_id, cert_index], map: "unique_stake_deregistration")
+  @@index([addr_id], map: "idx_stake_deregistration_addr_id")
+  @@index([redeemer_id], map: "idx_stake_deregistration_redeemer_id")
+  @@index([tx_id], map: "idx_stake_deregistration_tx_id")
+}
+
+model stake_registration {
+  id         BigInt @id @default(autoincrement())
+  addr_id    BigInt
+  cert_index Int
+  epoch_no   Int
+  tx_id      BigInt
+
+  @@unique([tx_id, cert_index], map: "unique_stake_registration")
+  @@index([addr_id], map: "idx_stake_registration_addr_id")
+  @@index([tx_id], map: "idx_stake_registration_tx_id")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model tmp_stake_keys {
+  stake_key String? @db.Char(59)
+
+  @@index([stake_key], map: "tmp_stake_key_idx")
+  @@ignore
+}
+
+model treasury {
+  id         BigInt  @id @default(autoincrement())
+  addr_id    BigInt
+  cert_index Int
+  amount     Decimal @db.Decimal(20, 0)
+  tx_id      BigInt
+
+  @@unique([addr_id, tx_id, cert_index], map: "unique_treasury")
+  @@index([addr_id], map: "idx_treasury_addr_id")
+  @@index([tx_id], map: "idx_treasury_tx_id")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model tx {
+  id                BigInt   @id @default(autoincrement())
+  hash              Bytes    @unique(map: "unique_tx")
+  block_index       Int
+  out_sum           Decimal  @db.Decimal(20, 0)
+  fee               Decimal  @db.Decimal(20, 0)
+  deposit           BigInt
+  size              Int
+  invalid_before    Decimal? @db.Decimal(20, 0)
+  invalid_hereafter Decimal? @db.Decimal(20, 0)
+  valid_contract    Boolean
+  script_size       Int
+
+  block    block  @relation(fields: [block_id], references: [id])
+  block_id BigInt
+
+  tx_outs tx_out[]
+
+  datums datum[]
+
+  tx_ins tx_in[]
+
+  redeemers redeemer[]
+
+  @@index([block_id], map: "idx_tx_block_id")
+  @@index([hash], map: "idx_tx_hash")
+  @@index([valid_contract], map: "idx_tx_valid_contract")
+}
+
+model tx_in {
+  id BigInt @id @default(autoincrement())
+
+  tx       tx     @relation(fields: [tx_in_id], references: [id])
+  tx_in_id BigInt
+
+  tx_out       tx_out @relation(fields: [tx_out_id], references: [id])
+  tx_out_id    BigInt
+  tx_out_index Int    @db.SmallInt
+
+  redeemer    redeemer? @relation(fields: [redeemer_id], references: [id])
+  redeemer_id BigInt?
+
+  @@unique([tx_out_id, tx_out_index], map: "unique_txin")
+  @@index([tx_out_id], map: "idx_tx_in_consuming_tx")
+  @@index([tx_out_id, tx_out_index], map: "idx_tx_in_on_tx_out_id_and_tx_out_index")
+  @@index([redeemer_id], map: "idx_tx_in_redeemer_id")
+  @@index([tx_in_id], map: "idx_tx_in_source_tx")
+  @@index([tx_in_id], map: "idx_tx_in_tx_in_id")
+  @@index([tx_out_id], map: "idx_tx_in_tx_out_id")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model tx_metadata {
+  id    BigInt  @id @default(autoincrement())
+  key   Decimal @db.Decimal(20, 0)
+  json  Json?
+  bytes Bytes
+  tx_id BigInt
+
+  @@unique([key, tx_id], map: "unique_tx_metadata")
+  @@index([tx_id], map: "idx_tx_metadata_tx_id")
+}
+
+model tx_out {
+  id                  BigInt  @id @default(autoincrement())
+  index               Int     @db.SmallInt
+  address             String  @db.VarChar
+  address_raw         Bytes
+  address_has_script  Boolean
+  payment_cred        Bytes?
+  value               Decimal @db.Decimal(20, 0)
+  data_hash           Bytes?
+  reference_script_id BigInt?
+
+  stake_address    stake_address? @relation(fields: [stake_address_id], references: [id])
+  stake_address_id BigInt?
+
+  tx    tx     @relation(fields: [tx_id], references: [id])
+  tx_id BigInt
+
+  datum           datum?  @relation(fields: [inline_datum_id], references: [id])
+  inline_datum_id BigInt?
+
+  tx_in     tx_in[]
+  ma_tx_out ma_tx_out[]
+
+  @@unique([tx_id, index], map: "unique_txout")
+  @@index([address], map: "idx_tx_out_address", type: Hash)
+  @@index([payment_cred], map: "idx_tx_out_payment_cred")
+  @@index([stake_address_id], map: "idx_tx_out_stake_address_id")
+  @@index([tx_id], map: "idx_tx_out_tx_id")
+  @@index([inline_datum_id])
+  @@index([reference_script_id])
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model txs_of_lenfi {
+  id               BigInt?
+  quantity         Decimal? @db.Decimal(20, 0)
+  tx_out_id        BigInt?
+  ident            BigInt?
+  tx_id            BigInt?
+  stake_address_id BigInt?
+  stake_address    String?  @db.VarChar
+
+  @@ignore
+}
+
+model withdrawal {
+  id          BigInt  @id @default(autoincrement())
+  addr_id     BigInt
+  amount      Decimal @db.Decimal(20, 0)
+  redeemer_id BigInt?
+  tx_id       BigInt
+
+  @@unique([addr_id, tx_id], map: "unique_withdrawal")
+  @@index([addr_id], map: "idx_withdrawal_addr_id")
+  @@index([redeemer_id], map: "idx_withdrawal_redeemer_id")
+  @@index([tx_id], map: "idx_withdrawal_tx_id")
+}
+
+enum rewardtype {
+  leader
+  member
+  reserves
+  treasury
+  refund
+}
+
+enum scriptpurposetype {
+  spend
+  mint
+  cert
+  reward
+}
+
+enum scripttype {
+  multisig
+  timelock
+  plutusV1
+  plutusV2
+}
+
+enum syncstatetype {
+  lagging
+  following
+}
