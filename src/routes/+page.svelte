@@ -121,7 +121,7 @@
     class="flex max-w-[100vw] flex-col items-center justify-start xl:flex-row xl:items-start xl:justify-between">
     <div class="shrink xl:w-1/2">
       <div class="flex mt-[5vw] justify-center px-2 text-center xl:justify-start xl:text-start">
-        <div class="py-5">
+        <div class="py-5 mx-5">
           <h1
             class="font-title xl:w-[115%] xl:text-start text-center text-[clamp(4rem,6vw,4.2rem)] font-black leading-[1.1] [word-break:auto-phrase] [:root[dir=rtl]_&]:leading-[1.35]">
             <span

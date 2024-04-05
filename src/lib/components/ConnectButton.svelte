@@ -144,9 +144,9 @@
     on:click={(e) => {
       open = true;
     }}>Connect</button>
-  <dialog id="my_modal_1" class="modal modal-bottom sm:modal-middle" {open}>
-    <div class="modal-box flex flex-col gap-8">
-      <h3 class="font-bold text-lg">Select a wallet</h3>
+  <dialog id="my_modal_1" class="modal modal-middle" {open}>
+    <div class="modal-box flex flex-col border border-gray-700 bg-base-300 gap-4 md:gap-8 ">
+      <h3 class="font-bold text-lg justify-center">Select a wallet</h3>
 
       {#each wallets as [key, value]}
         <button
