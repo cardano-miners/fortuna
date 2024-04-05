@@ -123,7 +123,7 @@
       <div class="flex mt-[5vw] justify-center px-2 text-center xl:justify-start xl:text-start">
         <div class="py-5">
           <h1
-            class="font-title xl:w-[115%] xl:text-start text-center text-[clamp(2rem,6vw,4.2rem)] font-black leading-[1.1] [word-break:auto-phrase] [:root[dir=rtl]_&]:leading-[1.35]">
+            class="font-title xl:w-[115%] xl:text-start text-center text-[clamp(4rem,6vw,4.2rem)] font-black leading-[1.1] [word-break:auto-phrase] [:root[dir=rtl]_&]:leading-[1.35]">
             <span
               class="[&::selection]:text-base-content brightness-150 contrast-150 [&::selection]:bg-blue-700/20">
               Welcome to
@@ -148,7 +148,12 @@
             </p>
           </div>
           <div class="h-4" />
-          <p class="text-base-content/100 py-4 font-light md:text-lg xl:text-2xl">
+          <p class="md:hidden text-base-content/100 py-4 font-light md:text-lg xl:text-2xl">
+            The hardfork is coming. In order to prepare for the hardfork lock your $TUNA using
+            the page below. Locked $TUNA will be claimable on a new policy after the hardfork.
+          </p>
+
+          <p class="hidden md:block text-base-content/100 py-4 font-light md:text-lg xl:text-2xl">
             The hardfork is coming. In order to prepare for the hardfork<br /> lock your $TUNA using
             the page below. Locked $TUNA will<br /> be claimable on a new policy after the hardfork.
           </p>
