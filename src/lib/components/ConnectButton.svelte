@@ -43,7 +43,7 @@
     open = false;
   }
 
-  $: if ($walletApi && $translucent && !$v1TunaAmount) {
+  $: if ($walletApi && !$v1TunaAmount) {
     (async () => {
       //const stakeAddr = await walletApi.getRewardAddresses();
       //const stakeAddrHex = stakeAddr[0];
@@ -51,15 +51,17 @@
       // the stakeAddrHex value needs to be converted to bench32
       // and passed in the function below replacing userAddr
 
-      $userAddress = await $translucent.wallet.address();
+      $userAddress = await $translucent?.wallet.address();
 
       console.log('User address:', $userAddress);
 
-      const utxos = await $translucent.utxosAt($userAddress);
+      if ($userAddress && $translucent) {
+        const utxos = await $translucent.utxosAt($userAddress);
 
-      $v1TunaAmount = utxos.reduce((acc, u) => {
-        return acc + (u.assets[V1_TUNA_SUBJECT] ?? 0n);
-      }, 0n);
+        $v1TunaAmount = utxos.reduce((acc, u) => {
+          return acc + (u.assets[V1_TUNA_SUBJECT] ?? 0n);
+        }, 0n);
+      }
     })();
   }
 
