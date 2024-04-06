@@ -18,15 +18,10 @@ use hardfork/hftypes.{
   MinerLockState, NftState, NotForked, UserLock,
 }
 use hardfork/params.{
-  hardfork_block_height, miner_hardfork_threshold, tuna_count_blocks_from,
+  hard_fork_state_token, hardfork_block_height, lock_state_token,
+  miner_hardfork_threshold, miner_lock_state_token, tuna_count_blocks_from,
   tuna_hardfork_threshold_denominator, tuna_hardfork_threshold_numerator,
 }
-
-pub const miner_lock_state_token: ByteArray = "miner_lock_state"
-
-pub const lock_state_token: ByteArray = "lock_state"
-
-pub const hard_fork_state_token: ByteArray = "hfs"
 
 /// Check for the proper initialization of the hard fork state
 pub fn initialize(

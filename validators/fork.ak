@@ -9,6 +9,7 @@ use hardfork/hftypes.{
   ForkDatum, Forked, HardForkState, LockAction, LockState, MinerLockState,
   NotForked,
 }
+use hardfork/params.{lock_state_token, miner_lock_state_token}
 
 type NftForkAction {
   /// Only run once to initialize the nft tokens
@@ -119,7 +120,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                       quantity_of(
                         input.output.value,
                         own_policy,
-                        hf.miner_lock_state_token,
+                        miner_lock_state_token,
                       ) == 1
                     },
                   )
@@ -172,11 +173,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               list.find(
                 transaction.reference_inputs,
                 fn(input) {
-                  quantity_of(
-                    input.output.value,
-                    own_policy,
-                    hf.lock_state_token,
-                  ) == 1
+                  quantity_of(input.output.value, own_policy, lock_state_token) == 1
                 },
               )
 
