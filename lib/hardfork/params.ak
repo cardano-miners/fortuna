@@ -9,3 +9,11 @@ pub const tuna_count_blocks_from = 1000
 pub const tuna_hardfork_version = 2
 
 pub const hardfork_block_height = 100
+
+pub const miner_lock_state_token = "miner_lock_state"
+
+pub const lock_state_token = "lock_state"
+
+pub const hard_fork_state_token = "hfs"
+
+pub const hard_fork_merkle_root = ""

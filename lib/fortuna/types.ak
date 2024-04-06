@@ -27,8 +27,15 @@ pub type MineState {
   current_posix_time: Int,
 }
 
+pub type NominatedVote {
+  /// The current amount of miner votes for the current nomination token.
+  vote_count: Int,
+  /// The block height where the nomination token is burned.
+  vote_deadline: Int,
+}
+
 pub type ExtraState {
-  nominated_hash: Option<ByteArray>,
-  extra: Data,
+  new_spend_votes: Option<NominatedVote>,
   merkle: ByteArray,
+  extra: Data,
 }
