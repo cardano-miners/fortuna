@@ -76,5 +76,7 @@ export async function load({ url }: PageServerLoadEvent) {
       | undefined,
   }));
 
+  console.log(blocks);
+
   return { blocks, canNextPage, canPrevPage, totalPages, totalCount };
 }
