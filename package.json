@@ -58,9 +58,7 @@
   "type": "module",
   "dependencies": {
     "@dcspark/cardano-multiplatform-lib-nodejs": "^5.2.0",
-    "@prisma/adapter-pg-worker": "^5.12.1",
     "@prisma/client": "^5.12.1",
-    "@prisma/pg-worker": "^5.12.1",
     "d3-array": "^3.2.4",
     "d3-scale": "^4.0.2",
     "d3-shape": "^3.2.0",
