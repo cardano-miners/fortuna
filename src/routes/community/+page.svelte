@@ -1,9 +1,8 @@
 <script lang="ts">
   import repositories from '$lib/data/community.json';
-  import OcticonMarkGithub24 from '~icons/octicon/mark-github-24'
-  import IcBaselineDiscord from '~icons/ic/baseline-discord'
-  import CarbonUserAvatarFilled from '~icons/carbon/user-avatar-filled'
-
+  import OcticonMarkGithub16 from '~icons/octicon/mark-github-16';
+  import IcBaselineDiscord from '~icons/ic/baseline-discord';
+  import CarbonUserAvatarFilled from '~icons/carbon/user-avatar-filled';
 </script>
 
 <div class="my-6 h-screen">
@@ -28,13 +27,14 @@
             href="https://discord.gg/Vc3x8N9nz2"
             target="_blank"
             class=" inline-block text-white font-bold rounded">Discord</a>
-<IcBaselineDiscord class="text-white text-xl"/></button>
+          <IcBaselineDiscord class="text-white text-xl" /></button>
         <button class="btn-primary btn btn-sm ml-4"
           ><a
             href="https://github.com/aiken-lang/fortuna"
             target="_blank"
             class="inline-block text-white font-bold rounded">Fortuna</a>
-<OcticonMarkGithub24 class="text-white text-xl"/> </button>
+          <OcticonMarkGithub16 class="text-white text-xl" />
+        </button>
       </div>
     </div>
   </section>
@@ -48,14 +48,16 @@
           <div class="flex justify-between items-center">
             <h3 class="text-xl text-white">
               <a href={repo.repoLink} class="flex items-center gap-1 my-2">
-                <OcticonMarkGithub24 class="text-white text-xl mr-2"/>
-            
+                <OcticonMarkGithub16 class="text-white text-xl mr-2" />
+
                 {repo.name}
               </a>
             </h3>
-            <span class="badge p-4"><CarbonUserAvatarFilled class="text-xl text-white mr-1" /> {repo.author}</span>
+            <span class="badge p-4"
+              ><CarbonUserAvatarFilled class="text-xl text-white mr-1" /> {repo.author}</span>
           </div>
-          <span class="badge border border-gray-800 badge-md uppercase mt-2 badge-accent">{repo.category}</span>
+          <span class="badge border border-gray-800 badge-md uppercase mt-2 badge-accent"
+            >{repo.category}</span>
           <p class="mt-2">{repo.description}</p>
           <div class="">
             <button class="btn btn-primary btn-ghost border border-base-100 btn-sm my-4">
