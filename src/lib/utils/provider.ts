@@ -9,6 +9,10 @@ import type {
   Credential,
   UTxO,
   Assets,
+  Unit,
+  Delegation,
+  OutRef,
+  Datum,
 } from 'translucent-cardano';
 import { PROTOCOL_PARAMETERS_DEFAULT, Translucent, fromHex, toHex, C } from 'translucent-cardano';
 
@@ -33,23 +37,25 @@ export class BrowserProvider implements Provider {
   }
 
   getUtxosWithUnit(addressOrCredential: Address | Credential, unit: Unit): Promise<UTxO[]> {
-    throw new Error('Provider does not implement getUtxosWithUnit');
+    throw new Error(
+      `Provider does not implement getUtxosWithUnit: ${addressOrCredential}, ${unit}`,
+    );
   }
 
   async getUtxoByUnit(unit: Unit): Promise<UTxO> {
-    throw new Error('Provider does not implement getUtxoByUnit');
+    throw new Error(`Provider does not implement getUtxoByUnit: ${unit}`);
   }
 
   async getUtxosByOutRef(outRefs: OutRef[]): Promise<UTxO[]> {
-    throw new Error('Provider does not implement getUtxosByOutRef');
+    throw new Error(`Provider does not implement getUtxosByOutRef: ${outRefs}`);
   }
 
   async getDelegation(rewardAddress: RewardAddress): Promise<Delegation> {
-    throw new Error('Provider does not implement getDelegation');
+    throw new Error(`Provider does not implement getDelegation: ${rewardAddress}`);
   }
 
   async getDatum(datumHash: DatumHash): Promise<Datum> {
-    throw new Error('Provider does not implement getDatum');
+    throw new Error(`Provider does not implement getDatum: ${datumHash}`);
   }
 
   awaitTx(txHash: TxHash, checkInterval = 3000): Promise<boolean> {
@@ -64,6 +70,7 @@ export class BrowserProvider implements Provider {
 
   private kupmiosUtxosToUtxos(utxos: unknown): Promise<UTxO[]> {
     return Promise.all(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (utxos as any).map(async (utxo: any) => {
         return {
           txHash: utxo.transaction_id,

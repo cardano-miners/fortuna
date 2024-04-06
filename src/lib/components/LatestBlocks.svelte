@@ -2,28 +2,24 @@
   import LatestBlocks from '$lib/components/charts/LatestBlocks.json';
   import { format, differenceInMinutes } from 'date-fns';
   // icons
-  import BxCommentError from '~icons/bx/comment-error'
-  import MaterialSymbolsLightBolt from '~icons/material-symbols-light/bolt'
-  import Carbon3dSoftware from '~icons/carbon/3d-software'
-  import MdiArrowTopRightBoldBoxOutline from '~icons/mdi/arrow-top-right-bold-box-outline'
-  import TdesignBlockchain from '~icons/tdesign/blockchain'
-  import MaterialSymbolsDeployedCodeAccount from '~icons/material-symbols/deployed-code-account'
-  import MaterialSymbolsFitbitArrowUpward from '~icons/material-symbols/fitbit-arrow-upward'
-  import MaterialSymbolsFitbitArrowDownwardSharp from '~icons/material-symbols/fitbit-arrow-downward-sharp'
+  import BxCommentError from '~icons/bx/comment-error';
+  import MaterialSymbolsFitbitArrowUpward from '~icons/material-symbols/fitbit-arrow-upward';
+  import MaterialSymbolsFitbitArrowDownwardSharp from '~icons/material-symbols/fitbit-arrow-downward-sharp';
 
-import SparklineChart from './charts/SparklineChart.svelte';
- 
-export let marketData: any = [];
+  import SparklineChart from './charts/SparklineChart.svelte';
 
-let priceUp: boolean = true;
+  export let marketData: any = [];
 
-// marketData should return information to be displayed not only in sparkline chart
-// but also inside the card with the market information as marketData.supply marketData.volume etc
+  let priceUp: boolean = true;
 
+  // marketData should return information to be displayed not only in sparkline chart
+  // but also inside the card with the market information as marketData.supply marketData.volume etc
 </script>
+
 <div role="alert" class="alert alert-error my-6">
- <BxCommentError class="shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"/>
-  <span>WARNING: The explorer is under construction and the data here is not accurate or real for now.</span>
+  <BxCommentError class="shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" />
+  <span
+    >WARNING: The explorer is under construction and the data here is not accurate or real for now.</span>
 </div>
 
 <div class="flex flex-col md:flex-row gap-4">
@@ -42,10 +38,13 @@ let priceUp: boolean = true;
               7.6%</span>
           </div>
         </div>
-        <div class="md:col-start-1 border-y-2 md:border-t-2 md:border-y-0 border-primary pt-2 py-5 md:py-0">
+        <div
+          class="md:col-start-1 border-y-2 md:border-t-2 md:border-y-0 border-primary pt-2 py-5 md:py-0">
           <div class="flex-row">
             <span class="text-sm font-light">Volume 24h</span><br />
-            <span class="text-3xl font-bold text-primary">452.00 <span class="text-primary/50">₳</span></span><br />
+            <span class="text-3xl font-bold text-primary"
+              >452.00 <span class="text-primary/50">₳</span></span
+            ><br />
             <span class="text-sm font-light">Total Liquidity: </span><span
               class="text-sm font-light text-primary">
               6K ₳</span>
@@ -55,14 +54,16 @@ let priceUp: boolean = true;
           <div class="md:flex justify-between items-center">
             <div>
               <span class="text-sm font-light">TUNA Price</span><br />
-              <span class="md:text-6xl text-5xl font-bold text-primary">0,0905 <span class="text-primary/70 font-medium">₳</span></span><br />
+              <span class="md:text-6xl text-5xl font-bold text-primary"
+                >0,0905 <span class="text-primary/70 font-medium">₳</span></span
+              ><br />
               <div class="flex items-center">
-              <span class="text-sm font-light">Price change: </span>
-              {#if priceUp}<span
-                class="text-sm font-light text-success flex items-center"><MaterialSymbolsFitbitArrowUpward class="size-6"/> 3,00%</span>
+                <span class="text-sm font-light">Price change: </span>
+                {#if priceUp}<span class="text-sm font-light text-success flex items-center"
+                    ><MaterialSymbolsFitbitArrowUpward class="size-6" /> 3,00%</span>
                 {:else}
-                <span
-                class="text-sm font-light text-error flex items-center"><MaterialSymbolsFitbitArrowDownwardSharp class="size-6"/> 3,00%</span>
+                  <span class="text-sm font-light text-error flex items-center"
+                    ><MaterialSymbolsFitbitArrowDownwardSharp class="size-6" /> 3,00%</span>
                 {/if}
               </div>
             </div>
@@ -76,64 +77,10 @@ let priceUp: boolean = true;
             </div>
           </div>
         </div>
-        <div class="md:col-start-2 md:col-end-5 md:row-start-2 pt-2" >
+        <div class="md:col-start-2 md:col-end-5 md:row-start-2 pt-2">
           <SparklineChart data={marketData} />
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="card bg-base-300 md:w-[70vh] md:h-[45vh] gap-2">
-    <div class="card-title my-4 ml-2 md:ml-0 md:my-0 md:mb-4 md:p-4">
-      Latest Blocks<span class="badge badge-success text-white"><MaterialSymbolsLightBolt class="shrink-0 size-5" fill="none" viewBox="0 0 24 24"/> LIVE</span>
-    </div>
-    <div class="overflow-y-auto hide-scrollbar">
-      {#each LatestBlocks as data (data.blockNumber)}
-        <div class="flex">
-          <div class="card bg-base-100 w-full m-2 py-2 md:py-0">
-            <div class="flex items-center m-2">
-              <div><Carbon3dSoftware class="shrink-0 size-10 text-white" fill="none" /> </div>
-              <div>
-                <div
-                  class="tooltip"
-                  data-tip="012366e8bdd0fe504d56c00f0fd7fd29f843ed2c69eeeb754a77acf">
-                  <div class="text-2xl font-semibold ml-2 text-accent">{data.blockNumber}</div>
-                </div>
-                <div
-                  class="tooltip"
-                  data-tip={format(new Date(data.blockTime), "dd/MM/yyyy 'at' hh:mm a")}>
-                  <div class="badge badge-neutral ml-2 text-xs md:text-sm">
-                    {differenceInMinutes(new Date(), new Date(data.blockTime))} minutes ago
-                  </div>
-                  <div class="hidden md:flex md:m-2 badge badge-warning">
-                    +{data.minted} $TUNA
-                  </div>
-                </div>
-              </div>
-              <div class="ml-auto text-right">
-                <div class="text-lg font-semibold flex">
-                  <a href="https://cardanoscan.io/transaction/{data.mintTx}" target="_blank">
-                    <span class="link link-primary link-hover flex">
-                      {data.mintTx.slice(0, 5)}...{data.mintTx.slice(-3)}<span class="ml-2"
-                        ><MdiArrowTopRightBoldBoxOutline class="size-5 shrink-0"/></span>
-                    </span>
-                  </a>
-                </div>
-                  <div class="tooltip" data-tip="Minted by a single Miner">
-                    <div class="badge badge-secondary">
-                      <MaterialSymbolsDeployedCodeAccount class="size-5 shrink-0"/>
-                      <span class="ml-1"> {data.miner.slice(0, 5)}...{data.miner.slice(-3)}</span>
-                    </div>
-                                      <div class=" md:hidden badge badge-warning">
-                    +{data.minted} $TUNA
-                  </div>
-                  </div>
-
-              </div>
-            </div>
-          </div>
-        </div>
-      {/each}
     </div>
   </div>
 </div>
