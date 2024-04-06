@@ -43,7 +43,7 @@
     open = false;
   }
 
-  $: if ($walletApi && $translucent) {
+  $: if ($walletApi && $translucent && !$v1TunaAmount) {
     (async () => {
       //const stakeAddr = await walletApi.getRewardAddresses();
       //const stakeAddrHex = stakeAddr[0];
@@ -145,7 +145,7 @@
       open = true;
     }}>Connect</button>
   <dialog id="my_modal_1" class="modal modal-middle" {open}>
-    <div class="modal-box flex flex-col border border-gray-700 bg-base-300 gap-4 md:gap-8 ">
+    <div class="modal-box flex flex-col border border-gray-700 bg-base-300 gap-4 md:gap-8">
       <h3 class="font-bold text-lg text-center">Select a wallet</h3>
 
       {#each wallets as [key, value]}
