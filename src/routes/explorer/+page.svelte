@@ -1,85 +1,75 @@
 <script lang="ts">
+  import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
+
   import type { PageData } from './$types';
 
-  import AreaChart from '$lib/components/charts/AreaChart.svelte';
-  import BarChartV from '$lib/components/charts/BarChartV.svelte';
-  import ArcSegments from '$lib/components/charts/ArcSegments.svelte';
-  import BlocksTable from '$lib/components/BlocksTable.svelte';
-  import MinersTable from '$lib/components/MinersTable.svelte';
-
-  // Dummy data for the charts, barebones dates and values and tunaInfo
-  import AreaChartData from '$lib/components/charts/AreaChartData.json';
-  import BarChartVData from '$lib/components/charts/BarChartVData.json';
-  import SparklineData from '$lib/components/charts/SparklineData.json';
-  import blocksTableDummy from '$lib/components/charts/blocksTableDummy.json';
-  import minersTableDummy from '$lib/components/charts/minersTableDummy.json';
-
-  // curve style for the area chart, those are the ones that can be imported  https://d3js.org/d3-shape/curve
-  import { curveStep } from 'd3-shape';
-
-  import LatestBlocks from '$lib/components/LatestBlocks.svelte';
-  import ProgressChart from '$lib/components/charts/progressChart.svelte';
-
-  // todo: responsive/mobile tailwind code
-
-  let activeTab = 'blocks';
-
   export let data: PageData;
+
+  function changePage(delta: number) {
+    let newPage = parseInt($page.url.searchParams.get('page') ?? '1');
+
+    if (isNaN(newPage) || newPage < 1) {
+      newPage = 1;
+    }
+
+    newPage += delta;
+
+    console.log(newPage);
+
+    const query = new URLSearchParams($page.url.searchParams.toString());
+
+    query.set('page', newPage.toString());
+
+    goto(`?${query.toString()}`);
+  }
 </script>
 
-<div class="mt-4 mb-[5vw] md:mx-0 mx-2">
-  <div><LatestBlocks marketData={SparklineData} /></div>
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-    <div class="col-span-1 md:col-span-4 h-full w-full">
-      <BarChartV data={BarChartVData} title="Mined Tuna/Day" />
-    </div>
-    <div>
-      <AreaChart
-        data={AreaChartData}
-        title="Estimated Hash Power"
-        curveType={curveStep}
-        placementx="top"
-        placementy="right"
-        lineClass="stroke-primary stroke-2"
-        areaClass="fill-primary/10"
-        yValue="value"
-        xValue="x"
-        hasPoints={true}
-        isHighlighted={true} />
-    </div>
-
-    <div class="col-span-1">
-      <ArcSegments value={8} segments={100} title="Block Difficult" />
-    </div>
-    <div class="col-span-1 md:col-span-2">
-      <ProgressChart blockNumbers={BarChartVData} />
-    </div>
+<div class="flex flex-col gap-12 mt-12 md:mx-0 mx-2">
+  <div class="flex justify-center">
+    <span class="text-4xl font-semibold">Blocks ({data.totalCount})</span>
   </div>
-  <div>
-    <div class="pt-8 flex justify-center">
-      <span class="text-4xl font-semibold">Tuna Index</span>
-    </div>
-    <div role="tablist" class="tabs tabs-boxed tabs-lg mt-5">
-      <span
-        role="tab"
-        class="tab"
-        on:click={() => (activeTab = 'blocks')}
-        class:tab-active={activeTab === 'blocks'}>Blocks</span>
-      <span
-        role="tab"
-        class="tab"
-        on:click={() => (activeTab = 'miners')}
-        class:tab-active={activeTab === 'miners'}>Miners</span>
-    </div>
 
-    {#if activeTab === 'blocks'}
-      <div class="overflow-x-auto">
-        <BlocksTable data={blocksTableDummy} />
+  <div class="overflow-x-auto">
+    <div class="table w-full text-white overflow-hidden rounded-lg shadow-lg mt-4">
+      <div class="table-header-group bg-base-300">
+        <div class="table-cell p-4">Epoch</div>
+        <div class="table-cell p-4">Block</div>
+        <div class="table-cell p-4">Leading Zeroes</div>
+        <div class="table-cell p-4">Target</div>
+        <div class="table-cell p-4">Hash</div>
+        <div class="table-cell p-4">Rewards</div>
+        <div class="table-cell p-4">Time</div>
       </div>
-    {:else if activeTab === 'miners'}
-      <div class="overflow-x-auto">
-        <MinersTable data={minersTableDummy} />
+
+      {#each data.blocks as block (block.block_number)}
+        <div class="table-row-group bg-base-200">
+          <div class="table-cell p-4 border-t-2 border-gray-800">{block.epoch_time}</div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">
+            <div class="badge badge-primary">{block.block_number}</div>
+          </div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">{block.leading_zeros}</div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">
+            {block.target_number}
+          </div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">
+            {block.current_hash}
+          </div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">
+            <div class="badge badge-success">{50}</div>
+          </div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">{block.current_posix_time}</div>
+        </div>
+      {/each}
+    </div>
+    <div class="w-full flex justify-center mt-5">
+      <div class="join">
+        <button class="join-item btn" on:click={() => changePage(-1)} disabled={!data.canPrevPage}
+          >«</button>
+        <button class="join-item btn">Page {$page.url.searchParams.get('page') ?? '1'}</button>
+        <button class="join-item btn" on:click={() => changePage(1)} disabled={!data.canNextPage}
+          >»</button>
       </div>
-    {/if}
+    </div>
   </div>
 </div>

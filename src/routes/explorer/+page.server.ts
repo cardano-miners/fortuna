@@ -2,23 +2,13 @@ import { Prisma } from '@prisma/client';
 import type { PageServerLoadEvent } from './$types';
 
 import { dbsync } from '$lib/server/dbsync';
-
-export type BlockData = {
-  block_number: number;
-  current_hash: string;
-  leading_zeros: number;
-  target_number: number;
-  epoch_time: number;
-  current_posix_time: number;
-  // only the genesis block has an undefined nonce
-  nonce?: string;
-};
+import type { BlockData } from '$lib/types';
 
 export async function load({ url }: PageServerLoadEvent) {
   const pageNumber = url.searchParams.get('page') ?? '1';
 
   let parsedPageNumber = parseInt(pageNumber);
-  const parsedPageLimit = 10;
+  const parsedPageLimit = 15;
 
   if (isNaN(parsedPageNumber) || parsedPageNumber < 1) {
     parsedPageNumber = 1;
@@ -86,5 +76,5 @@ export async function load({ url }: PageServerLoadEvent) {
       | undefined,
   }));
 
-  return { blocks, canNextPage, canPrevPage, totalPages };
+  return { blocks, canNextPage, canPrevPage, totalPages, totalCount };
 }
