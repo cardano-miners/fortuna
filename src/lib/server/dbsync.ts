@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 
-import { NODE_ENV } from '$env/static/private';
+import { NODE_ENV, DATABASE_URL } from '$env/static/private';
 
 let dbsync: PrismaClient;
 
@@ -13,10 +15,16 @@ declare global {
 // the server with every change, but we want to make sure we don't
 // create a new connection to the DB with every change either.
 if (NODE_ENV === 'production') {
-  dbsync = new PrismaClient();
+  const pool = new pg.Pool({ connectionString: DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+
+  dbsync = new PrismaClient({ adapter });
 } else {
   if (!global.__dbsync) {
-    global.__dbsync = new PrismaClient({ log: ['query'] });
+    const pool = new pg.Pool({ connectionString: DATABASE_URL });
+    const adapter = new PrismaPg(pool);
+
+    global.__dbsync = new PrismaClient({ adapter, log: ['query'] });
   }
 
   dbsync = global.__dbsync;
