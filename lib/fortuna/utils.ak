@@ -127,3 +127,10 @@ pub fn get_inline_datum(datum: Datum) -> Data {
     _ -> fail @"Expected inline datum"
   }
 }
+
+pub fn integer_to_bytes(i: Int, bytes: ByteArray) -> ByteArray {
+  integer_to_bytes(
+    builtin.quotient_integer(i, 256),
+    builtin.cons_bytearray(i, bytes),
+  )
+}
