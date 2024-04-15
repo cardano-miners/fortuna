@@ -1,19 +1,24 @@
-name = 'aiken-lang/fortuna'
-version = '0.0.0'
-license = 'Apache-2.0'
+name = "aiken-lang/fortuna"
+version = "0.0.0"
+license = "Apache-2.0"
 description = "Aiken contracts for pow coin"
 
 [repository]
-user = 'aiken-lang'
-project = 'pow'
-platform = 'github'
+user = "aiken-lang"
+project = "pow"
+platform = "github"
 
 [[dependencies]]
-name = 'aiken-lang/stdlib'
-version = 'main'
-source = 'github'
+name = "aiken-lang/stdlib"
+version = "main"
+source = "github"
 
 [[dependencies]]
-name = 'aiken-lang/fuzz'
-version = 'main'
-source = 'github'
+name = "aiken-lang/fuzz"
+version = "main"
+source = "github"
+
+[[dependencies]]
+name = "aiken-lang/sparse-merkle-tree"
+version = "main"
+source = "github"
