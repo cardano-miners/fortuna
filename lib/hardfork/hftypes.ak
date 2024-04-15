@@ -1,3 +1,5 @@
+use aiken/transaction.{OutputReference}
+
 pub type HardForkStatus {
   NotForked
   Forked
@@ -19,4 +21,11 @@ pub type ForkDatum {
 pub type LockAction {
   MinerLock { fortuna_v1_output: Int }
   UserLock
+}
+
+pub type NftForkAction {
+  /// This action is only run once and it sets up the ability to convert v1 tuna tokens to v2 tuna tokens
+  HardFork { lock_output_index: Int }
+
+  Lock { lock_output_index: Int, lock_state_input: OutputReference }
 }

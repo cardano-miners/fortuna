@@ -7,22 +7,14 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, Inline, ScriptCredential}
 use aiken/transaction/value
 use fortuna
-use fortuna/types.{ExtraState, MineState, State, Statev2}
+use fortuna/types.{State}
 use fortuna/utils
-use hardfork/params.{
-  hard_fork_merkle_root, hardfork_block_height, lock_state_token,
-}
+use hardfork/hftypes.{HardFork, Lock, NftForkAction}
+use hardfork/params.{lock_state_token}
 
 /// Simplified fork with only 2 actions. HardFork current tuna v1 version to v2 version
 /// and Lock action to lock v1 tokens and mint v2 tokens. This is simpler version that does not have miners'
 /// input in the hardfork action. This is mainly because there are no current miners anyway.
-type NftForkAction {
-  /// This action is only run once and it sets up the ability to convert v1 tuna tokens to v2 tuna tokens
-  HardFork { lock_output_index: Int }
-
-  Lock { lock_output_index: Int, lock_state_input_ref: OutputReference }
-}
-
 /// Ensures that maximum lockable tuna is equal to emitted tuna at block height
 type LockState {
   block_height: Int,
@@ -64,8 +56,12 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 fn(input) { input.output_reference == init_utxo_ref },
               )
 
-            let v1_miner_ref =
-              utils.resolve_output_reference(reference_inputs, init_utxo_ref)
+            expect Some(v1_miner_ref) = {
+              let input <- list.find(reference_inputs)
+              input.output.value
+                |> value.quantity_of(fortuna_v1_hash, fortuna.master_token_name)
+                |> builtin.equals_integer(1)
+            }
 
             expect [(_, 1)] =
               mint
@@ -76,7 +72,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             // Step 2: Extract input state from inputs
             // In this case only block_number from v1_miner_ref is needed
             expect State { block_number, .. }: State =
-              v1_miner_ref.datum |> utils.get_inline_datum
+              v1_miner_ref.output.datum |> utils.get_inline_datum
 
             // Step 3: Created expected output state
             let expected_lock_state =
@@ -89,10 +85,6 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             // Step 4: Validate that the transitioning states are correct
             and {
-              // Validate reference input state
-              v1_miner_ref.value
-                |> value.quantity_of(fortuna_v1_hash, fortuna.master_token_name)
-                |> builtin.equals_integer(1),
               // Validate output state
               address == Address(ScriptCredential(own_policy), None),
               datum == expected_lock_state,

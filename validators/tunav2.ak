@@ -7,7 +7,7 @@ use aiken/math
 use aiken/transaction.{
   Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
-use aiken/transaction/credential.{Address, ScriptCredential}
+use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value.{tokens}
 use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
@@ -15,16 +15,15 @@ use fortuna/types.{ExtraState, MineState, Statev2}
 use fortuna/utils.{
   get_inline_datum, list_at, quantity_of, resolve_output_reference,
 }
-use hardfork/hftypes.{ForkDatum, NftState}
-use hardfork/params.{hard_fork_state_token}
+use hardfork/hftypes.{HardFork, NftForkAction}
 
 type TunaAction {
   Genesis
   Mine
   Redeem(OutputReference)
   NominateUpgradeContract
-  VoteContractToken { script_hash: ByteArray, vote: Bool }
-  ApplyContractVote { script_hash: ByteArray, for: Bool }
+  VoteOnUpgradeContract { script_hash: ByteArray, vote: Bool }
+  MinerVoteOnUpgradeContract { script_hash: ByteArray, for: Bool }
   ApplyUpgradeContract
 }
 
@@ -48,88 +47,38 @@ type TargetState {
   target_number: Int,
 }
 
-const activated_prefix = "ACT"
-
-const proposed_prefix = "PRO"
-
-const rejected_prefix = "REJ"
-
-const nominated_prefix = "NOM"
-
-validator(
-  init_utxo_ref: OutputReference,
-  fortuna_v1_hash: ByteArray,
-  fork_script_hash: ByteArray,
-) {
+validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
-    expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
+    expect ScriptContext { transaction: tx, purpose: Mint(_own_policy) } = ctx
 
     when redeemer is {
       Genesis -> {
-        // This time genesis mints "lord tuna" and hands it over to the hard fork contract
-        // Then after the hard fork, "lord tuna" is handed over to the miner contract
-        // This allows us to maintain the miner contract with the same logic as the old one
-        let Transaction { inputs, outputs, mint, .. } = tx
+        let Transaction { inputs, reference_inputs, outputs, mint, .. } = tx
 
-        // To simplify the logic, we expect the first output to hold the hard fork state
-        let output = list_at(outputs, 0)
+        let fork_purpose =
+          tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
-        let Output { address: out_address, value: out_value, .. } = output
+        expect Some(fork_redeemer) = dict.get(tx.redeemers, fork_purpose)
 
-        let mint = value.from_minted_value(mint)
+        expect HardFork { lock_output_index }: NftForkAction = fork_redeemer
 
-        // The reason we check minted amount but not token name 
-        // is because we check the token name and presence in the output to the hard fork script
-        // Plus this action can only be run once in the lifetime of this script
-        expect [(_, 1)] = mint |> tokens(own_policy) |> dict.to_list
+        let tunav2_output = list_at(outputs, lock_output_index + 1)
 
-        let genesis_input =
-          utils.resolve_output_reference(inputs, init_utxo_ref)
-
-        and {
-          out_address == Address {
-            payment_credential: ScriptCredential(fork_script_hash),
-            stake_credential: None,
-          },
-          quantity_of(out_value, fork_script_hash, hard_fork_state_token) == 1,
-          quantity_of(out_value, own_policy, fortuna.master_token_name) == 1,
-          genesis_input == genesis_input,
+        expect Some(_v1_miner_ref) = {
+          let input <- list.find(reference_inputs)
+          input.output.value
+            |> value.quantity_of(fortuna_v1_hash, fortuna.master_token_name)
+            |> builtin.equals_integer(1)
         }
+
+        todo
       }
-      Redeem(locked_tokens_ref) -> {
-        let Transaction { reference_inputs, mint, .. } = tx
 
-        let mint = value.from_minted_value(mint)
-
-        // We reference the locked v1 tuan NFTState that we have the NFT key for.
-        let own_input =
-          utils.resolve_output_reference(reference_inputs, locked_tokens_ref)
-
-        let Output { address: in_address, value: in_value, datum: in_datum, .. } =
-          own_input
-
-        let locked_tokens =
-          quantity_of(in_value, fortuna_v1_hash, fortuna.token_name)
-
-        expect NftState { nft_key }: ForkDatum = get_inline_datum(in_datum)
-
-        expect [(token_name, quantity)] =
-          mint |> tokens(own_policy) |> dict.to_list
-
-        and {
-          quantity_of(mint, fork_script_hash, nft_key) == -1,
-          token_name == fortuna.token_name,
-          quantity == locked_tokens,
-          in_address == Address {
-            payment_credential: ScriptCredential(fork_script_hash),
-            stake_credential: None,
-          },
-        }
-      }
+      Redeem(_locked_tokens_ref) -> todo
       Mine -> todo
       NominateUpgradeContract -> todo
-      VoteContractToken { .. } -> todo
-      ApplyContractVote { .. } -> todo
+      VoteOnUpgradeContract { .. } -> todo
+      MinerVoteOnUpgradeContract { .. } -> todo
       ApplyUpgradeContract -> todo
     }
   }
@@ -146,7 +95,7 @@ validator(tunav2_minting_policy: ByteArray) {
         epoch_time,
         current_posix_time,
       },
-      extra: ExtraState { merkle, .. },
+      extra: ExtraState { new_spend_votes, merkle, .. },
     } = datum
 
     let ScriptContext { transaction, purpose } = ctx
@@ -291,7 +240,7 @@ validator(tunav2_minting_policy: ByteArray) {
         target_number: out_target_number,
         current_posix_time: out_current_posix_time,
       },
-      extra: ExtraState { merkle: out_merkle, extra, .. },
+      extra: ExtraState { merkle: out_merkle, extra, new_spend_votes },
     }: Statev2 = get_inline_datum(out_datum)
 
     // Spend(8) requirement: Check output has correct difficulty number, leading zeros, and epoch time
