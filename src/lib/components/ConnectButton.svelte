@@ -5,7 +5,7 @@
   import geroIcon from '$lib/assets/geroicon.png';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
   import { walletApi, v1TunaAmount, wallet, userAddress, translucent } from '$lib/store';
-  import { V1_TUNA_SUBJECT } from '$lib/constants';
+  import { V1_TUNA_POLICY_ID } from '$lib/constants';
 
   let open = false;
 
@@ -59,7 +59,7 @@
         const utxos = await $translucent.utxosAt($userAddress);
 
         $v1TunaAmount = utxos.reduce((acc, u) => {
-          return acc + (u.assets[V1_TUNA_SUBJECT] ?? 0n);
+          return acc + (u.assets[V1_TUNA_POLICY_ID + fromText('TUNA')] ?? 0n);
         }, 0n);
       }
     })();
