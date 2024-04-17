@@ -1,10 +1,15 @@
-import type { Prisma } from '@prisma/client';
+import pg from 'pg';
+
+import { DATABASE_URL } from '$env/static/private';
+
 import type { PageServerLoadEvent } from './$types';
 
-import { dbsync } from '$lib/server/dbsync';
 import type { BlockData } from '$lib/types';
 
 export async function load({ url }: PageServerLoadEvent) {
+  const dbsync = new pg.Client(DATABASE_URL);
+  await dbsync.connect();
+
   const pageNumber = url.searchParams.get('page') ?? '1';
 
   let parsedPageNumber = parseInt(pageNumber);
@@ -20,61 +25,81 @@ export async function load({ url }: PageServerLoadEvent) {
   ]);
 
   // filters tx outs that contain the master token
-  const where: Prisma.ma_tx_outWhereInput = {
-    multi_asset: {
-      policy,
-      name: Buffer.from('lord tuna'),
-    },
-  };
+  // const where: Prisma.ma_tx_outWhereInput = {
+  //   multi_asset: {
+  //     policy,
+  //     name: Buffer.from('lord tuna'),
+  //   },
+  // };
 
-  const data = await dbsync.ma_tx_out.findMany({
-    relationLoadStrategy: 'join',
-    skip: (parsedPageNumber - 1) * parsedPageLimit,
-    take: parsedPageLimit,
-    orderBy: { id: 'desc' },
-    where,
-    include: {
-      tx_out: {
-        include: {
-          datum: true,
-          tx: {
-            include: {
-              redeemers: {
-                include: { redeemer_data: true },
-                where: { purpose: 'spend', script_hash: policy },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
+  const thing = await dbsync.query(
+    `SELECT *
+     FROM ma_tx_out
+     LEFT JOIN
+       multi_asset ON ma_tx_out.ident = multi_asset.id
+     WHERE
+       policy = decode($1, 'hex') AND name = $2
+     ORDER BY ma_tx_out.id DESC
+     LIMIT ${parsedPageLimit}
+     OFFSET ${(parsedPageNumber - 1) * parsedPageLimit};`,
+    [
+      `279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a`,
+      Buffer.from('lord tuna').toString(),
+    ],
+  );
 
-  const totalCount = await dbsync.ma_tx_out.count({ where });
+  console.log(thing.rows);
+
+  // const data = await dbsync.ma_tx_out.findMany({
+  //   relationLoadStrategy: 'join',
+  //   skip: (parsedPageNumber - 1) * parsedPageLimit,
+  //   take: parsedPageLimit,
+  //   orderBy: { id: 'desc' },
+  //   where,
+  //   include: {
+  //     tx_out: {
+  //       include: {
+  //         datum: true,
+  //         tx: {
+  //           include: {
+  //             redeemers: {
+  //               include: { redeemer_data: true },
+  //               where: { purpose: 'spend', script_hash: policy },
+  //             },
+  //           },
+  //         },
+  //       },
+  //     },
+  //   },
+  // });
+
+  const totalCount = 10;
 
   const canNextPage = totalCount > parsedPageLimit * parsedPageNumber;
   const canPrevPage = parsedPageNumber > 1;
   const totalPages = Math.ceil(totalCount / parsedPageLimit);
 
-  const blocks: BlockData[] = data.map((maTxOut) => ({
-    // @ts-expect-error PlutusData is typed weird
-    block_number: maTxOut.tx_out.datum!.value.fields[0].int as number,
-    // @ts-expect-error PlutusData is typed weird
-    current_hash: maTxOut.tx_out.datum!.value.fields[1].bytes as string,
-    // @ts-expect-error PlutusData is typed weird
-    leading_zeros: maTxOut.tx_out.datum!.value.fields[2].int as number,
-    // @ts-expect-error PlutusData is typed weird
-    target_number: maTxOut.tx_out.datum!.value.fields[3].int as number,
-    // @ts-expect-error PlutusData is typed weird
-    epoch_time: maTxOut.tx_out.datum!.value.fields[4].int as number,
-    // @ts-expect-error PlutusData is typed weird
-    current_posix_time: maTxOut.tx_out.datum!.value.fields[5].int as number,
+  // const blocks: BlockData[] = data.map((maTxOut) => ({
+  //   // @ts-expect-error PlutusData is typed weird
+  //   block_number: maTxOut.tx_out.datum!.value.fields[0].int as number,
+  //   // @ts-expect-error PlutusData is typed weird
+  //   current_hash: maTxOut.tx_out.datum!.value.fields[1].bytes as string,
+  //   // @ts-expect-error PlutusData is typed weird
+  //   leading_zeros: maTxOut.tx_out.datum!.value.fields[2].int as number,
+  //   // @ts-expect-error PlutusData is typed weird
+  //   target_number: maTxOut.tx_out.datum!.value.fields[3].int as number,
+  //   // @ts-expect-error PlutusData is typed weird
+  //   epoch_time: maTxOut.tx_out.datum!.value.fields[4].int as number,
+  //   // @ts-expect-error PlutusData is typed weird
+  //   current_posix_time: maTxOut.tx_out.datum!.value.fields[5].int as number,
 
-    // @ts-expect-error PlutusData is typed weird
-    nonce: maTxOut.tx_out.tx.redeemers[0]?.redeemer_data?.value?.fields[0].bytes as
-      | string
-      | undefined,
-  }));
+  //   // @ts-expect-error PlutusData is typed weird
+  //   nonce: maTxOut.tx_out.tx.redeemers[0]?.redeemer_data?.value?.fields[0].bytes as
+  //     | string
+  //     | undefined,
+  // }));
+
+  const blocks: BlockData[] = [];
 
   return { blocks, canNextPage, canPrevPage, totalPages, totalCount };
 }
