@@ -37,7 +37,7 @@ export function printExecutionDetails(tx: TxSigned, name: string) {
 
   const remainingMem = MAX_TX_EX_MEM - mem;
   const remainingSteps = MAX_TX_EX_STEPS - steps;
-  const txBytes = tx.txSigned.to_cbor_bytes().length;
+  const txBytes = tx.txSigned.to_bytes().length;
   const remainingTxBytes = MAX_TX_SIZE - txBytes;
   const fee = tx.txSigned.body().fee().toString();
 

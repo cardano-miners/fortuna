@@ -3,6 +3,8 @@
   import { goto } from '$app/navigation';
 
   import type { PageData } from './$types';
+  import { intlFormat } from 'date-fns/intlFormat';
+  import { formatDistance } from 'date-fns/formatDistance';
 
   export let data: PageData;
 
@@ -15,13 +17,22 @@
 
     newPage += delta;
 
-    console.log(newPage);
-
     const query = new URLSearchParams($page.url.searchParams.toString());
 
     query.set('page', newPage.toString());
 
     goto(`?${query.toString()}`);
+  }
+
+  function formatHash(value: string) {
+    const regex = /^0{4,}|0{4,}$/g;
+    return value.replace(regex, (match) => `0<sub>${match.length}</sub> `);
+  }
+
+  function makeTarget(target_number: number, leading_zeros: number) {
+    const value = target_number * 16 ** (60 - leading_zeros);
+
+    return value.toString(16).padStart(64, '0');
   }
 </script>
 
@@ -33,32 +44,30 @@
   <div class="overflow-x-auto">
     <div class="table w-full text-white overflow-hidden rounded-lg shadow-lg mt-4">
       <div class="table-header-group bg-base-300">
-        <div class="table-cell p-4">Epoch</div>
         <div class="table-cell p-4">Block</div>
-        <div class="table-cell p-4">Leading Zeroes</div>
         <div class="table-cell p-4">Target</div>
         <div class="table-cell p-4">Hash</div>
-        <div class="table-cell p-4">Rewards</div>
+        <div class="table-cell p-4">Epoch</div>
         <div class="table-cell p-4">Time</div>
       </div>
 
       {#each data.blocks as block (block.block_number)}
         <div class="table-row-group bg-base-200">
-          <div class="table-cell p-4 border-t-2 border-gray-800">{block.epoch_time}</div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
             <div class="badge badge-primary">{block.block_number}</div>
           </div>
-          <div class="table-cell p-4 border-t-2 border-gray-800">{block.leading_zeros}</div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            {block.target_number}
+            {@html formatHash(makeTarget(block.target_number, block.leading_zeros))}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            {block.current_hash}
+            {@html formatHash(block.current_hash)}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            <div class="badge badge-success">{50}</div>
+            <div class="badge badge-success">{Math.floor(block.block_number / 2016 + 1)}</div>
           </div>
-          <div class="table-cell p-4 border-t-2 border-gray-800">{block.current_posix_time}</div>
+          <div class="table-cell p-4 border-t-2 border-gray-800">
+            {intlFormat(block.current_posix_time)}
+          </div>
         </div>
       {/each}
     </div>
