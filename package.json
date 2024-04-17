@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "prisma generate && vite build",
+    "build": "vite build",
     "build:miner": "napi build --platform --release --pipe \"prettier -w\" miner/sha-gpu",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
