@@ -7,6 +7,7 @@ import Icons from 'unplugin-icons/vite';
 
 export default defineConfig({
   plugins: [sveltekit(), Icons({ compiler: 'svelte' }), wasm(), topLevelAwait(), nodePolyfills()],
+  esbuild: { exclude: ['node_modules/pg'] },
   resolve: {
     alias: {
       '@dcspark/cardano-multiplatform-lib-nodejs': '@dcspark/cardano-multiplatform-lib-browser',
