@@ -6,7 +6,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import Icons from 'unplugin-icons/vite';
 
 export default defineConfig({
-  plugins: [sveltekit(), Icons({ compiler: 'svelte' }), wasm(), topLevelAwait(), nodePolyfills()],
+  plugins: [nodePolyfills(), sveltekit(), Icons({ compiler: 'svelte' }), wasm(), topLevelAwait()],
   resolve: {
     alias: {
       '@sinclair/typebox': '@sinclair/typebox',
