@@ -9,6 +9,7 @@ export default defineConfig({
   plugins: [sveltekit(), Icons({ compiler: 'svelte' }), wasm(), topLevelAwait(), nodePolyfills()],
   resolve: {
     alias: {
+      '@sinclair/typebox': '@sinclair/typebox',
       '@dcspark/cardano-multiplatform-lib-nodejs': '@dcspark/cardano-multiplatform-lib-browser',
     },
   },
