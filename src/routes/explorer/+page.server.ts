@@ -1,14 +1,14 @@
-import pg from 'pg';
+import postgres from 'postgres';
 
 import { DATABASE_URL } from '$env/static/private';
 
 import type { PageServerLoadEvent } from './$types';
 
 import type { BlockData } from '$lib/types';
+import { V1_TUNA_POLICY_ID } from '$lib/constants';
 
 export async function load({ url }: PageServerLoadEvent) {
-  const dbsync = new pg.Client(DATABASE_URL);
-  await dbsync.connect();
+  const dbsync = postgres(DATABASE_URL);
 
   const pageNumber = url.searchParams.get('page') ?? '1';
 
@@ -19,8 +19,7 @@ export async function load({ url }: PageServerLoadEvent) {
     parsedPageNumber = 1;
   }
 
-  const data = await dbsync.query(
-    `
+  const data = await dbsync`
     SELECT
       "ma_tx_out_tx_out"."__data__" AS "tx_out"
     FROM
@@ -97,9 +96,9 @@ export async function load({ url }: PageServerLoadEvent) {
                     WHERE
                       (
                         "t7"."purpose" = CAST(
-                          $5 :: text AS "public"."scriptpurposetype"
+                          ${'spend'} :: text AS "public"."scriptpurposetype"
                         )
-                        AND "t7"."script_hash" = decode($1, 'hex')
+                        AND "t7"."script_hash" = decode(${V1_TUNA_POLICY_ID}, 'hex')
                       )
                       ) AS "t8"
                   ) AS "tx_redeemers" ON true
@@ -115,48 +114,35 @@ export async function load({ url }: PageServerLoadEvent) {
       ) AS "ma_tx_out_tx_out" ON true
     WHERE
       (
-        "j1"."policy" = decode($1, 'hex')
-        AND "j1"."name" = $2
+        "j1"."policy" = decode(${V1_TUNA_POLICY_ID}, 'hex')
+        AND "j1"."name" = ${Buffer.from('lord tuna').toString()}
         AND ("j1"."id" IS NOT NULL)
       )
     ORDER BY
       "t1"."id" DESC
     LIMIT
-      $3 OFFSET $4
-    `,
-    [
-      `279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a`,
-      Buffer.from('lord tuna').toString(),
-      parsedPageLimit.toString(),
-      ((parsedPageNumber - 1) * parsedPageLimit).toString(),
-      'spend',
-    ],
-  );
+      ${parsedPageLimit} OFFSET ${(parsedPageNumber - 1) * parsedPageLimit}
+    `;
 
-  const count = await dbsync.query(
-    `
+  const count = await dbsync`
     SELECT COUNT(*)
     FROM "public"."ma_tx_out" AS "t1"
     LEFT JOIN "public"."multi_asset" AS "j1" ON ("j1"."id") = ("t1"."ident")
     WHERE
       (
-        "j1"."policy" = decode($1, 'hex')
-        AND "j1"."name" = $2
+        "j1"."policy" = decode(${V1_TUNA_POLICY_ID}, 'hex')
+        AND "j1"."name" = ${Buffer.from('lord tuna').toString()}
         AND ("j1"."id" IS NOT NULL)
-      )`,
-    [
-      `279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a`,
-      Buffer.from('lord tuna').toString(),
-    ],
-  );
+      )
+  `;
 
-  const totalCount = count.rows[0].count;
+  const totalCount = count[0].count;
 
   const canNextPage = totalCount > parsedPageLimit * parsedPageNumber;
   const canPrevPage = parsedPageNumber > 1;
   const totalPages = Math.ceil(totalCount / parsedPageLimit);
 
-  const blocks: BlockData[] = data.rows.map((maTxOut) => ({
+  const blocks: BlockData[] = data.map((maTxOut) => ({
     block_number: maTxOut.tx_out.datum!.value.fields[0].int as number,
     current_hash: maTxOut.tx_out.datum!.value.fields[1].bytes as string,
     leading_zeros: maTxOut.tx_out.datum!.value.fields[2].int as number,

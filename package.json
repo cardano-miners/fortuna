@@ -26,7 +26,6 @@
     "@types/d3-shape": "^3.1.6",
     "@types/eslint": "^8.56.0",
     "@types/node": "^20.11.24",
-    "@types/pg": "^8.11.4",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
@@ -63,7 +62,7 @@
     "d3-shape": "^3.2.0",
     "date-fns": "^3.6.0",
     "layerchart": "^0.34.0",
-    "pg": "^8.11.5",
+    "postgres": "^3.4.4",
     "translucent-cardano": "^0.0.6",
     "ws": "^8.16.0"
   }
