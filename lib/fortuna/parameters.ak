@@ -11,4 +11,5 @@ pub const initial_payout = 5000000000
 /// Padding for integer division. Went with 4 bit padding for ease
 pub const padding = 16
 
-pub const latest_merkle_root = #""
+pub const latest_merkle_root =
+  #"f0eb964a37dea6f59de5d19896f82233f13031a2799027b666f7f5796ee5cd09"
