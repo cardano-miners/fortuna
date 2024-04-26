@@ -55,6 +55,8 @@ pub const big_tuna_prefix: ByteArray = "TUNA"
 
 pub const counter_prefix: ByteArray = "COUNTER"
 
+pub const nominated_prefix: ByteArray = "NOMA"
+
 validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
     expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
