@@ -2,13 +2,14 @@ use aiken/builtin
 use aiken/dict
 use aiken/list
 use aiken/transaction.{
-  InlineDatum, Output, OutputReference, ScriptContext, Transaction,
+  InlineDatum, Input, Output, OutputReference, ScriptContext, Transaction,
 } as tx
 use aiken/transaction/credential.{Address, Inline, ScriptCredential}
 use aiken/transaction/value
 use fortuna
 use fortuna/types.{State}
 use fortuna/utils
+use hardfork
 use hardfork/hftypes.{HardFork, Lock, NftForkAction}
 use hardfork/params.{lock_state_token}
 
@@ -94,7 +95,65 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             }
           }
 
-          Lock { .. } -> todo
+          Lock { lock_output_index, lock_state_input, locking_amount } -> {
+            let Transaction { inputs, outputs, mint, .. } = transaction
+
+            // Validate no tokens are minted
+            expect [] =
+              mint |> value.from_minted_value |> value.to_dict |> dict.to_list
+
+            let own_address = Address(ScriptCredential(own_policy), None)
+
+            // Validate only a single input is used
+            // the state input
+            expect [Input(_, Output(in_address, in_lock_value, in_datum, _))] =
+              list.filter(
+                inputs,
+                fn(input) { input.output.address == own_address },
+              )
+
+            let expected_lock_value =
+              value.from_asset(own_policy, lock_state_token, 1)
+
+            // grab output from specified index
+            let Output(out_address, out_value, out_datum, _) =
+              utils.list_at(outputs, lock_output_index)
+
+            // grab next output too
+            let Output(lock_address, lock_value, _, _) =
+              utils.list_at(outputs, lock_output_index + 1)
+
+            let v1_tuna_amount =
+              lock_value
+                |> value.quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+            expect LockState { block_height, current_locked_tuna }: LockState =
+              in_datum |> utils.get_inline_datum
+
+            expect LockState(out_block_height, new_locked_tuna): LockState =
+              out_datum |> utils.get_inline_datum
+
+            let total_forked_emission =
+              hardfork.calculate_emission(block_height)
+
+            and {
+              // Validate output state
+              in_address == out_address,
+              in_address == lock_address,
+              // Validate input value
+              in_lock_value
+                |> value.without_lovelace
+                |> builtin.equals_data(expected_lock_value),
+              // Validate output value
+              out_value
+                |> value.without_lovelace
+                |> builtin.equals_data(expected_lock_value),
+              block_height == out_block_height,
+              current_locked_tuna + v1_tuna_amount >= new_locked_tuna,
+              new_locked_tuna <= total_forked_emission,
+              locking_amount == new_locked_tuna - current_locked_tuna,
+            }
+          }
         }
       }
 
