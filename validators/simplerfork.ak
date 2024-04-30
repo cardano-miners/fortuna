@@ -95,7 +95,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             }
           }
 
-          Lock { lock_output_index, lock_state_input, locking_amount } -> {
+          Lock { lock_output_index, locking_amount } -> {
             let Transaction { inputs, outputs, mint, .. } = transaction
 
             // Validate no tokens are minted
