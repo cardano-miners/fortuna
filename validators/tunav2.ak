@@ -5,9 +5,7 @@ use aiken/hash.{blake2b_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/math
-use aiken/transaction.{
-  Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
-} as tx
+use aiken/transaction.{Mint, Output, ScriptContext, Spend, Transaction} as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value.{tokens}
 use fortuna
@@ -19,12 +17,12 @@ use fortuna/utils.{
   get_inline_datum, integer_to_bytes, list_at, quantity_of,
   resolve_output_reference,
 }
-use hardfork/hftypes.{HardFork, NftForkAction}
+use hardfork/hftypes.{HardFork, Lock, NftForkAction}
 
 type TunaAction {
   Genesis
   Mine
-  Redeem(OutputReference, Int)
+  Redeem
   NominateUpgradeContract
   VoteOnUpgradeContract { script_hash: ByteArray, vote: Bool }
   MinerVoteOnUpgradeContract { script_hash: ByteArray, for: Bool }
@@ -65,6 +63,7 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
       Genesis -> {
         let Transaction { reference_inputs, outputs, mint, .. } = tx
 
+        // 2 tokens minted
         expect [(_, 1), (_, 1)] =
           mint
             |> value.from_minted_value
@@ -117,29 +116,54 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
         expect ScriptCredential(spend_hash) =
           tunav2_output.address.payment_credential
 
-        and {
-          mining_state == expected_mine_state,
-          builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512,
-          merkle == latest_merkle_root,
-          tunav2_output.value
-            |> value.quantity_of(
-                own_policy,
-                bytearray.concat(big_tuna_prefix, spend_hash),
-              )
-            |> builtin.equals_integer(1),
-          tunav2_output.value
-            |> value.quantity_of(
+        let expected_value =
+          value.from_asset(
+            own_policy,
+            bytearray.concat(big_tuna_prefix, spend_hash),
+            1,
+          )
+            |> value.add(
                 own_policy,
                 bytearray.concat(
                   counter_prefix,
                   integer_to_bytes(block_number, #""),
                 ),
+                1,
               )
-            |> builtin.equals_integer(1),
+
+        and {
+          mining_state == expected_mine_state,
+          builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512,
+          merkle == latest_merkle_root,
+          tunav2_output.value
+            |> value.without_lovelace
+            |> builtin.equals_data(expected_value),
         }
       }
 
-      Redeem(_locked_state_input, _locked_state_output) -> todo
+      Redeem -> {
+        let Transaction { mint, redeemers, .. } = tx
+
+        let withdraw_purpose =
+          tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
+
+        expect Some(lock_rdmr) = dict.get(redeemers, withdraw_purpose)
+
+        expect Lock { locking_amount, .. }: NftForkAction = lock_rdmr
+
+        expect [(mint_name, mint_amount)] =
+          mint
+            |> value.from_minted_value
+            |> value.tokens(own_policy)
+            |> dict.to_list
+
+        and {
+          mint_name == fortuna.token_name,
+          mint_amount == locking_amount,
+          mint_amount > 0,
+        }
+      }
+
       Mine -> todo
       NominateUpgradeContract -> todo
       VoteOnUpgradeContract { .. } -> todo

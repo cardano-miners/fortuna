@@ -17,9 +17,7 @@ use hardfork/params.{lock_state_token, miner_lock_state_token}
 /// the tokens can be unlocked and returned to the owner. If the fork
 /// succeeds the tokens can be burned to mint the new tokens. The miners
 /// also lock their tokens to show they are in favor of the fork.
-
 /// A simpler contract was chosen over this one due to the current lack of miners.
-
 type NftForkAction {
   /// Only run once to initialize the nft tokens
   Initialize
