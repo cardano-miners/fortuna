@@ -27,5 +27,9 @@ pub type NftForkAction {
   /// This action is only run once and it sets up the ability to convert v1 tuna tokens to v2 tuna tokens
   HardFork { lock_output_index: Int }
 
-  Lock { lock_output_index: Int, lock_state_input: OutputReference }
+  Lock {
+    lock_output_index: Int,
+    lock_state_input: OutputReference,
+    locking_amount: Int,
+  }
 }
