@@ -62,14 +62,14 @@ pub fn value_has_nft_and_lovelace(
   policy: PolicyId,
   asset_name: AssetName,
 ) -> Bool {
-  expect [(policy1, amount1), (policy2, amount2)] =
+  expect [Pair(policy1, amount1), Pair(policy2, amount2)] =
     val
       |> value.to_dict()
-      |> dict.to_list()
+      |> dict.to_alist()
 
   if policy1 == value.ada_policy_id {
     // Should always reach here since maps come in ordered on chain
-    expect [(token_name, quantity)] = amount2 |> dict.to_list()
+    expect [Pair(token_name, quantity)] = amount2 |> dict.to_alist()
 
     and {
       policy2 == policy,
@@ -77,7 +77,7 @@ pub fn value_has_nft_and_lovelace(
       token_name == asset_name,
     }
   } else {
-    expect [(token_name, quantity)] = amount1 |> dict.to_list()
+    expect [Pair(token_name, quantity)] = amount1 |> dict.to_alist()
 
     and {
       policy1 == policy,
@@ -128,9 +128,15 @@ pub fn get_inline_datum(datum: Datum) -> Data {
   }
 }
 
+/// The edge case of 0 or negative is not a problem in the context that this function is used in
+/// currently it is only used for block number which is 30,000+
 pub fn integer_to_bytes(i: Int, bytes: ByteArray) -> ByteArray {
-  integer_to_bytes(
-    builtin.quotient_integer(i, 256),
-    builtin.cons_bytearray(i, bytes),
-  )
+  if i == 0 {
+    bytes
+  } else {
+    integer_to_bytes(
+      builtin.quotient_integer(i, 256),
+      builtin.cons_bytearray(i, bytes),
+    )
+  }
 }

@@ -1,5 +1,5 @@
 use aiken/builtin.{blake2b_256}
-use aiken/dict.{to_list}
+use aiken/dict.{to_alist}
 use aiken/list
 use aiken/math
 use aiken/transaction.{InlineDatum, Input, Output, OutputReference, Transaction}
@@ -46,7 +46,8 @@ pub fn initialize(
   // The reason we check minted amount but not token name 
   // is because we check the token names and presence in the outputs back to this script
   // Plus this action can only be run once in the lifetime of this script
-  expect [(_, 1), (_, 1), (_, 1)] = mint |> tokens(own_policy) |> dict.to_list
+  expect [Pair(_, 1), Pair(_, 1), Pair(_, 1)] =
+    mint |> tokens(own_policy) |> dict.to_alist
 
   let genesis_input = utils.resolve_output_reference(inputs, initializer_input)
 
@@ -142,11 +143,11 @@ pub fn lock_not_forked(
 
         // validate mint
         // Expect only 1 minted token
-        expect [(minted_token, 1)] =
+        expect [Pair(minted_token, 1)] =
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_list
+            |> dict.to_alist
 
         // Handle getting input state
         expect [Input { output: lock_input, .. }] = script_inputs
@@ -167,7 +168,7 @@ pub fn lock_not_forked(
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_list
+            |> dict.to_alist
 
         // Handle getting input state
         expect [script_input1, script_input2] = script_inputs
@@ -375,11 +376,11 @@ pub fn lock_after_fork(
 
         // validate mint
         // Expect only 1 minted token
-        expect [(minted_token, 1)] =
+        expect [Pair(minted_token, 1)] =
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_list
+            |> dict.to_alist
 
         // Handle getting input state
         expect [Input { output: lock_input, .. }] = script_inputs
@@ -400,7 +401,7 @@ pub fn lock_after_fork(
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_list
+            |> dict.to_alist
 
         // Handle getting input state
         expect [script_input1, script_input2] = script_inputs
@@ -524,7 +525,7 @@ pub fn unlock_failed_fork(
 
   expect NftState { nft_key }: ForkDatum = get_inline_datum(nft_state)
 
-  expect [(token_name, -1)] = mint |> tokens(own_policy) |> dict.to_list
+  expect [Pair(token_name, -1)] = mint |> tokens(own_policy) |> dict.to_alist
 
   and {
     quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
@@ -569,7 +570,7 @@ pub fn burn_forked(
 
   expect NftState { nft_key }: ForkDatum = get_inline_datum(nft_state)
 
-  expect [(token_name, -1)] = mint |> tokens(own_policy) |> dict.to_list
+  expect [Pair(token_name, -1)] = mint |> tokens(own_policy) |> dict.to_alist
 
   and {
     quantity_of(hfs_value, own_policy, hard_fork_state_token) == 1,
@@ -627,7 +628,7 @@ pub fn burn_forked(
 //           mint
 //             |> value.from_minted_value
 //             |> value.tokens(own_policy)
-//             |> dict.to_list
+//             |> dict.to_alist
 
 //         // Handle getting input state
 //         expect [script_input1, script_input2] = script_inputs
@@ -664,7 +665,7 @@ pub fn burn_forked(
 //           mint
 //             |> value.from_minted_value
 //             |> value.tokens(own_policy)
-//             |> dict.to_list
+//             |> dict.to_alist
 
 //         // Handle getting input state
 //         expect [script_input1, script_input2, script_input3] = script_inputs
@@ -855,7 +856,7 @@ pub fn failed_fork(
 
   expect [Input { output: hfs_input, .. }] = script_inputs
 
-  expect [] = mint |> from_minted_value |> to_dict |> to_list
+  expect [] = mint |> from_minted_value |> to_dict |> to_alist
 
   expect quantity_of(hfs_input.value, own_policy, hard_fork_state_token) == 1
 
