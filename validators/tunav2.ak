@@ -1,21 +1,25 @@
 use aiken/builtin
+use aiken/bytearray
 use aiken/dict
 use aiken/hash.{blake2b_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/math
-use aiken/transaction.{Mint, Output, ScriptContext, Spend, Transaction} as tx
+use aiken/transaction.{
+  Input, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
+} as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value.{tokens}
-use fortuna.{genesis_v2}
+use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
 use fortuna/types.{ExtraState, MineState, Statev2}
 use fortuna/utils.{get_inline_datum, quantity_of, resolve_output_reference}
+use fortunav2.{genesis_v2}
 use hardfork/hftypes.{Lock, NftForkAction}
 
 type TunaAction {
   Genesis
-  Mine
+  Mine(OutputReference)
   Redeem
   NominateUpgradeContract
   VoteOnUpgradeContract { script_hash: ByteArray, vote: Bool }
@@ -73,7 +77,22 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
         }
       }
 
-      Mine -> todo
+      Mine(input_ref) -> {
+        let Transaction { inputs, .. } = tx
+
+        let Output { address: spend_address, value: spend_value, .. } =
+          resolve_output_reference(inputs, input_ref)
+
+        expect ScriptCredential(spend_cred) = spend_address.payment_credential
+
+        let big_tuna_name =
+          bytearray.concat(fortunav2.big_tuna_prefix, spend_cred)
+
+        expect [_, _] = spend_value |> value.tokens(own_policy) |> dict.to_list
+
+        todo
+      }
+
       NominateUpgradeContract -> todo
       VoteOnUpgradeContract { .. } -> todo
       MinerVoteOnUpgradeContract { .. } -> todo
