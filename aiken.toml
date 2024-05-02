@@ -10,7 +10,7 @@ platform = "github"
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "main"
+version = "specialize-dict-key"
 source = "github"
 
 [[dependencies]]
