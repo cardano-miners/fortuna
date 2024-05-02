@@ -1,3 +1,4 @@
+use aiken/alist
 use aiken/builtin
 use aiken/dict
 use aiken/list
@@ -33,7 +34,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
         let own_withdrawal = Inline(ScriptCredential(own_policy))
 
         // Fork Mint(0) requirement: Withdrawal script is present
-        dict.has_key(withdrawals, own_withdrawal)
+        alist.has_key(withdrawals, own_withdrawal)
       }
 
       tx.WithdrawFrom(stake_cred) -> {
@@ -64,11 +65,11 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 |> builtin.equals_integer(1)
             }
 
-            expect [(_, 1)] =
+            expect [Pair(_, 1)] =
               mint
                 |> value.from_minted_value
                 |> value.tokens(own_policy)
-                |> dict.to_list
+                |> dict.to_alist
 
             // Step 2: Extract input state from inputs
             // In this case only block_number from v1_miner_ref is needed
@@ -100,7 +101,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             // Validate no tokens are minted
             expect [] =
-              mint |> value.from_minted_value |> value.to_dict |> dict.to_list
+              mint |> value.from_minted_value |> value.to_dict |> dict.to_alist
 
             let own_address = Address(ScriptCredential(own_policy), None)
 
@@ -173,6 +174,6 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
     let own_withdrawal = Inline(own_input.address.payment_credential)
 
     // Fork Spend(0) requirement: Withdrawal script is present
-    dict.has_key(withdrawals, own_withdrawal)
+    alist.has_key(withdrawals, own_withdrawal)
   }
 }

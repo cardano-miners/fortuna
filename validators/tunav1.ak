@@ -223,10 +223,10 @@ validator(utxo_ref: OutputReference) {
       (quantity_of(in_value, own_validator_hash, fortuna.master_token_name) == 1)?
     //
     // Spend(4) requirement: Only one type of token minted under the validator policy
-    expect [(token_name, quantity)] =
+    expect [Pair(token_name, quantity)] =
       mint
         |> tokens(own_validator_hash)
-        |> dict.to_list
+        |> dict.to_alist
 
     let halving_exponent = block_number / halving_number
 

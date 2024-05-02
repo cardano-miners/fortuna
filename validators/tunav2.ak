@@ -1,30 +1,33 @@
+use aiken/alist
 use aiken/builtin
 use aiken/bytearray
 use aiken/dict
 use aiken/hash.{blake2b_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
-use aiken/math
+use aiken/math.{pow2}
 use aiken/transaction.{
-  Input, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
+  Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
-use aiken/transaction/value.{tokens}
+use aiken/transaction/value.{from_minted_value, tokens}
 use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
 use fortuna/types.{ExtraState, MineState, Statev2}
-use fortuna/utils.{get_inline_datum, quantity_of, resolve_output_reference}
-use fortunav2.{genesis_v2}
+use fortuna/utils.{
+  get_inline_datum, integer_to_bytes, list_at, quantity_of,
+  resolve_output_reference,
+}
+use fortunav2.{counter_prefix_length, genesis_v2}
 use hardfork/hftypes.{Lock, NftForkAction}
 
 type TunaAction {
   Genesis
-  Mine(OutputReference)
+  Mine(OutputReference, Int, Int)
   Redeem
-  NominateUpgradeContract
-  VoteOnUpgradeContract { script_hash: ByteArray, vote: Bool }
-  MinerVoteOnUpgradeContract { script_hash: ByteArray, for: Bool }
-  ApplyUpgradeContract
+  NominateUpgradeToken
+  BurnUpgradeToken
+  ApplyUpgradeToken
 }
 
 type Miner {
@@ -60,15 +63,15 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
         let withdraw_purpose =
           tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
-        expect Some(lock_rdmr) = dict.get(redeemers, withdraw_purpose)
+        expect Some(lock_rdmr) = alist.get_first(redeemers, withdraw_purpose)
 
         expect Lock { locking_amount, .. }: NftForkAction = lock_rdmr
 
-        expect [(mint_name, mint_amount)] =
+        expect [Pair(mint_name, mint_amount)] =
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_list
+            |> dict.to_alist
 
         and {
           mint_name == fortuna.token_name,
@@ -77,8 +80,15 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
         }
       }
 
-      Mine(input_ref) -> {
-        let Transaction { inputs, .. } = tx
+      Mine(input_ref, block_number, output_index) -> {
+        let Transaction { inputs, mint, outputs, .. } = tx
+
+        expect [
+          Pair(tuna_name, tuna_quantity),
+          Pair(minted_name1, minted_quantity1),
+          Pair(minted_name2, minted_quantity2),
+        ] =
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_alist
 
         let Output { address: spend_address, value: spend_value, .. } =
           resolve_output_reference(inputs, input_ref)
@@ -88,15 +98,73 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
         let big_tuna_name =
           bytearray.concat(fortunav2.big_tuna_prefix, spend_cred)
 
-        expect [_, _] = spend_value |> value.tokens(own_policy) |> dict.to_list
+        expect [Pair(token1, 1), Pair(token2, 1)] =
+          spend_value |> value.tokens(own_policy) |> dict.to_alist
 
-        todo
+        let in_token_name =
+          // By ledger rules we should only hit this first if since token names
+          // are lexographically sorted
+          if token2 == big_tuna_name {
+            token1
+          } else if token1 == big_tuna_name {
+            token2
+          } else {
+            fail @"Big Tuna not found in input value"
+          }
+
+        let expected_in_token_name = integer_to_bytes(block_number, "")
+
+        let expected_out_token_name = integer_to_bytes(block_number + 1, "")
+
+        let expect_out_value =
+          value.from_asset(own_policy, big_tuna_name, 1)
+            |> value.add(own_policy, expected_out_token_name, 1)
+
+        let Output { address: out_address, value: out_value, .. } =
+          list_at(outputs, output_index)
+
+        let halving_exponent = block_number / halving_number
+
+        let expected_quantity =
+          if halving_exponent > 32 {
+            0
+          } else {
+            initial_payout / pow2(halving_exponent)
+          }
+
+        and {
+          //address check
+          spend_address == out_address,
+          // input value check
+          in_token_name == expected_in_token_name,
+          // output value check
+          out_value
+            |> value.without_lovelace
+            |> builtin.equals_data(expect_out_value),
+          // minted counter check
+          or {
+            and {
+              minted_name1 == expected_in_token_name,
+              minted_quantity1 == -1,
+              minted_name2 == expected_out_token_name,
+              minted_quantity2 == 1,
+            },
+            and {
+              minted_name1 == expected_out_token_name,
+              minted_quantity1 == 1,
+              minted_name2 == expected_in_token_name,
+              minted_quantity2 == -1,
+            },
+          },
+          // minted tuna check
+          tuna_name == fortuna.token_name,
+          tuna_quantity == expected_quantity,
+        }
       }
 
-      NominateUpgradeContract -> todo
-      VoteOnUpgradeContract { .. } -> todo
-      MinerVoteOnUpgradeContract { .. } -> todo
-      ApplyUpgradeContract -> todo
+      NominateUpgradeToken -> todo
+      BurnUpgradeToken -> todo
+      ApplyUpgradeToken -> todo
     }
   }
 }
@@ -215,10 +283,10 @@ validator(tunav2_minting_policy: ByteArray) {
       (quantity_of(in_value, tunav2_minting_policy, fortuna.master_token_name) == 1)?
     //
     // Spend(4) requirement: Only one type of token minted under the validator policy
-    expect [(token_name, quantity)] =
+    expect [Pair(token_name, quantity)] =
       mint
         |> tokens(tunav2_minting_policy)
-        |> dict.to_list
+        |> dict.to_alist
 
     let halving_exponent = block_number / halving_number
 

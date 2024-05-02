@@ -1,3 +1,4 @@
+use aiken/alist
 use aiken/builtin
 use aiken/bytearray
 use aiken/dict
@@ -21,15 +22,15 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash) {
   let Transaction { reference_inputs, outputs, mint, .. } = tx
 
   // 2 tokens minted
-  expect [(_, 1), (_, 1)] =
+  expect [Pair(_, 1), Pair(_, 1)] =
     mint
       |> value.from_minted_value
       |> value.tokens(own_policy)
-      |> dict.to_list
+      |> dict.to_alist
 
   let fork_purpose = tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
-  expect Some(fork_redeemer) = dict.get(tx.redeemers, fork_purpose)
+  expect Some(fork_redeemer) = alist.get_first(tx.redeemers, fork_purpose)
 
   // By looking at the other contract redeemer action that can only run once,
   // We can ensure this action only runs once.
@@ -91,5 +92,9 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash) {
       |> value.without_lovelace
       |> builtin.equals_data(expected_value),
   }
+}
+
+pub fn counter_prefix_length() -> Int {
+  bytearray.length(counter_prefix)
 }
 /// Voting and governance functions
