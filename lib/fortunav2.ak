@@ -8,7 +8,7 @@ use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value
 use fortuna.{master_token_name}
 use fortuna/parameters.{latest_merkle_root}
-use fortuna/types.{ExtraState, MineState, State, Statev2}
+use fortuna/types.{State, Statev2}
 use fortuna/utils.{get_inline_datum, integer_to_bytes, list_at}
 use hardfork/hftypes.{HardFork, NftForkAction}
 
@@ -55,20 +55,18 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash) {
     ..
   }: State = get_inline_datum(v1_miner_ref.output.datum)
 
-  let expected_mine_state =
-    MineState {
+  let expected_mine_state: Data =
+    Statev2 {
       block_number,
       current_hash,
       leading_zeros: leading_zeros - 2,
       target_number,
       epoch_time,
       current_posix_time,
+      merkle_root: latest_merkle_root,
     }
 
-  expect Statev2 {
-    mining_state,
-    extra: ExtraState { merkle, extra, new_spend_votes: None },
-  }: Statev2 = get_inline_datum(tunav2_output.datum)
+  let mine_state = get_inline_datum(tunav2_output.datum)
 
   expect ScriptCredential(spend_hash) = tunav2_output.address.payment_credential
 
@@ -85,16 +83,10 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash) {
         )
 
   and {
-    mining_state == expected_mine_state,
-    builtin.length_of_bytearray(builtin.serialise_data(extra)) <= 512,
-    merkle == latest_merkle_root,
+    mine_state == expected_mine_state,
     tunav2_output.value
       |> value.without_lovelace
       |> builtin.equals_data(expected_value),
   }
-}
-
-pub fn counter_prefix_length() -> Int {
-  bytearray.length(counter_prefix)
 }
 /// Voting and governance functions

@@ -3,7 +3,7 @@
 
 [[requirements]]
 name = "aiken-lang/stdlib"
-version = "specialize-dict-key"
+version = "main"
 source = "github"
 
 [[requirements]]
@@ -18,7 +18,7 @@ source = "github"
 
 [[packages]]
 name = "aiken-lang/stdlib"
-version = "specialize-dict-key"
+version = "main"
 requirements = []
 source = "github"
 
@@ -35,6 +35,6 @@ requirements = []
 source = "github"
 
 [etags]
-"aiken-lang/fuzz@main" = [{ secs_since_epoch = 1714692043, nanos_since_epoch = 687993000 }, "d7aadd4a9b25589bd6d5e3bbedcd809cdf97fe3eddb365cf89cd6ac6bc829643"]
-"aiken-lang/sparse-merkle-tree@main" = [{ secs_since_epoch = 1714692043, nanos_since_epoch = 883355000 }, "c2269ba7d11b13b8ed2f3cd383b1dbfc525bead047d83e9ccbcca169d71e70d6"]
-"aiken-lang/stdlib@specialize-dict-key" = [{ secs_since_epoch = 1714692043, nanos_since_epoch = 499433000 }, "2a01e6c1577265dead42c8e301229882f1014ecf64442eacd42a2785fc343e2f"]
+"aiken-lang/fuzz@main" = [{ secs_since_epoch = 1715034518, nanos_since_epoch = 262434000 }, "d7aadd4a9b25589bd6d5e3bbedcd809cdf97fe3eddb365cf89cd6ac6bc829643"]
+"aiken-lang/sparse-merkle-tree@main" = [{ secs_since_epoch = 1715034518, nanos_since_epoch = 457834000 }, "c2269ba7d11b13b8ed2f3cd383b1dbfc525bead047d83e9ccbcca169d71e70d6"]
+"aiken-lang/stdlib@main" = [{ secs_since_epoch = 1715034518, nanos_since_epoch = 77943000 }, "5ee55dc5ccf269bb493f4cacb32096f0191a6adb2ef39d62a1f79b8c5a8fcc7f"]
