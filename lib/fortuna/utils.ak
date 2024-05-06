@@ -140,3 +140,11 @@ pub fn integer_to_bytes(i: Int, bytes: ByteArray) -> ByteArray {
     )
   }
 }
+
+test integer_to_bytes_1() {
+  integer_to_bytes(0, #[]) == #[]
+}
+
+test integer_to_bytes_2() {
+  integer_to_bytes(700, #[]) == #"02bc"
+}
