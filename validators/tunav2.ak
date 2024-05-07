@@ -12,7 +12,7 @@ use aiken/sparse_merkle_tree/merkle.{
   convert_bytes_to_right_proofs,
 }
 use aiken/transaction.{
-  Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
+  InlineDatum, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value.{from_minted_value}
@@ -22,22 +22,39 @@ use fortuna/types.{Statev2}
 use fortuna/utils.{
   get_inline_datum, integer_to_bytes, quantity_of, resolve_output_reference,
 }
-use fortunav2.{genesis_v2}
+use fortunav2.{flip_hash, genesis_v2, voting_period}
 use hardfork/hftypes.{Lock, NftForkAction}
 
 type TunaAction {
   Genesis
   MineTuna(OutputReference, Int)
   Redeem
-  NominateUpgradeToken
-  BurnUpgradeToken
-  ApplyUpgradeToken
+  NominateUpgrade(ByteArray, Int)
+  VotingToken(OutputReference)
+  BurnToken
+  FinalizeNomination
 }
 
 type TunaSpendAction {
   TokenVoteFor
   TokenVoteAgainst
   MinerVoteFor
+  TransitionState
+}
+
+type TunaUpgradeProcess {
+  Nominated {
+    script_hash: ByteArray,
+    for_count: Int,
+    anti_script_hash: ByteArray,
+    against_count: Int,
+    deadline: Int,
+  }
+  Mining {
+    script_hash: ByteArray,
+    miner_support_count: Int,
+    block_height_deadline: Int,
+  }
 }
 
 type Miner {
@@ -174,9 +191,115 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         }
       }
 
-      NominateUpgradeToken -> todo
-      BurnUpgradeToken -> todo
-      ApplyUpgradeToken -> todo
+      NominateUpgrade(script_hash, output_index) -> {
+        let Transaction { mint, outputs, withdrawals, validity_range, .. } = tx
+
+        // Check contract is executable
+        expect Some(_) =
+          alist.get_first(withdrawals, Inline(ScriptCredential(script_hash)))
+
+        // Mint nomination token
+        expect [Pair(nominated_contract_token, 1)] =
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_alist
+
+        let expected_value =
+          value.from_asset(own_policy, nominated_contract_token, 1)
+
+        let anti_script_hash = flip_hash(script_hash)
+
+        expect Interval {
+          upper_bound: IntervalBound {
+            bound_type: Finite(upper_range),
+            is_inclusive: upper_is_inclusive,
+          },
+          lower_bound: IntervalBound {
+            bound_type: Finite(lower_range),
+            is_inclusive: lower_is_inclusive,
+          },
+        } = validity_range
+
+        let expected_datum =
+          InlineDatum(
+            Nominated {
+              script_hash,
+              for_count: 0,
+              anti_script_hash,
+              against_count: 0,
+              deadline: lower_range + voting_period(),
+            },
+          )
+
+        let Output {
+          address,
+          value: nominated_value,
+          datum: nominated_datum,
+          ..
+        } = utils.list_at(outputs, output_index)
+
+        and {
+          nominated_contract_token == bytearray.concat(
+            fortunav2.nominated_prefix,
+            script_hash,
+          ),
+          address.payment_credential == ScriptCredential(own_policy),
+          expected_value == value.without_lovelace(nominated_value),
+          expected_datum == nominated_datum,
+          !upper_is_inclusive?,
+          lower_is_inclusive?,
+          (upper_range - lower_range <= 180000)?,
+        }
+      }
+
+      VotingToken(ref_input) -> {
+        let Transaction { reference_inputs, mint, .. } = tx
+
+        let Output {
+          address: spend_address,
+          value: spend_value,
+          datum: spend_datum,
+          ..
+        } = resolve_output_reference(reference_inputs, ref_input)
+
+        expect Nominated { script_hash, anti_script_hash, .. }: TunaUpgradeProcess =
+          get_inline_datum(spend_datum)
+
+        expect [Pair(voting_token, 1)] =
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_alist
+
+        and {
+          // Is from this contract
+          spend_address.payment_credential == ScriptCredential(own_policy),
+          // Has NFT for the nominated contract
+          value.quantity_of(
+            spend_value,
+            own_policy,
+            bytearray.concat(fortunav2.nominated_prefix, script_hash),
+          ) == 1,
+          or {
+            // Is for the nominated contract
+            voting_token == script_hash,
+            // Is against the nominated contract
+            voting_token == anti_script_hash,
+          },
+        }
+      }
+
+      BurnToken -> {
+        let Transaction { mint, .. } = tx
+
+        mint
+          |> from_minted_value
+          |> value.tokens(own_policy)
+          |> dict.to_alist
+          |> list.all(
+              fn(pair) {
+                let Pair(_, quantity) = pair
+                quantity < 0
+              },
+            )
+      }
+
+      FinalizeNomination -> todo
     }
   }
 
@@ -185,6 +308,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
       TokenVoteFor -> todo
       TokenVoteAgainst -> todo
       MinerVoteFor -> todo
+      TransitionState -> todo
     }
   }
 }
