@@ -7,7 +7,7 @@ use aiken/transaction.{Transaction} as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value
 use fortuna.{master_token_name}
-use fortuna/parameters.{latest_merkle_root}
+use fortuna/parameters.{latest_merkle_root, voting_days}
 use fortuna/types.{State, Statev2}
 use fortuna/utils.{get_inline_datum, integer_to_bytes, list_at}
 use hardfork/hftypes.{HardFork, NftForkAction}
@@ -92,4 +92,29 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
       |> builtin.equals_data(expected_value),
   }
 }
-/// Voting and governance functions
+
+// Voting and governance functions
+
+pub fn voting_period() -> Int {
+  1000 * 60 * 60 * 24 * voting_days
+}
+
+/// Flips the bits of a hash
+pub fn flip_hash(hash: ByteArray) -> ByteArray {
+  do_flip_hash(hash, #[], bytearray.length(hash))
+}
+
+fn do_flip_hash(hash: ByteArray, new_hash: ByteArray, index: Int) -> ByteArray {
+  if index == 0 {
+    new_hash
+  } else {
+    do_flip_hash(
+      hash,
+      hash
+        |> builtin.index_bytearray(index - 1)
+        |> builtin.subtract_integer(255, _)
+        |> builtin.cons_bytearray(new_hash),
+      index - 1,
+    )
+  }
+}

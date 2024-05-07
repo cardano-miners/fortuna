@@ -15,5 +15,3 @@ pub const miner_lock_state_token = "miner_lock_state"
 pub const lock_state_token = "lock_state"
 
 pub const hard_fork_state_token = "hfs"
-
-pub const hard_fork_merkle_root = ""
