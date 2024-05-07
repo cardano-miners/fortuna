@@ -23,6 +23,8 @@ type LockState {
   current_locked_tuna: Int,
 }
 
+/// The reason this is a withdraw based validator is for the ease of grabbing the redeemer
+/// using the tunav2 validator.
 validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
   fn nft_fork(redeemer: Data, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
@@ -106,7 +108,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             let own_address = Address(ScriptCredential(own_policy), None)
 
             // Validate only a single input is used
-            // the state input
+            // i.e. the state input
             expect [Input(_, Output(in_address, in_lock_value, in_datum, _))] =
               list.filter(
                 inputs,
