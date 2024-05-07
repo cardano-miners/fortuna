@@ -15,20 +15,19 @@ use aiken/transaction.{
   Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
-use aiken/transaction/value.{from_minted_value, tokens}
+use aiken/transaction/value.{from_minted_value}
 use fortuna
 use fortuna/parameters.{epoch_number, halving_number, initial_payout}
 use fortuna/types.{Statev2}
 use fortuna/utils.{
-  get_inline_datum, integer_to_bytes, list_at, quantity_of,
-  resolve_output_reference,
+  get_inline_datum, integer_to_bytes, quantity_of, resolve_output_reference,
 }
 use fortunav2.{genesis_v2}
 use hardfork/hftypes.{Lock, NftForkAction}
 
 type TunaAction {
   Genesis
-  MineTuna(OutputReference, Int, Int)
+  MineTuna(OutputReference, Int)
   Redeem
   NominateUpgradeToken
   BurnUpgradeToken
@@ -41,6 +40,11 @@ type TunaSpendAction {
   MinerVoteFor
 }
 
+type Miner {
+  Pkh(ByteArray, Data)
+  Nft { policy: ByteArray, name: ByteArray, output_index: Int, extra: Data }
+}
+
 type MerkleProofBlock {
   starting_side: Side,
   left_proofs: ByteArray,
@@ -49,13 +53,8 @@ type MerkleProofBlock {
   remaining_proofs: ByteArray,
 }
 
-type Miner {
-  Pkh(ByteArray, Data)
-  Nft { policy: ByteArray, name: ByteArray, output_index: Int, extra: Data }
-}
-
 type MineAction {
-  Mine(ByteArray, Miner, MerkleProofBlock)
+  MinePow(ByteArray, Miner, MerkleProofBlock)
   Upgrade(OutputReference)
 }
 
@@ -69,7 +68,7 @@ type TargetState {
   target_number: Int,
 }
 
-validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
+validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
     expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
 
@@ -78,6 +77,8 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
 
       Redeem -> {
         let Transaction { mint, redeemers, .. } = tx
+
+        expect fork_script_hash: ByteArray = fork_script_hash
 
         let withdraw_purpose =
           tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
@@ -99,8 +100,8 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
         }
       }
 
-      MineTuna(input_ref, block_number, output_index) -> {
-        let Transaction { inputs, mint, outputs, .. } = tx
+      MineTuna(input_ref, block_number) -> {
+        let Transaction { inputs, mint, .. } = tx
 
         expect [
           Pair(tuna_name, tuna_quantity),
@@ -135,13 +136,6 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
 
         let expected_out_token_name = integer_to_bytes(block_number + 1, "")
 
-        let expect_out_value =
-          value.from_asset(own_policy, big_tuna_name, 1)
-            |> value.add(own_policy, expected_out_token_name, 1)
-
-        let Output { address: out_address, value: out_value, .. } =
-          list_at(outputs, output_index)
-
         let halving_exponent = block_number / halving_number
 
         let expected_quantity =
@@ -151,15 +145,14 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
             initial_payout / pow2(halving_exponent)
           }
 
+        // We don't check the output because we expect the spend script to take care of 
+        // transporting the tokens to the next output
+        // As a backup in case of a spend script exploit, we still check
+        // that the input has the correct 2 tokens (Lord Tuna and counter) and the payment credential is contained 
+        // within the Lord Tuna token name.
         and {
-          //address check
-          spend_address == out_address,
           // input value check
           in_token_name == expected_in_token_name,
-          // output value check
-          out_value
-            |> value.without_lovelace
-            |> builtin.equals_data(expect_out_value),
           // minted counter check
           or {
             and {
@@ -199,7 +192,7 @@ validator(fortuna_v1_hash: ByteArray, fork_script_hash: ByteArray) {
 validator(tunav2_minting_policy: ByteArray) {
   fn mine(datum: Statev2, redeemer: MineAction, ctx: ScriptContext) -> Bool {
     when redeemer is {
-      Mine(nonce, miner, merkle_proof_block) -> {
+      MinePow(nonce, miner, merkle_proof_block) -> {
         let Statev2 {
           block_number,
           current_hash,
@@ -214,14 +207,12 @@ validator(tunav2_minting_policy: ByteArray) {
 
         expect Spend(own_reference) = purpose
 
-        let Transaction { inputs, outputs, mint, validity_range, .. } =
-          transaction
+        let Transaction { inputs, outputs, validity_range, .. } = transaction
 
-        let mint = value.from_minted_value(mint)
+        let Output { address: in_address, value: in_value, .. } =
+          resolve_output_reference(inputs, own_reference)
 
-        let own_input = resolve_output_reference(inputs, own_reference)
-
-        let Output { address: in_address, value: in_value, .. } = own_input
+        expect ScriptCredential(own_script_hash) = in_address.payment_credential
 
         // Spend(0) requirement: Contract has only one output with the master token going back to itself
         expect Some(own_output) =
@@ -268,22 +259,6 @@ validator(tunav2_minting_policy: ByteArray) {
 
         let (found_target_number, found_leading_zeros) =
           fortuna.format_found_bytearray(found_bytearray)
-
-        // Spend(5) requirement: Only one type of token minted under the validator policy
-        expect [Pair(token_name, quantity)] =
-          mint
-            |> tokens(tunav2_minting_policy)
-            |> dict.to_alist
-
-        let halving_exponent = block_number / halving_number
-
-        let expected_quantity =
-          // This should be 32 not 29
-          if halving_exponent > 32 {
-            0
-          } else {
-            initial_payout / math.pow2(halving_exponent)
-          }
 
         // Check output datum contains correct epoch time, block number, hash, and leading zeros
         // Check for every divisible by 2016 block: 
@@ -367,7 +342,7 @@ validator(tunav2_minting_policy: ByteArray) {
 
               quantity == 1
             }
-          },
+          }?,
           // Mining Difficulty Met
           // Spend(3) requirement: Found difficulty is less than or equal to the current difficulty
           // We do this by checking the leading zeros and the difficulty number
@@ -382,16 +357,10 @@ validator(tunav2_minting_policy: ByteArray) {
           (quantity_of(
             in_value,
             tunav2_minting_policy,
-            fortuna.master_token_name,
+            bytearray.concat(fortunav2.big_tuna_prefix, own_script_hash),
           ) == 1)?,
-          // Spend(6) requirement: Minted token is the correct name and amount
-          (token_name == fortuna.token_name)?,
-          (quantity == expected_quantity)?,
-          // Spend(7) requirement: Output has only master token and ada
-          fortuna.value_has_only_master_and_lovelace(
-            out_value,
-            tunav2_minting_policy,
-          )?,
+          // Spend(7) requirement: Output has same tokens as input
+          (value.without_lovelace(in_value) == value.without_lovelace(out_value))?,
           // Spend(10) requirement: Output posix time is the averaged current time
           (out_current_posix_time == averaged_current_time)?,
           // Spend(11) requirement: Output block number is the input block number + 1 
@@ -408,7 +377,7 @@ validator(tunav2_minting_policy: ByteArray) {
             remaining_proofs |> convert_bytes_to_remainder_proofs,
             merkle_root,
             out_merkle,
-          ),
+          )?,
         }
       }
 

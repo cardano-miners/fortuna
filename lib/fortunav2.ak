@@ -18,8 +18,11 @@ pub const counter_prefix = "COUNTER"
 
 pub const nominated_prefix = "NOMA"
 
-pub fn genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash) {
+pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data) {
   let Transaction { reference_inputs, outputs, mint, .. } = tx
+
+  expect fortuna_v1_hash: ByteArray = fortuna_v1_hash
+  expect fork_script_hash: ByteArray = fork_script_hash
 
   // 2 tokens minted
   expect [Pair(_, 1), Pair(_, 1)] =
