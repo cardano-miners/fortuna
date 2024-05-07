@@ -192,11 +192,16 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
       }
 
       NominateUpgrade(script_hash, output_index) -> {
-        let Transaction { mint, outputs, withdrawals, validity_range, .. } = tx
+        let Transaction { inputs, mint, outputs, validity_range, .. } = tx
+
+        let valid_cred = ScriptCredential(script_hash)
 
         // Check contract is executable
         expect Some(_) =
-          alist.get_first(withdrawals, Inline(ScriptCredential(script_hash)))
+          list.find(
+            inputs,
+            fn(input) { input.output.address.payment_credential == valid_cred },
+          )
 
         // Mint nomination token
         expect [Pair(nominated_contract_token, 1)] =
