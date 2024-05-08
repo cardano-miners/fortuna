@@ -17,7 +17,9 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value.{from_minted_value}
 use fortuna
-use fortuna/parameters.{epoch_number, halving_number, initial_payout}
+use fortuna/parameters.{
+  epoch_number, halving_number, initial_payout, miner_threshold,
+}
 use fortuna/types.{Statev2}
 use fortuna/utils.{
   get_inline_datum, integer_to_bytes, quantity_of, resolve_output_reference,
@@ -32,7 +34,7 @@ type TunaAction {
   NominateUpgrade(ByteArray, Int)
   VotingToken(OutputReference)
   BurnToken
-  FinalizeNomination
+  FinalizeNomination(OutputReference, OutputReference, Int, Int)
 }
 
 type TunaSpendAction {
@@ -304,7 +306,109 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
             )
       }
 
-      FinalizeNomination -> todo
+      FinalizeNomination(own_input, tuna_input, output_index, block_number) -> {
+        let Transaction { inputs, outputs, mint, .. } = tx
+
+        let Output { address: in_address, value: in_value, datum: in_datum, .. } =
+          resolve_output_reference(inputs, own_input)
+
+        let Output {
+          address: tuna_in_address,
+          value: tuna_in_value,
+          datum: in_tuna_datum,
+          ..
+        } = resolve_output_reference(inputs, tuna_input)
+
+        expect ScriptCredential(current_spend_validator) =
+          tuna_in_address.payment_credential
+
+        expect Mining {
+          script_hash,
+          miner_support_count,
+          block_height_deadline,
+        }: TunaUpgradeProcess = get_inline_datum(in_datum)
+
+        let Output {
+          value: out_value,
+          datum: out_datum,
+          address: out_address,
+          ..
+        } = utils.list_at(outputs, output_index)
+
+        let block_number_as_bytes = integer_to_bytes(block_number, "")
+        let expected_miner_votes = epoch_number * miner_threshold / 1000
+
+        let expected_in_value =
+          value.from_asset(
+            own_policy,
+            bytearray.concat(fortunav2.nominated_prefix, script_hash),
+            1,
+          )
+
+        let expected_in_tuna_value =
+          value.from_asset(
+            own_policy,
+            bytearray.concat(fortunav2.big_tuna_prefix, current_spend_validator),
+            1,
+          )
+            |> value.add(
+                own_policy,
+                bytearray.concat(
+                  fortunav2.counter_prefix,
+                  block_number_as_bytes,
+                ),
+                1,
+              )
+
+        let expected_output_value =
+          value.from_asset(
+            own_policy,
+            bytearray.concat(fortunav2.big_tuna_prefix, script_hash),
+            1,
+          )
+            |> value.add(
+                own_policy,
+                bytearray.concat(
+                  fortunav2.counter_prefix,
+                  block_number_as_bytes,
+                ),
+                1,
+              )
+
+        let expected_mint =
+          dict.new()
+            |> dict.insert(
+                bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                -1,
+              )
+            |> dict.insert(
+                bytearray.concat(
+                  fortunav2.big_tuna_prefix,
+                  current_spend_validator,
+                ),
+                -1,
+              )
+            |> dict.insert(
+                bytearray.concat(fortunav2.big_tuna_prefix, script_hash),
+                1,
+              )
+
+        and {
+          in_address.payment_credential == ScriptCredential(own_policy),
+          out_address.payment_credential == ScriptCredential(script_hash),
+          out_address.stake_credential == None,
+          value.without_lovelace(tuna_in_value) == expected_in_tuna_value,
+          value.without_lovelace(in_value) == expected_in_value,
+          value.without_lovelace(out_value) == expected_output_value,
+          block_height_deadline >= block_number,
+          miner_support_count >= expected_miner_votes,
+          mint
+            |> from_minted_value
+            |> value.tokens(own_policy)
+            |> builtin.equals_data(expected_mint),
+          out_datum == in_tuna_datum,
+        }
+      }
     }
   }
 
