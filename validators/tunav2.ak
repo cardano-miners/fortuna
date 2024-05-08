@@ -74,7 +74,7 @@ type MerkleProofBlock {
 
 type MineAction {
   MinePow(ByteArray, Miner, MerkleProofBlock)
-  Upgrade(OutputReference)
+  Upgrade
 }
 
 type TargetState {
@@ -614,7 +614,16 @@ validator(tunav2_minting_policy: ByteArray) {
         }
       }
 
-      Upgrade(_ref_input) -> todo
+      Upgrade -> {
+        let Transaction { redeemers, .. } = ctx.transaction
+
+        expect Some(upgrade_rdmr) =
+          alist.get_first(redeemers, Mint(tunav2_minting_policy))
+
+        expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
+
+        True
+      }
     }
   }
 }
