@@ -71,7 +71,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               mint
                 |> value.from_minted_value
                 |> value.tokens(own_policy)
-                |> dict.to_alist
+                |> dict.to_list
 
             // Step 2: Extract input state from inputs
             // In this case only block_number from v1_miner_ref is needed
@@ -103,7 +103,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             // Validate no tokens are minted
             expect [] =
-              mint |> value.from_minted_value |> value.to_dict |> dict.to_alist
+              mint |> value.from_minted_value |> value.to_dict |> dict.to_list
 
             let own_address = Address(ScriptCredential(own_policy), None)
 
