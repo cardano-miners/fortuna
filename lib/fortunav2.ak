@@ -3,9 +3,11 @@ use aiken/builtin
 use aiken/bytearray
 use aiken/dict
 use aiken/list
-use aiken/transaction.{Transaction} as tx
-use aiken/transaction/credential.{Inline, ScriptCredential}
-use aiken/transaction/value
+use aiken/transaction.{Input, Output, Transaction} as tx
+use aiken/transaction/credential.{
+  Address, Inline, ScriptCredential, StakeCredential,
+}
+use aiken/transaction/value.{AssetName, PolicyId}
 use fortuna.{master_token_name}
 use fortuna/parameters.{latest_merkle_root, voting_days}
 use fortuna/types.{State, Statev2}
@@ -29,7 +31,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
     mint
       |> value.from_minted_value
       |> value.tokens(own_policy)
-      |> dict.to_alist
+      |> dict.to_list
 
   let fork_purpose = tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
@@ -118,3 +120,136 @@ fn do_flip_hash(hash: ByteArray, new_hash: ByteArray, index: Int) -> ByteArray {
     )
   }
 }
+
+fn mini_loop(assets: AList<AssetName, Int>, script_hash: AssetName) -> Int {
+  when assets is {
+    [] -> 0
+    [Pair(asset, quantity), ..rest] ->
+      if asset == script_hash {
+        quantity
+      } else {
+        mini_loop(rest, script_hash)
+      }
+  }
+}
+
+fn quantity_of(
+  value: AList<PolicyId, AList<AssetName, Int>>,
+  own_hash: PolicyId,
+  script_hash: AssetName,
+) -> Int {
+  when value is {
+    [] -> 0
+    [Pair(policy, assets), ..rest] ->
+      if policy == own_hash {
+        mini_loop(assets, script_hash)
+      } else {
+        quantity_of(rest, own_hash, script_hash)
+      }
+  }
+}
+
+pub fn count_votes(
+  reference_inputs: List<Input>,
+  own_hash: PolicyId,
+  script_hash: AssetName,
+  stake_cred: Option<StakeCredential>,
+) -> Int {
+  when reference_inputs is {
+    [] -> 0
+    [input, ..rest] -> {
+      let Output { address, value, .. } = input.output
+
+      if stake_cred == address.stake_credential {
+        value.quantity_of(value, own_hash, fortuna.token_name) + count_votes(
+          rest,
+          own_hash,
+          script_hash,
+          stake_cred,
+        )
+      } else {
+        when value |> value.tokens(own_hash) |> dict.to_list is {
+          [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
+            if
+            tuna_name == fortuna.token_name && value_script_hash == script_hash{
+            
+              tuna_quantity + count_votes(
+                rest,
+                own_hash,
+                script_hash,
+                stake_cred,
+              )
+            } else {
+              count_votes(rest, own_hash, script_hash, stake_cred)
+            }
+
+          _ -> count_votes(rest, own_hash, script_hash, stake_cred)
+        }
+      }
+    }
+  }
+}
+// A little experiment to see how the current optimizer handles the_counter function
+
+// pub fn the_counter() {
+//   super_optimize()
+// }
+
+// pub fn super_optimize() {
+//   repeated_count_votes(10)
+// }
+
+// pub type FakeOutput {
+//   address: Address,
+//   value: AList<PolicyId, AList<AssetName, Int>>,
+//   datum: Datum,
+//   thing: Data,
+// }
+
+// pub type FakeInput {
+//   thing: OutputReference,
+//   output: FakeOutput,
+// }
+
+// pub fn repeated_count_votes(a: Int) {
+//   if a == 0 {
+//     fn(
+//       reference_inputs: List<FakeInput>,
+//       own_hash: PolicyId,
+//       script_hash: AssetName,
+//       stake_cred: Option<StakeCredential>,
+//     ) {
+//       count_votes(reference_inputs, own_hash, script_hash, stake_cred)
+//     }
+//   } else {
+//     fn(
+//       reference_inputs: List<FakeInput>,
+//       own_hash: PolicyId,
+//       script_hash: AssetName,
+//       stake_cred: Option<StakeCredential>,
+//     ) {
+//       when reference_inputs is {
+//         [] -> 0
+//         [input, ..rest] -> {
+//           let FakeOutput { address, value, .. } = input.output
+
+//           let x =
+//             if stake_cred == address.stake_credential {
+//               quantity_of(value, own_hash, script_hash)
+//             } else if quantity_of(value, own_hash, script_hash) == 1 {
+//               quantity_of(value, own_hash, script_hash)
+//             } else {
+//               0
+//             }
+
+//           x + repeated_count_votes(a - 1)(
+//             rest,
+//             own_hash,
+//             script_hash,
+//             stake_cred,
+//           )
+//         }
+//       }
+//     }
+//   }
+// }

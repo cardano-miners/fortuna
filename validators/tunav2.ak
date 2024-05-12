@@ -24,7 +24,7 @@ use fortuna/types.{Statev2}
 use fortuna/utils.{
   get_inline_datum, integer_to_bytes, quantity_of, resolve_output_reference,
 }
-use fortunav2.{flip_hash, genesis_v2, voting_period}
+use fortunav2.{count_votes, flip_hash, genesis_v2, voting_period}
 use hardfork/hftypes.{Lock, NftForkAction}
 
 type TunaAction {
@@ -91,6 +91,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
   fn tuna(redeemer: TunaAction, ctx: ScriptContext) -> Bool {
     expect ScriptContext { transaction: tx, purpose: Mint(own_policy) } = ctx
 
+    // TODO: replace value.tokens with faster function
     when redeemer is {
       Genesis -> genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash)
 
@@ -110,7 +111,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_alist
+            |> dict.to_list
 
         and {
           mint_name == fortuna.token_name,
@@ -122,12 +123,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
       MineTuna(input_ref, block_number) -> {
         let Transaction { inputs, mint, .. } = tx
 
-        expect [
-          Pair(tuna_name, tuna_quantity),
-          Pair(minted_name1, minted_quantity1),
-          Pair(minted_name2, minted_quantity2),
-        ] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_alist
+        let minted_names = mint |> from_minted_value |> value.tokens(own_policy)
 
         let Output { address: spend_address, value: spend_value, .. } =
           resolve_output_reference(inputs, input_ref)
@@ -138,7 +134,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           bytearray.concat(fortunav2.big_tuna_prefix, spend_cred)
 
         expect [Pair(token1, 1), Pair(token2, 1)] =
-          spend_value |> value.tokens(own_policy) |> dict.to_alist
+          spend_value |> value.tokens(own_policy) |> dict.to_list
 
         let in_token_name =
           // By ledger rules we should only hit this first if since token names
@@ -157,39 +153,33 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         let halving_exponent = block_number / halving_number
 
-        let expected_quantity =
-          if halving_exponent > 32 {
-            0
-          } else {
-            initial_payout / pow2(halving_exponent)
-          }
-
         // We don't check the output because we expect the spend script to take care of 
         // transporting the tokens to the next output
         // As a backup in case of a spend script exploit, we still check
         // that the input has the correct 2 tokens (Lord Tuna and counter) and the payment credential is contained 
         // within the Lord Tuna token name.
+        let expected_mint = {
+          let expect_mint =
+            dict.new()
+              |> dict.insert(expected_out_token_name, 1)
+              |> dict.insert(expected_in_token_name, -1)
+
+          if halving_exponent > 32 {
+            expect_mint
+          } else {
+            expect_mint
+              |> dict.insert(
+                  fortuna.token_name,
+                  initial_payout / pow2(halving_exponent),
+                )
+          }
+        }
+
         and {
           // input value check
           in_token_name == expected_in_token_name,
           // minted counter check
-          or {
-            and {
-              minted_name1 == expected_in_token_name,
-              minted_quantity1 == -1,
-              minted_name2 == expected_out_token_name,
-              minted_quantity2 == 1,
-            },
-            and {
-              minted_name1 == expected_out_token_name,
-              minted_quantity1 == 1,
-              minted_name2 == expected_in_token_name,
-              minted_quantity2 == -1,
-            },
-          },
-          // minted tuna check
-          tuna_name == fortuna.token_name,
-          tuna_quantity == expected_quantity,
+          minted_names == expected_mint,
         }
       }
 
@@ -207,7 +197,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         // Mint nomination token
         expect [Pair(nominated_contract_token, 1)] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_alist
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_list
 
         let expected_value =
           value.from_asset(own_policy, nominated_contract_token, 1)
@@ -271,7 +261,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           get_inline_datum(spend_datum)
 
         expect [Pair(voting_token, 1)] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_alist
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_list
 
         and {
           // Is from this contract
@@ -297,7 +287,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         mint
           |> from_minted_value
           |> value.tokens(own_policy)
-          |> dict.to_alist
+          |> dict.to_list
           |> list.all(
               fn(pair) {
                 let Pair(_, quantity) = pair
@@ -400,7 +390,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           value.without_lovelace(tuna_in_value) == expected_in_tuna_value,
           value.without_lovelace(in_value) == expected_in_value,
           value.without_lovelace(out_value) == expected_output_value,
-          block_height_deadline >= block_number,
+          block_height_deadline <= block_number,
           miner_support_count >= expected_miner_votes,
           mint
             |> from_minted_value
@@ -412,10 +402,149 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
     }
   }
 
-  fn govern(_dat, rdmr: TunaSpendAction, _ctx: ScriptContext) -> Bool {
+  fn govern(
+    dat: TunaUpgradeProcess,
+    rdmr: TunaSpendAction,
+    ctx: ScriptContext,
+  ) -> Bool {
     when rdmr is {
-      TokenVoteFor -> todo
-      TokenVoteAgainst -> todo
+      TokenVoteFor -> {
+        expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } = ctx
+
+        let Transaction {
+          inputs,
+          outputs,
+          reference_inputs,
+          validity_range,
+          ..
+        } = tx
+
+        expect Nominated {
+          script_hash,
+          deadline,
+          for_count,
+          anti_script_hash,
+          against_count,
+        } = dat
+
+        let Output { address: in_address, value: in_value, .. } =
+          resolve_output_reference(inputs, own_ref)
+
+        expect ScriptCredential(own_hash) = in_address.payment_credential
+
+        expect Interval {
+          upper_bound: IntervalBound { bound_type: Finite(upper_range), .. },
+          ..
+        } = validity_range
+
+        let Output {
+          address: out_address,
+          value: out_value,
+          datum: out_datum,
+          ..
+        } = utils.list_at(outputs, 0)
+
+        let votes_in_tx =
+          count_votes(
+            reference_inputs,
+            own_hash,
+            script_hash,
+            Some(Inline(ScriptCredential(script_hash))),
+          )
+
+        let expected_datum =
+          InlineDatum(
+            Nominated {
+              script_hash,
+              for_count: votes_in_tx,
+              deadline,
+              anti_script_hash,
+              against_count,
+            },
+          )
+
+        and {
+          quantity_of(
+            in_value,
+            own_hash,
+            bytearray.concat(fortunav2.nominated_prefix, script_hash),
+          ) == 1,
+          in_address == out_address,
+          upper_range <= deadline,
+          value.without_lovelace(in_value) == value.without_lovelace(out_value),
+          votes_in_tx > for_count,
+          expected_datum == out_datum,
+        }
+      }
+
+      TokenVoteAgainst -> {
+        expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } = ctx
+
+        let Transaction {
+          inputs,
+          outputs,
+          reference_inputs,
+          validity_range,
+          ..
+        } = tx
+
+        expect Nominated {
+          script_hash,
+          deadline,
+          for_count,
+          anti_script_hash,
+          against_count,
+        } = dat
+
+        let Output { address: in_address, value: in_value, .. } =
+          resolve_output_reference(inputs, own_ref)
+
+        expect ScriptCredential(own_hash) = in_address.payment_credential
+
+        expect Interval {
+          upper_bound: IntervalBound { bound_type: Finite(upper_range), .. },
+          ..
+        } = validity_range
+
+        let Output {
+          address: out_address,
+          value: out_value,
+          datum: out_datum,
+          ..
+        } = utils.list_at(outputs, 0)
+
+        let votes_in_tx =
+          count_votes(
+            reference_inputs,
+            own_hash,
+            anti_script_hash,
+            Some(Inline(ScriptCredential(anti_script_hash))),
+          )
+
+        let expected_datum =
+          InlineDatum(
+            Nominated {
+              script_hash,
+              for_count,
+              deadline,
+              anti_script_hash,
+              against_count: votes_in_tx,
+            },
+          )
+
+        and {
+          quantity_of(
+            in_value,
+            own_hash,
+            bytearray.concat(fortunav2.nominated_prefix, script_hash),
+          ) == 1,
+          in_address == out_address,
+          upper_range <= deadline,
+          value.without_lovelace(in_value) == value.without_lovelace(out_value),
+          votes_in_tx > against_count,
+          expected_datum == out_datum,
+        }
+      }
       MinerVoteFor -> todo
       TransitionState -> todo
     }

@@ -16,7 +16,7 @@ pub const padding = 16
 pub const latest_merkle_root =
   #"f0eb964a37dea6f59de5d19896f82233f13031a2799027b666f7f5796ee5cd09"
 
-pub const voting_days = 7
+pub const voting_days = 14
 
 /// Minimum supply threshold for the upgrade contract vote to be successful
 /// In thousandth percentage i.e. 250 = 25%
