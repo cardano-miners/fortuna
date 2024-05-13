@@ -40,7 +40,7 @@ type TunaAction {
 type TunaSpendAction {
   TokenVoteFor
   TokenVoteAgainst
-  MinerVoteFor
+  MinerVoteFor(Int, Int)
   TransitionState
 }
 
@@ -545,7 +545,58 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           expected_datum == out_datum,
         }
       }
-      MinerVoteFor -> todo
+      MinerVoteFor(output_index, block_number) -> {
+        expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } = ctx
+
+        let Transaction { inputs, outputs, mint, .. } = tx
+
+        expect Mining {
+          script_hash,
+          miner_support_count,
+          block_height_deadline,
+        } = dat
+
+        let block_number_as_bytes = integer_to_bytes(block_number, "")
+
+        let Output { address: in_address, value: in_value, .. } =
+          resolve_output_reference(inputs, own_ref)
+
+        expect ScriptCredential(own_hash) = in_address.payment_credential
+
+        let Output {
+          address: out_address,
+          value: out_value,
+          datum: out_datum,
+          ..
+        } = utils.list_at(outputs, output_index)
+
+        let expected_datum =
+          InlineDatum(
+            Mining {
+              script_hash,
+              miner_support_count: miner_support_count + 1,
+              block_height_deadline,
+            },
+          )
+
+        and {
+          in_address == out_address,
+          block_height_deadline < block_number,
+          mint
+            |> from_minted_value
+            |> value.quantity_of(
+                own_hash,
+                bytearray.concat(
+                  fortunav2.counter_prefix,
+                  block_number_as_bytes,
+                ),
+              )
+            |> builtin.equals_integer(1),
+          expected_datum == out_datum,
+          value.without_lovelace(in_value) == value.without_lovelace(out_value),
+        }
+      }
+
       TransitionState -> todo
     }
   }
