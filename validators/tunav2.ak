@@ -19,12 +19,14 @@ use aiken/transaction/value.{from_minted_value}
 use fortuna
 use fortuna/parameters.{
   epoch_number, halving_number, initial_payout, miner_threshold,
+  supply_threshold, vote_threshold,
 }
 use fortuna/types.{Statev2}
 use fortuna/utils.{
   get_inline_datum, integer_to_bytes, quantity_of, resolve_output_reference,
 }
 use fortunav2.{count_votes, flip_hash, genesis_v2, voting_period}
+use hardfork.{calculate_emission}
 use hardfork/hftypes.{Lock, NftForkAction}
 
 type TunaAction {
@@ -41,7 +43,7 @@ type TunaSpendAction {
   TokenVoteFor
   TokenVoteAgainst
   MinerVoteFor(Int, Int)
-  TransitionState
+  TransitionState(Int)
 }
 
 type TunaUpgradeProcess {
@@ -597,7 +599,150 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         }
       }
 
-      TransitionState -> todo
+      TransitionState(block_number) -> {
+        expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } = ctx
+
+        let Transaction {
+          inputs,
+          reference_inputs,
+          outputs,
+          validity_range,
+          mint,
+          redeemers,
+          ..
+        } = tx
+
+        let Output { address: in_address, value: in_value, .. } =
+          resolve_output_reference(inputs, own_ref)
+
+        expect ScriptCredential(own_script_hash) = in_address.payment_credential
+
+        expect IntervalBound { bound_type: Finite(lower_bound), .. } =
+          validity_range.lower_bound
+
+        let common_checks =
+          fn(script_hash) { and {
+              value.quantity_of(
+                in_value,
+                own_script_hash,
+                bytearray.concat(fortunav2.nominated_prefix, script_hash),
+              ) == 1,
+              list.any(
+                reference_inputs,
+                fn(input) {
+                  let Output { address, value, .. } = input.output
+
+                  let block_number_as_bytes = integer_to_bytes(block_number, "")
+
+                  let counter_token_name =
+                    bytearray.concat(
+                      fortunav2.counter_prefix,
+                      block_number_as_bytes,
+                    )
+
+                  when address.payment_credential is {
+                    ScriptCredential(script_hash) -> {
+                      expect [Pair(token_name, 1), Pair(token_name2, 1)] =
+                        value |> value.tokens(own_script_hash) |> dict.to_list
+
+                      and {
+                        token_name == bytearray.concat(
+                          fortunav2.big_tuna_prefix,
+                          script_hash,
+                        ),
+                        token_name2 == counter_token_name,
+                      }
+                    }
+                    _ -> False
+                  }
+                },
+              ),
+            } }
+
+        when dat is {
+          Nominated { script_hash, for_count, against_count, deadline, .. } -> {
+            let Output {
+              address: out_address,
+              value: out_value,
+              datum: out_datum,
+              ..
+            } = utils.list_at(outputs, 0)
+
+            let expected_datum =
+              InlineDatum(
+                Mining {
+                  script_hash,
+                  miner_support_count: 0,
+                  block_height_deadline: block_number + epoch_number,
+                },
+              )
+
+            let emitted_supply = calculate_emission(block_number)
+
+            and {
+              or {
+                and {
+                  in_address == out_address,
+                  value.without_lovelace(in_value) == value.without_lovelace(
+                    out_value,
+                  ),
+                  out_datum == expected_datum,
+                  for_count >= ( for_count + against_count ) * vote_threshold / 1000,
+                  for_count + against_count >= emitted_supply * supply_threshold / 1000,
+                },
+                and {
+                  mint
+                    |> from_minted_value
+                    |> quantity_of(
+                        own_script_hash,
+                        bytearray.concat(
+                          fortunav2.nominated_prefix,
+                          script_hash,
+                        ),
+                      )
+                    |> builtin.equals_integer(-1),
+                  for_count < ( for_count + against_count ) * vote_threshold / 1000 || for_count + against_count < emitted_supply * supply_threshold / 1000,
+                },
+              },
+              deadline <= lower_bound,
+              common_checks(script_hash),
+            }
+          }
+
+          // Validate passed in block number is real
+          Mining { script_hash, miner_support_count, block_height_deadline } ->
+            and {
+              or {
+                and {
+                  miner_support_count >= epoch_number * miner_threshold / 1000,
+                  {
+                    expect Some(upgrade_rdmr) =
+                      alist.get_first(redeemers, Mint(own_script_hash))
+
+                    expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
+
+                    True
+                  },
+                },
+                and {
+                  miner_support_count < epoch_number * miner_threshold / 1000,
+                  mint
+                    |> from_minted_value
+                    |> quantity_of(
+                        own_script_hash,
+                        bytearray.concat(
+                          fortunav2.nominated_prefix,
+                          script_hash,
+                        ),
+                      )
+                    |> builtin.equals_integer(-1),
+                },
+              },
+              block_height_deadline <= block_number,
+              common_checks(script_hash),
+            }
+        }
+      }
     }
   }
 }

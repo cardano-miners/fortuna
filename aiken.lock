@@ -35,6 +35,6 @@ requirements = []
 source = "github"
 
 [etags]
-"aiken-lang/fuzz@main" = [{ secs_since_epoch = 1715554770, nanos_since_epoch = 207151000 }, "d7aadd4a9b25589bd6d5e3bbedcd809cdf97fe3eddb365cf89cd6ac6bc829643"]
-"aiken-lang/sparse-merkle-tree@main" = [{ secs_since_epoch = 1715554770, nanos_since_epoch = 427312000 }, "c2269ba7d11b13b8ed2f3cd383b1dbfc525bead047d83e9ccbcca169d71e70d6"]
-"aiken-lang/stdlib@main" = [{ secs_since_epoch = 1715554770, nanos_since_epoch = 17658000 }, "3d3d948e66503986746dfdf33ca5e80ac634b356c928321987188473d813b2db"]
+"aiken-lang/fuzz@main" = [{ secs_since_epoch = 1715741615, nanos_since_epoch = 791411000 }, "d7aadd4a9b25589bd6d5e3bbedcd809cdf97fe3eddb365cf89cd6ac6bc829643"]
+"aiken-lang/sparse-merkle-tree@main" = [{ secs_since_epoch = 1715741616, nanos_since_epoch = 5835000 }, "bfef445771d3be9c165c8d2e0a2b6eb437ef55f94ab061470ac921b00cfbf17e"]
+"aiken-lang/stdlib@main" = [{ secs_since_epoch = 1715741615, nanos_since_epoch = 554058000 }, "3d3d948e66503986746dfdf33ca5e80ac634b356c928321987188473d813b2db"]
