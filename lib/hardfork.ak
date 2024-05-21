@@ -624,7 +624,7 @@ pub fn burn_forked(
 
 //         // validate mint
 //         // Expect only 1 minted token
-//         expect [(minted_token, 1)] =
+//         expect [Pair(minted_token, 1)] =
 //           mint
 //             |> value.from_minted_value
 //             |> value.tokens(own_policy)
@@ -792,8 +792,7 @@ pub fn burn_forked(
 //       stake_credential: None,
 //     }
 
-//   let expected_fortuna_v2_datum: Datum =
-//     InlineDatum(Statev2 { mining_state: todo, extra: todo })
+//   let expected_fortuna_v2_datum: Datum = InlineDatum(todo)
 
 //   and {
 //     // Miner mined a valid fortuna v1 block
@@ -816,7 +815,7 @@ pub fn burn_forked(
 //     out_locked_tuna == miner_locked_tuna + locked_tuna,
 //     out_block_signals == block_signals + 1,
 //     // Thresholds are met
-//     out_block_signals >= miner_hardfork_threshold,
+//     out_block_signals >= _miner_hardfork_threshold,
 //     out_locked_tuna + ref_locked_tuna >= total_emitted * tuna_hardfork_threshold_numerator / tuna_hardfork_threshold_denominator,
 //     // Miner lock value is correct
 //     value.without_lovelace(out_miner_lock_value) == value.without_lovelace(

@@ -1,4 +1,4 @@
-use aiken/dict
+use aiken/alist
 use aiken/list
 use aiken/transaction.{InlineDatum,
   OutputReference, ScriptContext, Transaction} as tx
@@ -73,7 +73,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
         let own_withdrawal = Inline(ScriptCredential(own_policy))
 
         // Fork Mint(0) requirement: Withdrawal script is present
-        dict.has_key(withdrawals, own_withdrawal)
+        alist.has_key(withdrawals, own_withdrawal)
       }
 
       tx.WithdrawFrom(stake_cred) -> {
@@ -167,15 +167,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
               locked_tokens_ref,
             )
 
-          HardFork {
-            hardfork_state_input,
-            hardfork_output_index,
-            nft_output_index,
-            lock_output_index,
-            ownership_key_index,
-            v2_miner_output,
-            lock_action,
-          } -> {
+          HardFork { .. } -> {
             expect Some(locked_state_input) =
               list.find(
                 transaction.reference_inputs,
@@ -184,22 +176,10 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 },
               )
 
-            expect LockState { locked_tuna: user_locked_tuna }: ForkDatum =
+            expect LockState { locked_tuna: _user_locked_tuna }: ForkDatum =
               get_inline_datum(locked_state_input.output.datum)
 
-            hf.hard_fork(
-              fv1h: fortuna_v1_hash,
-              hfsi: hardfork_state_input,
-              hoi: hardfork_output_index,
-              noi: nft_output_index,
-              loi: lock_output_index,
-              oki: ownership_key_index,
-              vmo: v2_miner_output,
-              la: lock_action,
-              tx: transaction,
-              op: own_policy,
-              rlt: user_locked_tuna,
-            )
+            todo
           }
 
           FailForkAttempt { fortuna_v1_output } ->
@@ -228,6 +208,6 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
     let own_withdrawal = Inline(own_input.address.payment_credential)
 
     // Fork Spend(0) requirement: Withdrawal script is present
-    dict.has_key(withdrawals, own_withdrawal)
+    alist.has_key(withdrawals, own_withdrawal)
   }
 }
