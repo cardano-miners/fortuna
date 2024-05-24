@@ -1,8 +1,8 @@
-use aiken/alist
 use aiken/builtin
 use aiken/bytearray
 use aiken/dict
 use aiken/list
+use aiken/pairs
 use aiken/transaction.{Input, Output, Transaction} as tx
 use aiken/transaction/credential.{
   Address, Inline, ScriptCredential, StakeCredential,
@@ -31,11 +31,11 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
     mint
       |> value.from_minted_value
       |> value.tokens(own_policy)
-      |> dict.to_list
+      |> dict.to_pairs
 
   let fork_purpose = tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
-  expect Some(fork_redeemer) = alist.get_first(tx.redeemers, fork_purpose)
+  expect Some(fork_redeemer) = pairs.get_first(tx.redeemers, fork_purpose)
 
   // By looking at the other contract redeemer action that can only run once,
   // We can ensure this action only runs once.
@@ -121,7 +121,7 @@ fn do_flip_hash(hash: ByteArray, new_hash: ByteArray, index: Int) -> ByteArray {
   }
 }
 
-fn mini_loop(assets: AList<AssetName, Int>, script_hash: AssetName) -> Int {
+fn mini_loop(assets: Pairs<AssetName, Int>, script_hash: AssetName) -> Int {
   when assets is {
     [] -> 0
     [Pair(asset, quantity), ..rest] ->
@@ -134,7 +134,7 @@ fn mini_loop(assets: AList<AssetName, Int>, script_hash: AssetName) -> Int {
 }
 
 fn quantity_of(
-  value: AList<PolicyId, AList<AssetName, Int>>,
+  value: Pairs<PolicyId, Pairs<AssetName, Int>>,
   own_hash: PolicyId,
   script_hash: AssetName,
 ) -> Int {
@@ -168,7 +168,7 @@ pub fn count_votes(
           stake_cred,
         )
       } else {
-        when value |> value.tokens(own_hash) |> dict.to_list is {
+        when value |> value.tokens(own_hash) |> dict.to_pairs is {
           [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
             if
             tuna_name == fortuna.token_name && value_script_hash == script_hash{
@@ -201,7 +201,7 @@ pub fn count_votes(
 
 // pub type FakeOutput {
 //   address: Address,
-//   value: AList<PolicyId, AList<AssetName, Int>>,
+//   value: Pairs<PolicyId, Pairs<AssetName, Int>>,
 //   datum: Datum,
 //   thing: Data,
 // }

@@ -65,11 +65,11 @@ pub fn value_has_nft_and_lovelace(
   expect [Pair(policy1, amount1), Pair(policy2, amount2)] =
     val
       |> value.to_dict()
-      |> dict.to_list()
+      |> dict.to_pairs()
 
   if policy1 == value.ada_policy_id {
     // Should always reach here since maps come in ordered on chain
-    expect [Pair(token_name, quantity)] = amount2 |> dict.to_list()
+    expect [Pair(token_name, quantity)] = amount2 |> dict.to_pairs()
 
     and {
       policy2 == policy,
@@ -77,7 +77,7 @@ pub fn value_has_nft_and_lovelace(
       token_name == asset_name,
     }
   } else {
-    expect [Pair(token_name, quantity)] = amount1 |> dict.to_list()
+    expect [Pair(token_name, quantity)] = amount1 |> dict.to_pairs()
 
     and {
       policy1 == policy,

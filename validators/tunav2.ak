@@ -1,4 +1,3 @@
-use aiken/alist
 use aiken/builtin
 use aiken/bytearray
 use aiken/dict
@@ -6,6 +5,7 @@ use aiken/hash.{blake2b_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/math.{pow2}
+use aiken/pairs
 use aiken/sparse_merkle_tree.{verify_added_member}
 use aiken/sparse_merkle_tree/merkle.{
   Side, convert_bytes_to_left_proofs, convert_bytes_to_remainder_proofs,
@@ -105,7 +105,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         let withdraw_purpose =
           tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
-        expect Some(lock_rdmr) = alist.get_first(redeemers, withdraw_purpose)
+        expect Some(lock_rdmr) = pairs.get_first(redeemers, withdraw_purpose)
 
         expect Lock { locking_amount, .. }: NftForkAction = lock_rdmr
 
@@ -113,7 +113,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           mint
             |> value.from_minted_value
             |> value.tokens(own_policy)
-            |> dict.to_list
+            |> dict.to_pairs
 
         and {
           mint_name == fortuna.token_name,
@@ -136,7 +136,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           bytearray.concat(fortunav2.big_tuna_prefix, spend_cred)
 
         expect [Pair(token1, 1), Pair(token2, 1)] =
-          spend_value |> value.tokens(own_policy) |> dict.to_list
+          spend_value |> value.tokens(own_policy) |> dict.to_pairs
 
         let in_token_name =
           // By ledger rules we should only hit this first if since token names
@@ -199,7 +199,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         // Mint nomination token
         expect [Pair(nominated_contract_token, 1)] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_list
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_pairs
 
         let expected_value =
           value.from_asset(own_policy, nominated_contract_token, 1)
@@ -263,7 +263,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           get_inline_datum(spend_datum)
 
         expect [Pair(voting_token, 1)] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_list
+          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_pairs
 
         and {
           // Is from this contract
@@ -289,7 +289,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         mint
           |> from_minted_value
           |> value.tokens(own_policy)
-          |> dict.to_list
+          |> dict.to_pairs
           |> list.all(
               fn(pair) {
                 let Pair(_, quantity) = pair
@@ -643,7 +643,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                   when address.payment_credential is {
                     ScriptCredential(script_hash) -> {
                       expect [Pair(token_name, 1), Pair(token_name2, 1)] =
-                        value |> value.tokens(own_script_hash) |> dict.to_list
+                        value |> value.tokens(own_script_hash) |> dict.to_pairs
 
                       and {
                         token_name == bytearray.concat(
@@ -717,7 +717,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                   miner_support_count >= epoch_number * miner_threshold / 1000,
                   {
                     expect Some(upgrade_rdmr) =
-                      alist.get_first(redeemers, Mint(own_script_hash))
+                      pairs.get_first(redeemers, Mint(own_script_hash))
 
                     expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
 
@@ -943,7 +943,7 @@ validator(tunav2_minting_policy: ByteArray) {
         let Transaction { redeemers, .. } = ctx.transaction
 
         expect Some(upgrade_rdmr) =
-          alist.get_first(redeemers, Mint(tunav2_minting_policy))
+          pairs.get_first(redeemers, Mint(tunav2_minting_policy))
 
         expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
 

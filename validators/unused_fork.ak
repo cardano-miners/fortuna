@@ -1,5 +1,5 @@
-use aiken/alist
 use aiken/list
+use aiken/pairs
 use aiken/transaction.{InlineDatum,
   OutputReference, ScriptContext, Transaction} as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
@@ -73,7 +73,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
         let own_withdrawal = Inline(ScriptCredential(own_policy))
 
         // Fork Mint(0) requirement: Withdrawal script is present
-        alist.has_key(withdrawals, own_withdrawal)
+        pairs.has_key(withdrawals, own_withdrawal)
       }
 
       tx.WithdrawFrom(stake_cred) -> {
@@ -179,7 +179,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             expect LockState { locked_tuna: _user_locked_tuna }: ForkDatum =
               get_inline_datum(locked_state_input.output.datum)
 
-            todo
+            fail @"todo"
           }
 
           FailForkAttempt { fortuna_v1_output } ->
@@ -208,6 +208,6 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
     let own_withdrawal = Inline(own_input.address.payment_credential)
 
     // Fork Spend(0) requirement: Withdrawal script is present
-    alist.has_key(withdrawals, own_withdrawal)
+    pairs.has_key(withdrawals, own_withdrawal)
   }
 }

@@ -226,7 +226,7 @@ validator(utxo_ref: OutputReference) {
     expect [Pair(token_name, quantity)] =
       mint
         |> tokens(own_validator_hash)
-        |> dict.to_list
+        |> dict.to_pairs
 
     let halving_exponent = block_number / halving_number
 

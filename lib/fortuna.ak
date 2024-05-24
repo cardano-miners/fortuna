@@ -68,15 +68,15 @@ pub fn value_has_only_master_and_lovelace(
   expect [Pair(policy1, amount1), Pair(policy2, amount2)] =
     val
       |> value.to_dict
-      |> dict.to_list()
+      |> dict.to_pairs()
 
   if policy1 == value.ada_policy_id {
     // Should always reach here since maps come in ordered on chain
-    expect [Pair(token_name, quantity)] = amount2 |> dict.to_list()
+    expect [Pair(token_name, quantity)] = amount2 |> dict.to_pairs()
 
     policy2 == own_policy && quantity == 1 && token_name == master_token_name
   } else {
-    expect [Pair(token_name, quantity)] = amount1 |> dict.to_list()
+    expect [Pair(token_name, quantity)] = amount1 |> dict.to_pairs()
 
     policy1 == own_policy && quantity == 1 && token_name == master_token_name
   }
@@ -86,7 +86,7 @@ pub fn value_contains_master_token(val: Value, own_policy: PolicyId) -> Bool {
   expect [Pair(token_name, quantity)] =
     val
       |> tokens(own_policy)
-      |> dict.to_list()
+      |> dict.to_pairs()
 
   token_name == master_token_name && quantity == 1
 }
