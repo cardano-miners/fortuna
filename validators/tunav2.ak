@@ -1,16 +1,13 @@
 use aiken/builtin
 use aiken/bytearray
 use aiken/dict
-use aiken/hash.{blake2b_256, sha2_256}
+use aiken/hash.{Hash, Sha2_256, blake2b_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/math.{pow2}
 use aiken/pairs
-use aiken/sparse_merkle_tree.{verify_added_member}
-use aiken/sparse_merkle_tree/merkle.{
-  Side, convert_bytes_to_left_proofs, convert_bytes_to_remainder_proofs,
-  convert_bytes_to_right_proofs,
-}
+use aiken/sparse_merkle_tree/merkle_blake256.{MerkleProofBlock}
+use aiken/sparse_merkle_tree_blake256.{verify_added_member}
 use aiken/transaction.{
   InlineDatum, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
@@ -66,16 +63,12 @@ type Miner {
   Nft { policy: ByteArray, name: ByteArray, output_index: Int, extra: Data }
 }
 
-type MerkleProofBlock {
-  starting_side: Side,
-  left_proofs: ByteArray,
-  right_proofs: ByteArray,
-  remaining_side_proofs: ByteArray,
-  remaining_proofs: ByteArray,
-}
-
 type MineAction {
-  MinePow(ByteArray, Miner, MerkleProofBlock)
+  MinePow(
+    ByteArray,
+    Miner,
+    MerkleProofBlock<Hash<Sha2_256, Hash<Sha2_256, TargetState>>>,
+  )
   Upgrade
 }
 
@@ -867,19 +860,6 @@ validator(tunav2_minting_policy: ByteArray) {
             }
           }
 
-        // For variance in the merkle tree we swap the last 7 bytes with the first 25 bytes
-        let new_merkle_member =
-          builtin.slice_bytearray(25, 32, found_bytearray)
-            |> bytearray.concat(bytearray.take(found_bytearray, 25))
-
-        let MerkleProofBlock {
-          starting_side,
-          left_proofs,
-          right_proofs,
-          remaining_side_proofs,
-          remaining_proofs,
-        } = merkle_proof_block
-
         and {
           // Posix time is in milliseconds
           // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
@@ -927,12 +907,9 @@ validator(tunav2_minting_policy: ByteArray) {
           (out_current_hash == found_bytearray)?,
           // Spend(13) requirement: Check output merkle is correct
           verify_added_member(
-            new_merkle_member,
-            starting_side,
-            left_proofs |> convert_bytes_to_left_proofs,
-            right_proofs |> convert_bytes_to_right_proofs,
-            remaining_side_proofs,
-            remaining_proofs |> convert_bytes_to_remainder_proofs,
+            found_bytearray,
+            identity,
+            merkle_proof_block,
             merkle_root,
             out_merkle,
           )?,
