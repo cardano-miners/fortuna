@@ -907,6 +907,10 @@ validator(tunav2_minting_policy: ByteArray) {
             found_bytearray,
             merkle_proof_list,
           ) == from_root(out_merkle))?,
+          // Spend(14) requirement: Data size doesn't exceed 1/4 tx size
+          builtin.serialise_data(miner)
+            |> builtin.length_of_bytearray()
+            |> builtin.less_than_equals_integer(4096),
         }
       }
 
