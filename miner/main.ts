@@ -11,6 +11,7 @@ import {
   Translucent,
   type Script,
   toHex,
+  UTxO,
 } from 'translucent-cardano/index';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -25,6 +26,7 @@ import {
   getDifficultyAdjustement,
   incrementU8Array,
   readValidator,
+  readValidators,
   sha256,
 } from './utils';
 
@@ -383,7 +385,7 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const unAppliedValidator = readValidator();
+    const [fortunaV1, forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
 
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
@@ -400,20 +402,43 @@ app
       BigInt(utxos[0].outputIndex),
     ]);
 
-    const appliedValidator = applyParamsToScript(unAppliedValidator.script, [initOutputRef]);
+    const fortunaV1Hash = lucid.utils.validatorToScriptHash(fortunaV1);
 
-    const validator: Script = {
+    const fortunaV1Address = lucid.utils.validatorToAddress(fortunaV1);
+
+    const forkValidatorApplied: Script = {
       type: 'PlutusV2',
-      script: appliedValidator,
+      script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
     };
 
-    const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(initOutputRef)))));
+    const forkValidatorHash = lucid.utils.validatorToScriptHash(forkValidatorApplied);
 
-    const validatorAddress = lucid.utils.validatorToAddress(validator);
+    const tunaV2MintApplied: Script = {
+      type: 'PlutusV2',
+      script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
+    };
 
-    const validatorHash = lucid.utils.validatorToScriptHash(validator);
+    const tunaV2MintAppliedHash = lucid.utils.validatorToScriptHash(tunaV2MintApplied);
 
-    const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
+    const tunaV2SpendApplied: Script = {
+      type: 'PlutusV2',
+      script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
+    };
+
+    const tunaV2SpendAppliedHash = lucid.utils.validatorToScriptHash(tunaV2SpendApplied);
+
+    const lastestV1Block: UTxO = (
+      await lucid.utxosAtWithUnit(fortunaV1Address, fortunaV1Hash + fromText('lord tuna'))
+    )[0];
+
+    const lastestV1BlockData = Data.from(lastestV1Block.datum!) as Constr<bigint>;
+
+    const blockNumber = lastestV1BlockData.fields[0];
+
+    const masterTokensV2 = {
+      [tunaV2MintAppliedHash + 'TUNA' + tunaV2SpendAppliedHash]: 1n,
+      [tunaV2MintAppliedHash + 'COUNTER' + blockNumber]: 1n,
+    };
 
     const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 

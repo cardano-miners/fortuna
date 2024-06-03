@@ -24,6 +24,32 @@ export function readValidator(): SpendingValidator {
   };
 }
 
+export function readValidators(): SpendingValidator[] {
+  const fortunaV1 = blueprint.validators.filter((v) => v.title === 'tunav1.spend')[0];
+  const forkValidator = blueprint.validators.filter((v) => v.title === 'simplerfork.fork')[0];
+  const fortunaV2Mint = blueprint.validators.filter((v) => v.title === 'tunav2.tuna')[0];
+  const fortunaV2Spend = blueprint.validators.filter((v) => v.title === 'tunav2.mine')[0];
+
+  return [
+    {
+      type: 'PlutusV2',
+      script: toHex(cbor.encode(fromHex(fortunaV1.compiledCode))),
+    },
+    {
+      type: 'PlutusV2',
+      script: toHex(cbor.encode(fromHex(forkValidator.compiledCode))),
+    },
+    {
+      type: 'PlutusV2',
+      script: toHex(cbor.encode(fromHex(fortunaV2Mint.compiledCode))),
+    },
+    {
+      type: 'PlutusV2',
+      script: toHex(cbor.encode(fromHex(fortunaV2Spend.compiledCode))),
+    },
+  ];
+}
+
 export function printExecutionDetails(tx: TxSigned, name: string) {
   const redeemers = tx.txSigned.witness_set().redeemers()!;
   let steps = 0;
