@@ -1,5 +1,7 @@
 name = "aiken-lang/fortuna"
 version = "0.0.0"
+compiler = "v1.0.28-alpha"
+plutus = "v2"
 license = "Apache-2.0"
 description = "Aiken contracts for pow coin"
 
@@ -10,7 +12,7 @@ platform = "github"
 
 [[dependencies]]
 name = "aiken-lang/stdlib"
-version = "main"
+version = "1.9.0"
 source = "github"
 
 [[dependencies]]
@@ -19,6 +21,6 @@ version = "main"
 source = "github"
 
 [[dependencies]]
-name = "aiken-lang/sparse-merkle-tree"
-version = "main"
+name = "aiken-lang/merkle-patricia-forestry"
+version = "1.0.1"
 source = "github"

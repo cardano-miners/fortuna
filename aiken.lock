@@ -3,7 +3,7 @@
 
 [[requirements]]
 name = "aiken-lang/stdlib"
-version = "main"
+version = "1.9.0"
 source = "github"
 
 [[requirements]]
@@ -12,13 +12,13 @@ version = "main"
 source = "github"
 
 [[requirements]]
-name = "aiken-lang/sparse-merkle-tree"
-version = "main"
+name = "aiken-lang/merkle-patricia-forestry"
+version = "1.0.1"
 source = "github"
 
 [[packages]]
 name = "aiken-lang/stdlib"
-version = "main"
+version = "1.9.0"
 requirements = []
 source = "github"
 
@@ -29,12 +29,10 @@ requirements = []
 source = "github"
 
 [[packages]]
-name = "aiken-lang/sparse-merkle-tree"
-version = "main"
+name = "aiken-lang/merkle-patricia-forestry"
+version = "1.0.1"
 requirements = []
 source = "github"
 
 [etags]
-"aiken-lang/fuzz@main" = [{ secs_since_epoch = 1716768169, nanos_since_epoch = 70954000 }, "98cf81aa68f9ccf68bc5aba9be06d06cb1db6e8eff60b668ed5e8ddf3588206b"]
-"aiken-lang/sparse-merkle-tree@main" = [{ secs_since_epoch = 1716768169, nanos_since_epoch = 260225000 }, "d62835502559dd73280353f1c05ac41379d4523350813deeced8ebf915935a7f"]
-"aiken-lang/stdlib@main" = [{ secs_since_epoch = 1716768168, nanos_since_epoch = 952011000 }, "dfda6bc70aad760f7f836c0db06b07e0a398bb3667f4d944d7d7255d54a454af"]
+"aiken-lang/fuzz@main" = [{ secs_since_epoch = 1717431188, nanos_since_epoch = 729743000 }, "98cf81aa68f9ccf68bc5aba9be06d06cb1db6e8eff60b668ed5e8ddf3588206b"]

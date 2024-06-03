@@ -1,13 +1,12 @@
 use aiken/builtin
 use aiken/bytearray
 use aiken/dict
-use aiken/hash.{Hash, Sha2_256, blake2b_256, sha2_256}
+use aiken/hash.{blake2b_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/math.{pow2}
+use aiken/merkle_patricia_forestry.{Proof, from_root, insert}
 use aiken/pairs
-use aiken/sparse_merkle_tree/merkle_blake256.{MerkleProofBlock}
-use aiken/sparse_merkle_tree_blake256.{verify_added_member}
 use aiken/transaction.{
   InlineDatum, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
 } as tx
@@ -64,11 +63,7 @@ type Miner {
 }
 
 type MineAction {
-  MinePow(
-    ByteArray,
-    Miner,
-    MerkleProofBlock<Hash<Sha2_256, Hash<Sha2_256, TargetState>>>,
-  )
+  MinePow(ByteArray, Miner, Proof)
   Upgrade
 }
 
@@ -743,7 +738,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 validator(tunav2_minting_policy: ByteArray) {
   fn mine(datum: Statev2, redeemer: MineAction, ctx: ScriptContext) -> Bool {
     when redeemer is {
-      MinePow(nonce, miner, merkle_proof_block) -> {
+      MinePow(nonce, miner, merkle_proof_list) -> {
         let Statev2 {
           block_number,
           current_hash,
@@ -906,13 +901,12 @@ validator(tunav2_minting_policy: ByteArray) {
           // Spend(12) requirement: Output current hash is the found hash
           (out_current_hash == found_bytearray)?,
           // Spend(13) requirement: Check output merkle is correct
-          verify_added_member(
+          (insert(
+            merkle_root |> from_root,
+            found_bytearray |> blake2b_256,
             found_bytearray,
-            identity,
-            merkle_proof_block,
-            merkle_root,
-            out_merkle,
-          )?,
+            merkle_proof_list,
+          ) == from_root(out_merkle))?,
         }
       }
 
