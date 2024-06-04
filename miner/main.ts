@@ -387,6 +387,8 @@ app
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
     const [fortunaV1, forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
 
+    const precalculated_merkle_root = '';
+
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
@@ -413,6 +415,10 @@ app
 
     const forkValidatorHash = lucid.utils.validatorToScriptHash(forkValidatorApplied);
 
+    const forkValidatorRewardAddress = lucid.utils.validatorToRewardAddress(forkValidatorApplied);
+
+    const forkValidatorAddress = lucid.utils.validatorToAddress(forkValidatorApplied);
+
     const tunaV2MintApplied: Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
@@ -427,51 +433,77 @@ app
 
     const tunaV2SpendAppliedHash = lucid.utils.validatorToScriptHash(tunaV2SpendApplied);
 
+    const fortunaV2Address = lucid.utils.validatorToAddress(tunaV2SpendApplied);
+
     const lastestV1Block: UTxO = (
       await lucid.utxosAtWithUnit(fortunaV1Address, fortunaV1Hash + fromText('lord tuna'))
     )[0];
 
-    const lastestV1BlockData = Data.from(lastestV1Block.datum!) as Constr<bigint>;
+    const lastestV1BlockData = Data.from(lastestV1Block.datum!) as Constr<
+      string | bigint | string[]
+    >;
 
-    const blockNumber = lastestV1BlockData.fields[0];
+    const [
+      bn,
+      current_hash,
+      leading_zeros,
+      target_number,
+      epoch_time,
+      current_posix_time,
+      ...rest
+    ] = lastestV1BlockData.fields;
+
+    const blockNumber = bn as bigint;
 
     const masterTokensV2 = {
-      [tunaV2MintAppliedHash + 'TUNA' + tunaV2SpendAppliedHash]: 1n,
-      [tunaV2MintAppliedHash + 'COUNTER' + blockNumber]: 1n,
+      [tunaV2MintAppliedHash + fromText('TUNA') + tunaV2SpendAppliedHash]: 1n,
+      [tunaV2MintAppliedHash + fromText('COUNTER') + blockNumber.toString(16)]: 1n,
     };
 
-    const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+    const forkLockToken = {
+      [forkValidatorHash + fromText('lock_state')]: 1n,
+    };
 
-    // State
-    const preDatum = new Constr(0, [
-      // block_number: Int
-      0n,
-      // current_hash: ByteArray
-      bootstrapHash,
-      // leading_zeros: Int
-      5n,
-      // difficulty_number: Int
-      65535n,
-      // epoch_time: Int
-      0n,
-      // current_posix_time: Int
-      BigInt(90000 + timeNow),
-      // extra: Data
-      0n,
-      // interlink: List<Data>
-      [],
-    ]);
+    // LockState { block_height: block_number, current_locked_tuna: 0 }
+    const lockState = Data.to(new Constr(0, [blockNumber, 0n]));
 
-    const datum = Data.to(preDatum);
+    // HardFork { lock_output_index }
+    const forkRedeemer = Data.to(new Constr(0, [0n]));
+
+    const forkMintRedeemer = Data.to(0n);
+
+    //  Statev2 {
+    //   block_number,
+    //   current_hash,
+    //   leading_zeros: leading_zeros - 2,
+    //   target_number,
+    //   epoch_time,
+    //   current_posix_time,
+    //   merkle_root: latest_merkle_root,
+    // }
+    const fortunaState = Data.to(
+      new Constr(0, [
+        blockNumber,
+        current_hash,
+        (leading_zeros as bigint) - 2n,
+        target_number,
+        epoch_time,
+        current_posix_time,
+        precalculated_merkle_root,
+      ]),
+    );
+
+    const fortunaRedeemer = Data.to(new Constr(0, []));
 
     const tx = await lucid
       .newTx()
-      .collectFrom(utxos)
-      .payToContract(validatorAddress, { inline: datum }, masterToken)
-      .mintAssets(masterToken, Data.to(new Constr(1, [])))
-      .attachMintingPolicy(validator)
-      .validFrom(timeNow)
-      .validTo(timeNow + 180000)
+      .readFrom([lastestV1Block])
+      .registerStake(forkValidatorRewardAddress)
+      .withdraw(forkValidatorRewardAddress, 0n, forkRedeemer)
+      .mintAssets(forkLockToken, forkMintRedeemer)
+      .mintAssets(masterTokensV2, fortunaRedeemer)
+      .payToContract(forkValidatorAddress, { inline: lockState }, forkLockToken)
+      .payToContract(fortunaV2Address, { inline: fortunaState }, masterTokensV2)
       .complete();
 
     const signed = await tx.sign().complete();
@@ -486,15 +518,27 @@ app
       console.log(`Completed and saving genesis file.`);
 
       fs.writeFileSync(
-        `genesis/${preview ? 'preview' : 'mainnet'}.json`,
-        JSON.stringify({
-          validator: validator.script,
-          validatorHash,
-          validatorAddress,
-          bootstrapHash,
-          datum,
-          outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
-        }),
+        `genesisV2/${preview ? 'preview' : 'mainnet'}.json`,
+        JSON.stringify([
+          {
+            validator: forkValidator.script,
+            validatorHash: forkValidatorHash,
+            validatorAddress: forkValidatorAddress,
+            datum: lockState,
+            outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
+          },
+          {
+            validator: tunaV2MintApplied.script,
+            validatorHash: tunaV2MintAppliedHash,
+            validatorAddress: fortunaV2Address,
+          },
+          {
+            validator: tunaV2SpendApplied.script,
+            validatorHash: tunaV2SpendAppliedHash,
+            validatorAddress: fortunaV2Address,
+            datum: fortunaState,
+          },
+        ]),
         { encoding: 'utf-8' },
       );
     } catch (e) {
