@@ -42,6 +42,25 @@ type Genesis = {
   outRef: { txHash: string; index: number };
 };
 
+type GenesisV2 = {
+  forkValidator: {
+    validator: string;
+    validatorHash: string;
+    validatorAddress: string;
+    outRef: { txHash: string; index: number };
+  };
+  tunaV2MintValidator: {
+    validator: string;
+    validatorHash: string;
+    validatorAddress: string;
+  };
+  tunaV2SpendValidator: {
+    validator: string;
+    validatorHash: string;
+    validatorAddress: string;
+  };
+};
+
 const delay = (ms: number | undefined) => new Promise((res) => setTimeout(res, ms));
 
 const app = new Command();
@@ -519,26 +538,26 @@ app
 
       fs.writeFileSync(
         `genesisV2/${preview ? 'preview' : 'mainnet'}.json`,
-        JSON.stringify([
-          {
+        JSON.stringify({
+          forkValidator: {
             validator: forkValidator.script,
             validatorHash: forkValidatorHash,
             validatorAddress: forkValidatorAddress,
             datum: lockState,
             outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
           },
-          {
+          tunaV2MintValidator: {
             validator: tunaV2MintApplied.script,
             validatorHash: tunaV2MintAppliedHash,
             validatorAddress: fortunaV2Address,
           },
-          {
+          tunaV2SpendValidator: {
             validator: tunaV2SpendApplied.script,
             validatorHash: tunaV2SpendAppliedHash,
             validatorAddress: fortunaV2Address,
             datum: fortunaState,
           },
-        ]),
+        }),
         { encoding: 'utf-8' },
       );
     } catch (e) {
@@ -585,13 +604,25 @@ app
         encoding: 'utf8',
       });
 
+      const genesisFileV2 = fs.readFileSync(`genesisV2/${preview ? 'preview' : 'mainnet'}.json`, {
+        encoding: 'utf8',
+      });
+
       const { validatorHash }: Genesis = JSON.parse(genesisFile);
+      const {
+        tunaV2MintValidator: { validatorHash: validatorHashV2 },
+      }: GenesisV2 = JSON.parse(genesisFileV2);
 
       const tunaBalance = utxos.reduce((acc, u) => {
         return acc + (u.assets[validatorHash + fromText('TUNA')] ?? 0n);
       }, 0n);
 
+      const tunaV2Balance = utxos.reduce((acc, u) => {
+        return acc + (u.assets[validatorHashV2 + fromText('TUNA')] ?? 0n);
+      }, 0n);
+
       console.log(`TUNA Balance: ${tunaBalance / 100_000_000n}`);
+      console.log(`TUNAV2 Balance: ${tunaV2Balance / 100_000_000n}`);
     } catch {
       console.log(`TUNA Balance: 0`);
     }
