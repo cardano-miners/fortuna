@@ -15,6 +15,13 @@ export async function sha256(input: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(hash);
 }
 
+// TODO - Implement blake256
+export async function blake256(input: Uint8Array): Promise<Uint8Array> {
+  const hash = await crypto.subtle.digest('SHA-256', input);
+
+  return new Uint8Array(hash);
+}
+
 export function readValidator(): SpendingValidator {
   const validator = blueprint.validators[0];
 
@@ -104,7 +111,7 @@ export function randomAssetId() {
 
 export function getDifficulty(hash: Uint8Array): {
   leadingZeros: bigint;
-  difficulty_number: bigint;
+  difficultyNumber: bigint;
 } {
   let leadingZeros = 0;
   let difficulty_number = 0;
@@ -117,29 +124,31 @@ export function getDifficulty(hash: Uint8Array): {
         difficulty_number += Math.floor(hash[indx + 2] / 16);
         return {
           leadingZeros: BigInt(leadingZeros),
-          difficulty_number: BigInt(difficulty_number),
+          difficultyNumber: BigInt(difficulty_number),
         };
       } else {
         difficulty_number += chr * 256;
         difficulty_number += hash[indx + 1];
         return {
           leadingZeros: BigInt(leadingZeros),
-          difficulty_number: BigInt(difficulty_number),
+          difficultyNumber: BigInt(difficulty_number),
         };
       }
     } else {
       leadingZeros += 2;
     }
   }
-  return { leadingZeros: 32n, difficulty_number: 0n };
+  return { leadingZeros: 32n, difficultyNumber: 0n };
 }
 
-export function incrementU8Array(x: Uint8Array) {
-  for (let i = 0; i < x.length; i++) {
-    if (x[i] === 255) {
-      x[i] = 0;
+export function incrementNonce(x: Uint8Array) {
+  let subX = x.slice(4, 20);
+
+  for (let i = 0; i < subX.length; i++) {
+    if (subX[i] === 255) {
+      subX[i] = 0;
     } else {
-      x[i] += 1;
+      subX[i] += 1;
       break;
     }
   }
@@ -177,11 +186,11 @@ export function getDifficultyAdjustement(
 }
 
 export function calculateDifficultyNumber(
-  a: { leadingZeros: bigint; difficulty_number: bigint },
+  a: { leadingZeros: bigint; difficultyNumber: bigint },
   numerator: bigint,
   denominator: bigint,
 ): { leadingZeros: bigint; difficulty_number: bigint } {
-  const new_padded_difficulty = (a.difficulty_number * 16n * numerator) / denominator;
+  const new_padded_difficulty = (a.difficultyNumber * 16n * numerator) / denominator;
 
   const new_difficulty = new_padded_difficulty / 16n;
 
