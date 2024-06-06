@@ -1,0 +1,28 @@
+[
+  {
+    "block_number": 0,
+    "current_hash": "2aa538d5e7849d0e102f86a0ce4498c51c099ef06a61cd59d881d9e44a6c8ef1",
+    "leading_zeros": 5,
+    "target_number": 65535,
+    "epoch_time": 0,
+    "current_posix_time": 1693072307000
+  },
+  {
+    "block_number": 1,
+    "current_hash": "000001df8cb64a5c273ff290b9c836c0d075433e12bd1d58b884c8637ee8f758",
+    "leading_zeros": 5,
+    "target_number": 65535,
+    "epoch_time": 556000,
+    "current_posix_time": 1693072863000,
+    "nonce": "D9A5487BBFCEAAF6AF04E7168FF64A8F"
+  },
+  {
+    "block_number": 2,
+    "current_hash": "000000a3d6f6bf984086c05f12f22f9973f258946684242d7f3c62d6360867b7",
+    "leading_zeros": 5,
+    "target_number": 65535,
+    "epoch_time": 1258310000,
+    "current_posix_time": 1694330617000,
+    "nonce": "959DE71E873E13D75ABDB2F21E4CCACC"
+  }
+]

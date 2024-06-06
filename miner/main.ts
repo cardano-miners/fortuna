@@ -12,6 +12,7 @@ import {
   type Script,
   toHex,
   UTxO,
+  applyDoubleCborEncoding,
 } from 'translucent-cardano/index';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -22,7 +23,6 @@ import { plus100 } from './sha-gpu';
 import {
   blake256,
   calculateDifficultyNumber,
-  calculateInterlink,
   getDifficulty,
   getDifficultyAdjustement,
   incrementNonce,
@@ -30,6 +30,8 @@ import {
   readValidators,
   sha256,
 } from './utils';
+
+import { Store, Trie } from '@aiken-lang/merkle-patricia-forestry';
 
 Object.assign(global, { WebSocket });
 
@@ -87,14 +89,8 @@ app
   .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
     const alwaysLoop = true;
 
-    const {
-      validatorHash: tunav1ValidatorHash,
-      validatorAddress: tunav1ValidatorAddress,
-    }: Genesis = JSON.parse(
-      fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
-        encoding: 'utf8',
-      }),
-    );
+    // Construct a new trie with on-disk storage under the file path 'db'.
+    const trie = new Trie(new Store(preview ? 'dbPreview' : 'db'));
 
     const {
       tunaV2MintValidator: { validatorHash: tunav2ValidatorHash },
@@ -103,7 +99,7 @@ app
         validatorAddress: tunaV2ValidatorAddress,
       },
     }: GenesisV2 = JSON.parse(
-      fs.readFileSync(`genesisV2/${preview ? 'preview' : 'mainnet'}.json`, {
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
         encoding: 'utf8',
       }),
     );
@@ -450,10 +446,19 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const [fortunaV1, forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
+    const fortunaV1: Genesis = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
 
-    const precalculated_merkle_root = '';
+    const [forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
 
+    const forkMerkleRoot = fs.readFileSync(preview ? 'currentPreviewRoot.txt' : 'currentRoot.txt', {
+      encoding: 'utf-8',
+    });
+
+    console.log(forkMerkleRoot);
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
@@ -469,14 +474,19 @@ app
       BigInt(utxos[0].outputIndex),
     ]);
 
-    const fortunaV1Hash = lucid.utils.validatorToScriptHash(fortunaV1);
+    console.log('here222');
+    const fortunaV1Hash = fortunaV1.validatorHash;
 
-    const fortunaV1Address = lucid.utils.validatorToAddress(fortunaV1);
+    const fortunaV1Address = fortunaV1.validatorAddress;
 
     const forkValidatorApplied: Script = {
       type: 'PlutusV2',
-      script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
+      script: applyDoubleCborEncoding(
+        applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
+      ),
     };
+
+    console.log('here22211111');
 
     const forkValidatorHash = lucid.utils.validatorToScriptHash(forkValidatorApplied);
 
@@ -486,14 +496,20 @@ app
 
     const tunaV2MintApplied: Script = {
       type: 'PlutusV2',
-      script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
+      script: applyDoubleCborEncoding(
+        applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
+      ),
     };
+
+    console.log('here222333');
 
     const tunaV2MintAppliedHash = lucid.utils.validatorToScriptHash(tunaV2MintApplied);
 
     const tunaV2SpendApplied: Script = {
       type: 'PlutusV2',
-      script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
+      script: applyDoubleCborEncoding(
+        applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
+      ),
     };
 
     const tunaV2SpendAppliedHash = lucid.utils.validatorToScriptHash(tunaV2SpendApplied);
@@ -507,6 +523,7 @@ app
     const lastestV1BlockData = Data.from(lastestV1Block.datum!) as Constr<
       string | bigint | string[]
     >;
+    console.log('here4343');
 
     const [
       bn,
@@ -554,14 +571,20 @@ app
         target_number,
         epoch_time,
         current_posix_time,
-        precalculated_merkle_root,
+        forkMerkleRoot,
       ]),
     );
 
     const fortunaRedeemer = Data.to(new Constr(0, []));
 
+    console.log('here56845485');
+
     const tx = await lucid
       .newTx()
+      .attachSpendingValidator(tunaV2SpendApplied)
+      .attachMintingPolicy(tunaV2MintApplied)
+      .attachMintingPolicy(forkValidatorApplied)
+      .attachWithdrawalValidator(forkValidatorApplied)
       .readFrom([lastestV1Block])
       .registerStake(forkValidatorRewardAddress)
       .withdraw(forkValidatorRewardAddress, 0n, forkRedeemer)
@@ -569,9 +592,14 @@ app
       .mintAssets(masterTokensV2, fortunaRedeemer)
       .payToContract(forkValidatorAddress, { inline: lockState }, forkLockToken)
       .payToContract(fortunaV2Address, { inline: fortunaState }, masterTokensV2)
+
       .complete();
 
+    console.log('here8888');
+
     const signed = await tx.sign().complete();
+
+    console.log('here9999');
 
     try {
       await signed.submit();
@@ -583,7 +611,7 @@ app
       console.log(`Completed and saving genesis file.`);
 
       fs.writeFileSync(
-        `genesisV2/${preview ? 'preview' : 'mainnet'}.json`,
+        `genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`,
         JSON.stringify({
           forkValidator: {
             validator: forkValidator.script,
@@ -623,6 +651,35 @@ app
   });
 
 app
+  .command('createMerkleRoot')
+  .description('Create and output the merkle root of the fortuna blockchain')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    // Construct a new trie with on-disk storage under the file path 'db'.
+    const trie = new Trie(new Store(preview ? 'dbPreview' : 'db'));
+
+    const headerHashes = JSON.parse(
+      fs.readFileSync(preview ? 'V1PreviewHistory.json' : 'V1History.json', 'utf8'),
+    );
+
+    for (const header of headerHashes) {
+      const hash = await blake256(fromHex(header.current_hash as string));
+
+      await trie.insert(Buffer.from(hash), Buffer.from(fromHex(header.current_hash)));
+    }
+
+    const root = trie.hash.toString('hex');
+
+    fs.writeFileSync(preview ? 'currentPreviewRoot.txt' : 'currentRoot.txt', root, {
+      encoding: 'utf-8',
+    });
+
+    console.log(`Current root written to currentRoot.txt`);
+  });
+
+app
   .command('address')
   .description('Check address balance')
   .addOption(kupoUrlOption)
@@ -650,7 +707,7 @@ app
         encoding: 'utf8',
       });
 
-      const genesisFileV2 = fs.readFileSync(`genesisV2/${preview ? 'preview' : 'mainnet'}.json`, {
+      const genesisFileV2 = fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
         encoding: 'utf8',
       });
 

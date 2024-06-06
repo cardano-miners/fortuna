@@ -32,7 +32,6 @@ export function readValidator(): SpendingValidator {
 }
 
 export function readValidators(): SpendingValidator[] {
-  const fortunaV1 = blueprint.validators.filter((v) => v.title === 'tunav1.spend')[0];
   const forkValidator = blueprint.validators.filter((v) => v.title === 'simplerfork.fork')[0];
   const fortunaV2Mint = blueprint.validators.filter((v) => v.title === 'tunav2.tuna')[0];
   const fortunaV2Spend = blueprint.validators.filter((v) => v.title === 'tunav2.mine')[0];
@@ -40,19 +39,15 @@ export function readValidators(): SpendingValidator[] {
   return [
     {
       type: 'PlutusV2',
-      script: toHex(cbor.encode(fromHex(fortunaV1.compiledCode))),
+      script: forkValidator.compiledCode,
     },
     {
       type: 'PlutusV2',
-      script: toHex(cbor.encode(fromHex(forkValidator.compiledCode))),
+      script: fortunaV2Mint.compiledCode,
     },
     {
       type: 'PlutusV2',
-      script: toHex(cbor.encode(fromHex(fortunaV2Mint.compiledCode))),
-    },
-    {
-      type: 'PlutusV2',
-      script: toHex(cbor.encode(fromHex(fortunaV2Spend.compiledCode))),
+      script: fortunaV2Spend.compiledCode,
     },
   ];
 }
