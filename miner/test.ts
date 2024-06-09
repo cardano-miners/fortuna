@@ -6,16 +6,16 @@ import {
   Emulator,
   generatePrivateKey,
   getAddressDetails,
-  Translucent,
+  Lucid,
   PROTOCOL_PARAMETERS_DEFAULT,
   Script,
   TxSigned,
-} from 'translucent-cardano';
+} from 'lucid-cardano';
 
 import { printExecutionDetails, readValidator } from './utils';
 
 export type TestContext = {
-  lucid: Translucent;
+  lucid: Lucid;
   emulator: Emulator;
   minerPaymentCredential?: Credential;
   minerAddr: string;
@@ -31,7 +31,7 @@ export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSig
   const minerPk = generatePrivateKey();
   const refPk = generatePrivateKey();
 
-  const l = await Translucent.new(undefined, 'Preprod');
+  const l = await Lucid.new(undefined, 'Preprod');
 
   const minerAddr = await l.selectWalletFromPrivateKey(minerPk).wallet.address();
 
@@ -54,7 +54,7 @@ export async function test(name: string, fn: (ctx: TestContext) => Promise<TxSig
     },
   );
 
-  const lucid = await Translucent.new(emulator);
+  const lucid = await Lucid.new(emulator);
 
   lucid.selectWalletFromPrivateKey(minerPk);
 

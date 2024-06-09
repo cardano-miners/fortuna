@@ -7,13 +7,12 @@ import {
   fromHex,
   fromText,
   generateSeedPhrase,
-  KupmiosV5 as Kupmios,
-  Translucent,
+  Kupmios,
+  Lucid,
   type Script,
   toHex,
   UTxO,
-  applyDoubleCborEncoding,
-} from 'translucent-cardano/index';
+} from 'lucid-cardano';
 import fs from 'fs';
 import crypto from 'crypto';
 import { WebSocket } from 'ws';
@@ -105,7 +104,7 @@ app
     );
 
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
 
     const userPkh = lucid.utils.getAddressDetails(await lucid.wallet.address()).paymentCredential!;
@@ -348,7 +347,7 @@ app
     const unAppliedValidator = readValidator();
 
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
     const utxos = await lucid.wallet.getUtxos();
@@ -458,9 +457,8 @@ app
       encoding: 'utf-8',
     });
 
-    console.log(forkMerkleRoot);
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
     const utxos = await lucid.wallet.getUtxos();
@@ -481,9 +479,7 @@ app
 
     const forkValidatorApplied: Script = {
       type: 'PlutusV2',
-      script: applyDoubleCborEncoding(
-        applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
-      ),
+      script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
     };
 
     console.log('here22211111');
@@ -496,9 +492,7 @@ app
 
     const tunaV2MintApplied: Script = {
       type: 'PlutusV2',
-      script: applyDoubleCborEncoding(
-        applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
-      ),
+      script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
     };
 
     console.log('here222333');
@@ -507,9 +501,7 @@ app
 
     const tunaV2SpendApplied: Script = {
       type: 'PlutusV2',
-      script: applyDoubleCborEncoding(
-        applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
-      ),
+      script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
     };
 
     const tunaV2SpendAppliedHash = lucid.utils.validatorToScriptHash(tunaV2SpendApplied);
@@ -537,9 +529,14 @@ app
 
     const blockNumber = bn as bigint;
 
+    const blockNumberHex =
+      blockNumber.toString(16).length % 2 === 0
+        ? blockNumber.toString(16)
+        : `0${blockNumber.toString(16)}`;
+
     const masterTokensV2 = {
       [tunaV2MintAppliedHash + fromText('TUNA') + tunaV2SpendAppliedHash]: 1n,
-      [tunaV2MintAppliedHash + fromText('COUNTER') + blockNumber.toString(16)]: 1n,
+      [tunaV2MintAppliedHash + fromText('COUNTER') + blockNumberHex]: 1n,
     };
 
     const forkLockToken = {
@@ -584,7 +581,6 @@ app
       .attachSpendingValidator(tunaV2SpendApplied)
       .attachMintingPolicy(tunaV2MintApplied)
       .attachMintingPolicy(forkValidatorApplied)
-      .attachWithdrawalValidator(forkValidatorApplied)
       .readFrom([lastestV1Block])
       .registerStake(forkValidatorRewardAddress)
       .withdraw(forkValidatorRewardAddress, 0n, forkRedeemer)
@@ -687,7 +683,7 @@ app
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Translucent.new(provider, preview ? 'Preview' : 'Mainnet');
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 

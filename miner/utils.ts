@@ -1,6 +1,6 @@
 import colors from 'colors/safe';
 import cbor from 'cbor';
-import { fromHex, type SpendingValidator, toHex, TxSigned } from 'translucent-cardano/index';
+import { fromHex, type SpendingValidator, toHex, TxSigned } from 'lucid-cardano';
 import crypto from 'crypto';
 
 import blueprint from '../plutus.json' assert { type: 'json' };

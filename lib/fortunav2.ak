@@ -1,9 +1,11 @@
 use aiken/builtin
 use aiken/bytearray
-use aiken/dict
+use aiken/dict.{Dict}
+use aiken/interval.{Finite}
 use aiken/list
 use aiken/pairs
-use aiken/transaction.{Input, Output, Transaction} as tx
+use aiken/transaction.{InlineDatum,
+  Input, Output, OutputReference, Transaction} as tx
 use aiken/transaction/credential.{
   Address, Inline, ScriptCredential, StakeCredential,
 }
@@ -11,7 +13,9 @@ use aiken/transaction/value.{AssetName, PolicyId}
 use fortuna.{master_token_name}
 use fortuna/parameters.{latest_merkle_root, voting_days}
 use fortuna/types.{State, Statev2}
-use fortuna/utils.{get_inline_datum, integer_to_bytes, list_at}
+use fortuna/utils.{
+  get_inline_datum, integer_to_bytes, list_at, resolve_output_reference,
+}
 use hardfork/hftypes.{HardFork, NftForkAction}
 
 pub const big_tuna_prefix = "TUNA"
@@ -46,7 +50,9 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
   expect Some(v1_miner_ref) = {
     let input <- list.find(reference_inputs)
     input.output.value
-      |> value.quantity_of(fortuna_v1_hash, master_token_name)
+      |> value.to_dict
+      |> dict.to_pairs
+      |> quantity_of(fortuna_v1_hash, master_token_name)
       |> builtin.equals_integer(1)
   }
 
@@ -133,8 +139,8 @@ fn mini_loop(assets: Pairs<AssetName, Int>, script_hash: AssetName) -> Int {
   }
 }
 
-fn quantity_of(
-  value: Pairs<PolicyId, Pairs<AssetName, Int>>,
+pub fn quantity_of(
+  value: Pairs<PolicyId, Dict<AssetName, Int>>,
   own_hash: PolicyId,
   script_hash: AssetName,
 ) -> Int {
@@ -142,10 +148,99 @@ fn quantity_of(
     [] -> 0
     [Pair(policy, assets), ..rest] ->
       if policy == own_hash {
-        mini_loop(assets, script_hash)
+        mini_loop(assets |> dict.to_pairs, script_hash)
       } else {
         quantity_of(rest, own_hash, script_hash)
       }
+  }
+}
+
+pub type TunaUpgradeProcess {
+  Nominated {
+    script_hash: ByteArray,
+    for_count: Int,
+    anti_script_hash: ByteArray,
+    against_count: Int,
+    deadline: Int,
+  }
+  Mining {
+    script_hash: ByteArray,
+    miner_support_count: Int,
+    block_height_deadline: Int,
+  }
+}
+
+pub fn vote(
+  for: Bool,
+  own_ref: OutputReference,
+  tx: Transaction,
+  dat: TunaUpgradeProcess,
+) {
+  let Transaction { inputs, outputs, reference_inputs, validity_range, .. } = tx
+
+  expect Nominated {
+    script_hash,
+    deadline,
+    for_count,
+    anti_script_hash,
+    against_count,
+  } = dat
+
+  let check_hash =
+    if for {
+      script_hash
+    } else {
+      anti_script_hash
+    }
+
+  let Output { address: in_address, value: in_value, .. } =
+    resolve_output_reference(inputs, own_ref)
+
+  expect ScriptCredential(own_hash) = in_address.payment_credential
+
+  expect Finite(upper_range) = validity_range.upper_bound.bound_type
+
+  let Output { address: out_address, value: out_value, datum: out_datum, .. } =
+    utils.list_at(outputs, 0)
+
+  let votes_in_tx =
+    count_votes(
+      reference_inputs,
+      own_hash,
+      check_hash,
+      Some(Inline(ScriptCredential(check_hash))),
+    )
+
+  let expected_datum =
+    InlineDatum(
+      Nominated {
+        script_hash,
+        for_count: if for {
+          votes_in_tx
+        } else {
+          for_count
+        },
+        deadline,
+        anti_script_hash,
+        against_count: if for {
+          against_count
+        } else {
+          votes_in_tx
+        },
+      },
+    )
+
+  and {
+    quantity_of(
+      in_value |> value.to_dict |> dict.to_pairs,
+      own_hash,
+      bytearray.concat(nominated_prefix, script_hash),
+    ) == 1,
+    in_address == out_address,
+    upper_range <= deadline,
+    value.without_lovelace(in_value) == value.without_lovelace(out_value),
+    votes_in_tx > for_count,
+    expected_datum == out_datum,
   }
 }
 
@@ -161,12 +256,11 @@ pub fn count_votes(
       let Output { address, value, .. } = input.output
 
       if stake_cred == address.stake_credential {
-        value.quantity_of(value, own_hash, fortuna.token_name) + count_votes(
-          rest,
+        quantity_of(
+          value |> value.to_dict |> dict.to_pairs,
           own_hash,
-          script_hash,
-          stake_cred,
-        )
+          fortuna.token_name,
+        ) + count_votes(rest, own_hash, script_hash, stake_cred)
       } else {
         when value |> value.tokens(own_hash) |> dict.to_pairs is {
           [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
@@ -189,67 +283,15 @@ pub fn count_votes(
     }
   }
 }
-// A little experiment to see how the current optimizer handles the_counter function
 
-// pub fn the_counter() {
-//   super_optimize()
-// }
-
-// pub fn super_optimize() {
-//   repeated_count_votes(10)
-// }
-
-// pub type FakeOutput {
-//   address: Address,
-//   value: Pairs<PolicyId, Pairs<AssetName, Int>>,
-//   datum: Datum,
-//   thing: Data,
-// }
-
-// pub type FakeInput {
-//   thing: OutputReference,
-//   output: FakeOutput,
-// }
-
-// pub fn repeated_count_votes(a: Int) {
-//   if a == 0 {
-//     fn(
-//       reference_inputs: List<FakeInput>,
-//       own_hash: PolicyId,
-//       script_hash: AssetName,
-//       stake_cred: Option<StakeCredential>,
-//     ) {
-//       count_votes(reference_inputs, own_hash, script_hash, stake_cred)
-//     }
-//   } else {
-//     fn(
-//       reference_inputs: List<FakeInput>,
-//       own_hash: PolicyId,
-//       script_hash: AssetName,
-//       stake_cred: Option<StakeCredential>,
-//     ) {
-//       when reference_inputs is {
-//         [] -> 0
-//         [input, ..rest] -> {
-//           let FakeOutput { address, value, .. } = input.output
-
-//           let x =
-//             if stake_cred == address.stake_credential {
-//               quantity_of(value, own_hash, script_hash)
-//             } else if quantity_of(value, own_hash, script_hash) == 1 {
-//               quantity_of(value, own_hash, script_hash)
-//             } else {
-//               0
-//             }
-
-//           x + repeated_count_votes(a - 1)(
-//             rest,
-//             own_hash,
-//             script_hash,
-//             stake_cred,
-//           )
-//         }
-//       }
-//     }
-//   }
-// }
+pub fn expect_first(self: Pairs<key, value>, key k: key) -> value {
+  when self is {
+    [] -> fail
+    [Pair(k2, v), ..rest] ->
+      if k == k2 {
+        v
+      } else {
+        expect_first(rest, k)
+      }
+  }
+}
