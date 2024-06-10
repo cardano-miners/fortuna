@@ -14,7 +14,10 @@ pub const padding = 16
 // New Params for V2
 
 pub const latest_merkle_root =
-  #"f0eb964a37dea6f59de5d19896f82233f13031a2799027b666f7f5796ee5cd09"
+  #"f818d6aba5abf8c471f40ff8d4ad4177b85dadbb453a42c430191091a7e50c7b"
+
+// pub const latest_merkle_root =
+//   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
 
 pub const voting_days = 14
 

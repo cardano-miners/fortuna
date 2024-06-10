@@ -2,6 +2,7 @@ import colors from 'colors/safe';
 import cbor from 'cbor';
 import { fromHex, type SpendingValidator, toHex, TxSigned } from 'lucid-cardano';
 import crypto from 'crypto';
+import blake from 'blakejs';
 
 import blueprint from '../plutus.json' assert { type: 'json' };
 
@@ -16,10 +17,10 @@ export async function sha256(input: Uint8Array): Promise<Uint8Array> {
 }
 
 // TODO - Implement blake256
-export async function blake256(input: Uint8Array): Promise<Uint8Array> {
-  const hash = await crypto.subtle.digest('SHA-256', input);
+export function blake256(input: Uint8Array): Uint8Array {
+  const hash = blake.blake2b(input, undefined, 32);
 
-  return new Uint8Array(hash);
+  return hash;
 }
 
 export function readValidator(): SpendingValidator {
@@ -147,6 +148,7 @@ export function incrementNonce(x: Uint8Array) {
       break;
     }
   }
+  x.set(subX, 4);
 }
 
 export function halfDifficultyNumber(a: { leadingZeros: bigint; difficulty_number: bigint }): {

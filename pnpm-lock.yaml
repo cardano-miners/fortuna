@@ -11,6 +11,9 @@ importers:
       '@aiken-lang/merkle-patricia-forestry':
         specifier: ^1.0.1
         version: 1.0.1
+      blakejs:
+        specifier: ^1.2.1
+        version: 1.2.1
       d3-array:
         specifier: ^3.2.4
         version: 3.2.4
@@ -1230,6 +1233,9 @@ packages:
 
   blake3-wasm@2.1.5:
     resolution: {integrity: sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g==}
+
+  blakejs@1.2.1:
+    resolution: {integrity: sha512-QXUSXI3QVc/gJME0dBpXrag1kbzOqCjCX8/b54ntNyW6sjtoqxqRk3LTmXzaJoh71zMsDCjM+47jS7XiwN/+fQ==}
 
   bn.js@4.12.0:
     resolution: {integrity: sha512-c98Bf3tPniI+scsdk237ku1Dc3ujXQTSgyiPUDEOe7tRkhrqridvh8klBv0HCEso1OLOYcHuCv/cS6DNxKH+ZA==}
@@ -4137,6 +4143,8 @@ snapshots:
       nanoassert: 2.0.0
 
   blake3-wasm@2.1.5: {}
+
+  blakejs@1.2.1: {}
 
   bn.js@4.12.0: {}
 

@@ -155,7 +155,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           in_token_name == expected_in_token_name,
           // minted counter check
           minted_names == expected_mint,
-        }
+        }?
       }
 
       NominateUpgrade(script_hash, output_index) -> {
@@ -673,40 +673,6 @@ validator(tunav2_minting_policy: ByteArray) {
           merkle_root: out_merkle,
         }: Statev2 = get_inline_datum(out_datum)
 
-        // Spend(9) requirement: Check output has correct difficulty number, leading zeros, and epoch time
-        expect
-          if block_number % epoch_number == 0 && block_number > 0 {
-            // use total epoch time with target epoch time to get difficulty adjustment ratio
-            // ratio maxes out at 4/1 and mins to 1/4
-            let total_epoch_time =
-              epoch_time + averaged_current_time - current_posix_time
-            let (adjustment_numerator, adjustment_denominator) =
-              fortuna.get_difficulty_adjustment(total_epoch_time)
-            // Now use ratio to find new leading zeros difficulty
-            let (new_difficulty, new_leading_zeroes) =
-              fortuna.get_new_difficulty(
-                target_number,
-                leading_zeros,
-                adjustment_numerator,
-                adjustment_denominator,
-              )
-
-            and {
-              (new_leading_zeroes == out_leading_zeros)?,
-              (new_difficulty == out_target_number)?,
-              (0 == out_epoch_time)?,
-            }
-          } else {
-            let new_epoch_time =
-              epoch_time + averaged_current_time - current_posix_time
-
-            and {
-              (leading_zeros == out_leading_zeros)?,
-              (target_number == out_target_number)?,
-              (new_epoch_time == out_epoch_time)?,
-            }
-          }
-
         and {
           // Posix time is in milliseconds
           // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
@@ -734,12 +700,12 @@ validator(tunav2_minting_policy: ByteArray) {
           // Spend(3) requirement: Found difficulty is less than or equal to the current difficulty
           // We do this by checking the leading zeros and the difficulty number
           or {
-            (found_leading_zeros > leading_zeros)?,
+            found_leading_zeros > leading_zeros,
             and {
-              (found_leading_zeros == leading_zeros)?,
-              (found_target_number < target_number)?,
+              found_leading_zeros == leading_zeros,
+              found_target_number < target_number,
             },
-          },
+          }?,
           // Spend(4) requirement: Input has master token
           (quantity_of(
             in_value |> value.to_dict |> dict.to_pairs,
@@ -748,12 +714,44 @@ validator(tunav2_minting_policy: ByteArray) {
           ) == 1)?,
           // Spend(7) requirement: Output has same tokens as input
           (value.without_lovelace(in_value) == value.without_lovelace(out_value))?,
+          // Spend(9) requirement: Check output has correct difficulty number, leading zeros, and epoch time
+          if block_number % epoch_number == 0 && block_number > 0 {
+            // use total epoch time with target epoch time to get difficulty adjustment ratio
+            // ratio maxes out at 4/1 and mins to 1/4
+            let total_epoch_time =
+              epoch_time + averaged_current_time - current_posix_time
+            let (adjustment_numerator, adjustment_denominator) =
+              fortuna.get_difficulty_adjustment(total_epoch_time)
+            // Now use ratio to find new leading zeros difficulty
+            let (new_difficulty, new_leading_zeroes) =
+              fortuna.get_new_difficulty(
+                target_number,
+                leading_zeros,
+                adjustment_numerator,
+                adjustment_denominator,
+              )
+
+            and {
+              new_leading_zeroes == out_leading_zeros,
+              new_difficulty == out_target_number,
+              0 == out_epoch_time,
+            }
+          } else {
+            let new_epoch_time =
+              epoch_time + averaged_current_time - current_posix_time
+
+            and {
+              leading_zeros == out_leading_zeros,
+              target_number == out_target_number,
+              new_epoch_time == out_epoch_time,
+            }
+          },
           // Spend(10) requirement: Output posix time is the averaged current time
-          (out_current_posix_time == averaged_current_time)?,
+          out_current_posix_time == averaged_current_time,
           // Spend(11) requirement: Output block number is the input block number + 1 
-          (block_number + 1 == out_block_number)?,
+          block_number + 1 == out_block_number,
           // Spend(12) requirement: Output current hash is the found hash
-          (out_current_hash == found_bytearray)?,
+          out_current_hash == found_bytearray,
           // Spend(13) requirement: Check output merkle is correct
           (insert(
             merkle_root |> from_root,
@@ -762,9 +760,9 @@ validator(tunav2_minting_policy: ByteArray) {
             merkle_proof_list,
           ) == from_root(out_merkle))?,
           // Spend(14) requirement: Data size doesn't exceed 1/4 tx size
-          builtin.serialise_data(miner)
+          (builtin.serialise_data(miner)
             |> builtin.length_of_bytearray()
-            |> builtin.less_than_equals_integer(4096),
+            |> builtin.less_than_equals_integer(4096))?,
         }
       }
 
