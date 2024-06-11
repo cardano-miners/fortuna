@@ -89,7 +89,7 @@ app
     const alwaysLoop = true;
 
     // Construct a new trie with on-disk storage under the file path 'db'.
-    const trie: Trie = await Trie.load(new Store(preview ? 'dbPreview' : 'db'));
+    let trie: Trie = await Trie.load(new Store(preview ? 'dbPreview' : 'db'));
 
     const {
       tunaV2MintValidator: { validatorHash: tunav2ValidatorHash },
@@ -227,14 +227,17 @@ app
 
         difficulty = getDifficulty(targetHash);
 
-        const { leadingZeros, difficultyNumber: difficultyNumber } = difficulty;
+        const { leadingZeros, difficultyNumber } = difficulty;
 
         if (
           leadingZeros > (state.fields[2] as bigint) ||
           (leadingZeros == (state.fields[2] as bigint) &&
             difficultyNumber < (state.fields[3] as bigint))
         ) {
+          console.log(toHex(targetHash));
+          console.log(toHex(targetState));
           // Found a valid nonce so break out of the loop
+          nonce = targetState.slice(4, 20);
           break;
         }
 
@@ -245,11 +248,9 @@ app
 
       const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
-      await trie.insert(Buffer.from(blake256(targetHash)), Buffer.from(targetHash));
+      trie = await trie.insert(Buffer.from(blake256(targetHash)), Buffer.from(targetHash));
 
       const newMerkleRoot = trie.hash;
-
-      console.log(`New Merkle Root: ${toHex(newMerkleRoot)}`);
 
       let epochTime =
         (state.fields[4] as bigint) + BigInt(90000 + realTimeNow) - (state.fields[5] as bigint);
@@ -279,7 +280,7 @@ app
 
       const postDatum = new Constr(0, [
         (state.fields[0] as bigint) + 1n,
-        toHex(targetHash!),
+        toHex(targetHash),
         leadingZeros,
         difficultyNumber,
         epochTime,
@@ -325,7 +326,7 @@ app
         console.log(minerRedeemer);
 
         const mintRedeemer = Data.to(
-          new Constr(2, [
+          new Constr(1, [
             new Constr(0, [new Constr(0, [minerOutput.txHash]), BigInt(minerOutput.outputIndex)]),
             state.fields[0] as bigint,
           ]),
@@ -334,7 +335,7 @@ app
         const txMine = await lucid
           .newTx()
           .collectFrom([minerOutput], minerRedeemer)
-          .payToAddressWithData(tunaV2ValidatorAddress, { inline: outDat }, masterTokens)
+          .payToContract(tunaV2ValidatorAddress, { inline: outDat }, masterTokens)
           .mintAssets(mintTokens, mintRedeemer)
           .addSigner(await lucid.wallet.address())
           .readFrom(readUtxos)
@@ -353,6 +354,7 @@ app
         await delay(5000);
       } catch (e) {
         console.log(e);
+        await trie.delete(Buffer.from(blake256(targetHash)));
       }
     }
   });
@@ -668,10 +670,6 @@ app
     const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
-    const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
-      return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
-    });
-
     // const tx_test = await lucid
     //   .newTx()
     //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
@@ -683,6 +681,10 @@ app
     // await signed_test.submit();
 
     // await lucid.awaitTx(signed_test.toHash());
+
+    const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
+      return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
+    });
 
     console.log(utxos);
 
@@ -726,7 +728,7 @@ app
         .collectFrom([utxos.at(1)!])
         .payToAddressWithData(forkValidatorAddress, { scriptRef: forkValidatorApplied }, {})
         .payToAddressWithData(forkValidatorAddress, { scriptRef: tunaV2SpendApplied }, {})
-        .complete({ coinSelection: false });
+        .complete({ coinSelection: true, change: { address: await lucid.wallet.address() } });
 
       const signed = await tx.sign().complete();
 
@@ -745,7 +747,7 @@ app
         ])
         .payToAddressWithData(forkValidatorAddress, { scriptRef: tunaV2MintApplied }, {})
         .registerStake(forkValidatorRewardAddress)
-        .complete({ coinSelection: false });
+        .complete({ coinSelection: true, change: { address: await lucid.wallet.address() } });
 
       const signed2 = await tx2.sign().complete();
 
@@ -791,7 +793,7 @@ app
     for (const header of headerHashes) {
       const hash = blake256(fromHex(header.current_hash as string));
 
-      await trie.insert(Buffer.from(hash), Buffer.from(fromHex(header.current_hash)));
+      await trie.insert(Buffer.from(hash), Buffer.from(fromHex(header.current_hash as string)));
     }
 
     const root = trie.hash.toString('hex');

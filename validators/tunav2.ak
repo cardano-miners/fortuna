@@ -122,9 +122,13 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
             fail @"Big Tuna not found in input value"
           }
 
-        let expected_in_token_name = integer_to_bytes(block_number, "")
+        let expected_in_token_name =
+          integer_to_bytes(block_number, "")
+            |> bytearray.concat(fortunav2.counter_prefix, _)
 
-        let expected_out_token_name = integer_to_bytes(block_number + 1, "")
+        let expected_out_token_name =
+          integer_to_bytes(block_number + 1, "")
+            |> bytearray.concat(fortunav2.counter_prefix, _)
 
         let halving_exponent = block_number / halving_number
 
@@ -152,10 +156,10 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         and {
           // input value check
-          in_token_name == expected_in_token_name,
+          (in_token_name == expected_in_token_name)?,
           // minted counter check
-          minted_names == expected_mint,
-        }?
+          (minted_names == expected_mint)?,
+        }
       }
 
       NominateUpgrade(script_hash, output_index) -> {
@@ -673,12 +677,29 @@ validator(tunav2_minting_policy: ByteArray) {
           merkle_root: out_merkle,
         }: Statev2 = get_inline_datum(out_datum)
 
+        let block_number_as_bytes = integer_to_bytes(out_block_number, "")
+
+        let expected_output_value =
+          value.from_asset(
+            tunav2_minting_policy,
+            bytearray.concat(fortunav2.big_tuna_prefix, own_script_hash),
+            1,
+          )
+            |> value.add(
+                tunav2_minting_policy,
+                bytearray.concat(
+                  fortunav2.counter_prefix,
+                  block_number_as_bytes,
+                ),
+                1,
+              )
+
         and {
           // Posix time is in milliseconds
           // Spend(1) requirement: Time range span is 3 minutes or less and inclusive
-          !upper_is_inclusive?,
-          lower_is_inclusive?,
-          (upper_range - lower_range <= 180000)?,
+          !upper_is_inclusive,
+          lower_is_inclusive,
+          upper_range - lower_range <= 180000,
           // In case you are wondering here is what enables pools
           // A miner can be a pkh or an nft
           // Nfts can come from any input, even validators
@@ -695,7 +716,7 @@ validator(tunav2_minting_policy: ByteArray) {
 
               quantity == 1
             }
-          }?,
+          },
           // Mining Difficulty Met
           // Spend(3) requirement: Found difficulty is less than or equal to the current difficulty
           // We do this by checking the leading zeros and the difficulty number
@@ -705,15 +726,15 @@ validator(tunav2_minting_policy: ByteArray) {
               found_leading_zeros == leading_zeros,
               found_target_number < target_number,
             },
-          }?,
+          },
           // Spend(4) requirement: Input has master token
-          (quantity_of(
+          quantity_of(
             in_value |> value.to_dict |> dict.to_pairs,
             tunav2_minting_policy,
             bytearray.concat(fortunav2.big_tuna_prefix, own_script_hash),
-          ) == 1)?,
+          ) == 1,
           // Spend(7) requirement: Output has same tokens as input
-          (value.without_lovelace(in_value) == value.without_lovelace(out_value))?,
+          expected_output_value == value.without_lovelace(out_value),
           // Spend(9) requirement: Check output has correct difficulty number, leading zeros, and epoch time
           if block_number % epoch_number == 0 && block_number > 0 {
             // use total epoch time with target epoch time to get difficulty adjustment ratio
@@ -753,16 +774,16 @@ validator(tunav2_minting_policy: ByteArray) {
           // Spend(12) requirement: Output current hash is the found hash
           out_current_hash == found_bytearray,
           // Spend(13) requirement: Check output merkle is correct
-          (insert(
+          insert(
             merkle_root |> from_root,
             found_bytearray |> blake2b_256,
             found_bytearray,
             merkle_proof_list,
-          ) == from_root(out_merkle))?,
+          ) == from_root(out_merkle),
           // Spend(14) requirement: Data size doesn't exceed 1/4 tx size
-          (builtin.serialise_data(miner)
+          builtin.serialise_data(miner)
             |> builtin.length_of_bytearray()
-            |> builtin.less_than_equals_integer(4096))?,
+            |> builtin.less_than_equals_integer(4096),
         }
       }
 
