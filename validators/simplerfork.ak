@@ -103,7 +103,10 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
 
             // Validate no tokens are minted
             expect [] =
-              mint |> value.from_minted_value |> value.tokens(own_policy) |> dict.to_pairs
+              mint
+                |> value.from_minted_value
+                |> value.tokens(own_policy)
+                |> dict.to_pairs
 
             let own_address = Address(ScriptCredential(own_policy), None)
 
