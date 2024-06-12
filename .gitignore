@@ -5,7 +5,7 @@ build/
 # Aiken's default documentation export
 docs/
 
-
+.zed/
 # Added by cargo
 
 seed.txt
@@ -54,3 +54,5 @@ package-lock.json
 # napi
 miner/sha-gpu/index.*
 target/
+db/
+dbPreview/

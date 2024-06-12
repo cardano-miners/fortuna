@@ -1,20 +1,21 @@
+import { Argument, Command, Option } from '@commander-js/extra-typings';
+import crypto from 'crypto';
 import 'dotenv/config';
-import { Command, Option } from '@commander-js/extra-typings';
+import fs from 'fs';
 import {
-  applyParamsToScript,
   Constr,
   Data,
+  Kupmios,
+  Lucid,
+  UTxO,
+  applyParamsToScript,
   fromHex,
   fromText,
   generateSeedPhrase,
-  Kupmios,
-  Lucid,
-  type Script,
   toHex,
-  UTxO,
+  type Script,
+  Blockfrost,
 } from 'lucid-cardano';
-import fs from 'fs';
-import crypto from 'crypto';
 import { WebSocket } from 'ws';
 
 import { plus100 } from './sha-gpu';
@@ -30,7 +31,7 @@ import {
   sha256,
 } from './utils';
 
-import { Proof, Store, Trie } from '@aiken-lang/merkle-patricia-forestry';
+import { Store, Trie } from '@aiken-lang/merkle-patricia-forestry';
 
 Object.assign(global, { WebSocket });
 
@@ -320,7 +321,6 @@ app
           (await trie.prove(Buffer.from(blake256(targetHash)))).toCBOR().toString('hex'),
         );
 
-        // TODO merkle proof
         const minerRedeemer = Data.to(new Constr(0, [toHex(nonce), minerCredential, merkleProof]));
 
         console.log(minerRedeemer);
@@ -543,15 +543,8 @@ app
       string | bigint | string[]
     >;
 
-    const [
-      bn,
-      current_hash,
-      leading_zeros,
-      target_number,
-      epoch_time,
-      current_posix_time,
-      ...rest
-    ] = lastestV1BlockData.fields;
+    const [bn, current_hash, leading_zeros, target_number, epoch_time, current_posix_time] =
+      lastestV1BlockData.fields;
 
     const blockNumber = bn as bigint;
 
@@ -646,6 +639,109 @@ app
         }),
         { encoding: 'utf-8' },
       );
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('redeem')
+  .description('Lock V1 Tuna and redeem V2 Tuna')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .addArgument(
+    new Argument('<amount>', 'Amount of V1 Tuna to lock').argParser((val) => BigInt(val)),
+  )
+  .action(async (amount, { preview, kupoUrl, ogmiosUrl }) => {
+    const fortunaV1: Genesis = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const {
+      tunaV2MintValidator: { validatorHash: tunav2ValidatorHash },
+      forkValidator: { validatorAddress: forkValidatorAddress, validatorHash: forkValidatorHash },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const provider = new Blockfrost(
+      'https://cardano-preview.blockfrost.io/api/v0/',
+      'previewty2mM5pfSKV4NnMQUhOZl6nzX37xP9Qb',
+    );
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const rewardAddress = lucid.utils.credentialToRewardAddress(
+      lucid.utils.scriptHashToCredential(forkValidatorHash),
+    );
+    try {
+      const forkUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+      // Does this work and actually mutate readUtxos?
+      const lockUtxo = forkUtxos.find((utxo) => {
+        return utxo.assets[forkValidatorHash + fromText('lock_state')] === 1n;
+      })!;
+
+      const readUtxos = forkUtxos.filter((utxo) => {
+        return utxo.assets[forkValidatorHash + fromText('lock_state')] !== 1n;
+      })!;
+
+      console.log('SUPER HERE');
+
+      const prevState = Data.from(lockUtxo.datum!) as Constr<bigint>;
+
+      console.log('SUPER HERE22');
+
+      const lockRedeemer = Data.to(new Constr(1, [0n, amount]));
+
+      const tunaRedeemer = Data.to(new Constr(2, []));
+
+      const newLockState = Data.to(
+        new Constr(0, [prevState.fields[0], prevState.fields[1] + amount]),
+      );
+
+      const spendRedeemer = Data.to(new Constr(1, [0n]));
+
+      const masterLockToken = { [forkValidatorHash + fromText('lock_state')]: 1n };
+
+      const mintTokens = { [tunav2ValidatorHash + fromText('TUNA')]: amount };
+
+      const tx = await lucid
+        .newTx()
+        .readFrom(readUtxos)
+        .collectFrom([lockUtxo], spendRedeemer)
+        .payToContract(forkValidatorAddress, { inline: newLockState }, masterLockToken)
+        .mintAssets(mintTokens, tunaRedeemer)
+        .withdraw(rewardAddress, 0n, lockRedeemer)
+        .addSigner(await lucid.wallet.address())
+        .payToContract(
+          forkValidatorAddress,
+          { inline: Data.to(0n) },
+          {
+            [fortunaV1.validatorHash + fromText('TUNA')]: amount,
+          },
+        )
+        .complete({ nativeUplc: false });
+
+      console.log('SUPER HERE33');
+
+      const signed = await tx.sign().complete();
+
+      console.log(signed.toString());
+
+      await signed.submit();
+
+      console.log(`TX HASH: ${signed.toHash()}`);
+      console.log('Waiting for confirmation...');
+
+      // // await lucid.awaitTx(signed.toHash());
+      await delay(5000);
     } catch (e) {
       console.log(e);
     }
