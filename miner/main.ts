@@ -1,4 +1,6 @@
 import { Argument, Command, Option } from '@commander-js/extra-typings';
+import { CardanoSyncClient } from '@utxorpc/sdk';
+import * as Cardano from '@utxorpc/spec/lib/utxorpc/v1alpha/cardano/cardano_pb.js';
 import crypto from 'crypto';
 import 'dotenv/config';
 import fs from 'fs';
@@ -68,7 +70,7 @@ const delay = (ms: number | undefined) => new Promise((res) => setTimeout(res, m
 
 const app = new Command();
 
-app.name('fortuna').description('Fortuna miner').version('0.0.1');
+app.name('fortuna').description('Fortuna miner').version('0.0.2');
 
 const kupoUrlOption = new Option('-k, --kupo-url <string>', 'Kupo URL')
   .env('KUPO_URL')
@@ -76,6 +78,14 @@ const kupoUrlOption = new Option('-k, --kupo-url <string>', 'Kupo URL')
 
 const ogmiosUrlOption = new Option('-o, --ogmios-url <string>', 'Ogmios URL')
   .env('OGMIOS_URL')
+  .makeOptionMandatory(true);
+
+const utxoRpcUriOption = new Option('-u, --utxo-rpc-uri <string>', 'Utxo RPC URI')
+  .env('UTXO_RPC_URI')
+  .makeOptionMandatory(true);
+
+const utxoRpcApiKeyOption = new Option('-y, --utxo-rpc-api-key <string>', 'Utxo RPC API Key')
+  .env('UTXO_RPC_API_KEY')
   .makeOptionMandatory(true);
 
 const previewOption = new Option('-p, --preview', 'Use testnet').default(false);
@@ -86,6 +96,8 @@ app
   .addOption(kupoUrlOption)
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
+  .addOption(utxoRpcUriOption)
+  .addOption(utxoRpcApiKeyOption)
   .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
     const alwaysLoop = true;
 
@@ -104,6 +116,17 @@ app
         encoding: 'utf8',
       }),
     );
+
+    // const client = new CardanoSyncClient({
+    //   uri: utxoRpcUri,
+    //   headers: {
+    //     'dmtr-api-key': utxoRpcApiKey,
+    //   },
+    // });
+
+    // const tip = client.followTip([
+    //   { slot: 51578057, hash: '5d30054748275b8e90da46eb730d6d4d05ce8edcc54c44c991e218eab0e219d6' },
+    // ]);
 
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
@@ -878,9 +901,39 @@ app
   .addOption(kupoUrlOption)
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+  .addOption(utxoRpcUriOption)
+  .addOption(utxoRpcApiKeyOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl, utxoRpcUri, utxoRpcApiKey }) => {
     // Construct a new trie with on-disk storage under the file path 'db'.
-    const trie = new Trie(new Store(preview ? 'dbPreview' : 'db'));
+    let trie = new Trie(new Store(preview ? 'dbPreview' : 'db'));
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    const {
+      tunaV2MintValidator: { validatorHash: tunav2ValidatorHash },
+      tunaV2SpendValidator: { validatorHash: tunav2SpendValidatorHash },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const client = new CardanoSyncClient({
+      uri: utxoRpcUri,
+      headers: {
+        'dmtr-api-key': utxoRpcApiKey,
+      },
+    });
+
+    let resp = await client.inner.dumpHistory({
+      startToken: {
+        index: 51578057n,
+        hash: fromHex('5d30054748275b8e90da46eb730d6d4d05ce8edcc54c44c991e218eab0e219d6'),
+      },
+      maxItems: 400,
+    });
+
+    let nextToken = resp.nextToken;
 
     const headerHashes = JSON.parse(
       fs.readFileSync(preview ? 'V1PreviewHistory.json' : 'V1History.json', 'utf8'),
@@ -889,10 +942,67 @@ app
     for (const header of headerHashes) {
       const hash = blake256(fromHex(header.current_hash as string));
 
-      await trie.insert(Buffer.from(hash), Buffer.from(fromHex(header.current_hash as string)));
+      trie = await trie.insert(
+        Buffer.from(hash),
+        Buffer.from(fromHex(header.current_hash as string)),
+      );
     }
 
+    const rootPreFork = trie.hash.toString('hex');
+
+    console.log(rootPreFork);
+
+    do {
+      for (const block of resp.block) {
+        if (block.chain.case !== 'cardano') {
+          return;
+        }
+        console.log('SLOT', block.chain.value.header!.slot);
+
+        for (const tx of block.chain.value.body!.tx) {
+          for (const output of tx.outputs) {
+            if (
+              output.assets.some((asset) => {
+                return (
+                  toHex(asset.policyId) === tunav2ValidatorHash &&
+                  asset.assets.some(
+                    (asset) => toHex(asset.name) === fromText('TUNA') + tunav2SpendValidatorHash,
+                  )
+                );
+              })
+            ) {
+              console.log('AFTER FILTER', output);
+
+              const datum = output.datum!.plutusData.value! as Cardano.Constr;
+
+              const currentHash = toHex(datum.fields[1].plutusData.value! as Uint8Array);
+
+              console.log('CURRENT HASH', currentHash);
+
+              trie = await trie.insert(
+                Buffer.from(blake256(fromHex(currentHash))),
+                Buffer.from(fromHex(currentHash)),
+              );
+
+              const root = trie.hash.toString('hex');
+
+              console.log(root);
+            }
+          }
+        }
+      }
+
+      resp = await client.inner.dumpHistory({
+        startToken: nextToken,
+        maxItems: 50,
+      });
+
+      nextToken = resp.nextToken;
+    } while (nextToken !== undefined);
+
     const root = trie.hash.toString('hex');
+
+    console.log(trie.hash.toString('hex'));
 
     fs.writeFileSync(preview ? 'currentPreviewRoot.txt' : 'currentRoot.txt', root, {
       encoding: 'utf-8',

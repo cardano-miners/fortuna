@@ -11,6 +11,12 @@ importers:
       '@aiken-lang/merkle-patricia-forestry':
         specifier: ^1.0.1
         version: 1.0.1
+      '@utxorpc/sdk':
+        specifier: ^0.1.0
+        version: 0.1.0(@bufbuild/protobuf@1.10.0)
+      '@utxorpc/spec':
+        specifier: ^0.5.1
+        version: 0.5.1
       blakejs:
         specifier: ^1.2.1
         version: 1.2.1
@@ -187,6 +193,9 @@ packages:
     resolution: {integrity: sha512-dkxf7+hn8mFBwKjs9bvBlArzLVxVbS8usaPUDd5p2a9JCL9tB8OaOVN1isD4+Xyk4ns89/xeOmbQvgdK7IIVdA==}
     engines: {node: '>=6.9.0'}
 
+  '@bufbuild/protobuf@1.10.0':
+    resolution: {integrity: sha512-QDdVFLoN93Zjg36NoQPZfsVH9tZew7wKDKyV5qRdj8ntT4wQCOradQjRaTdwMhWUYsgKsvCINKKm87FdEk96Ag==}
+
   '@cloudflare/kv-asset-handler@0.3.1':
     resolution: {integrity: sha512-lKN2XCfKCmpKb86a1tl4GIwsJYDy9TGuwjhDELLmpKygQhw8X2xR4dusgpC5Tg7q1pB96Eb0rBo81kxSILQMwA==}
 
@@ -227,6 +236,18 @@ packages:
     resolution: {integrity: sha512-OvkMobb1eMqOCuJdbuSin/KJkkZr7n24/UNV+Lcz/0Dhepf3r2p9PaGwpRpAWej7A+gQnny4h8mGhpFl4giKkg==}
     peerDependencies:
       commander: ~12.0.0
+
+  '@connectrpc/connect-node@1.4.0':
+    resolution: {integrity: sha512-0ANnrr6SvsjevsWEgdzHy7BaHkluZyS6s4xNoVt7RBHFR5V/kT9lPokoIbYUOU9JHzdRgTaS3x5595mwUsu15g==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      '@bufbuild/protobuf': ^1.4.2
+      '@connectrpc/connect': 1.4.0
+
+  '@connectrpc/connect@1.4.0':
+    resolution: {integrity: sha512-vZeOkKaAjyV4+RH3+rJZIfDFJAfr+7fyYr6sLDKbYX3uuTVszhFe9/YKf5DNqrDb5cKdKVlYkGn6DTDqMitAnA==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^1.4.2
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -1105,6 +1126,17 @@ packages:
 
   '@ungap/structured-clone@1.2.0':
     resolution: {integrity: sha512-zuVdFrMJiuCDQUMCzQaD6KL28MjnqqN8XnAqiEq9PNm/hCPTSGfrXCOfwj1ow4LFb/tNymJPwsNbVePc1xFqrQ==}
+
+  '@utxorpc/sdk@0.1.0':
+    resolution: {integrity: sha512-CksicbgN1oGJ3D1pqW4x3UL58eohtyn9VnoMwFfegBCUm8wK712cKEEfdN6ksVg47jxWokyx/Q9kJ0YwMKXE/g==}
+
+  '@utxorpc/spec@0.3.0':
+    resolution: {integrity: sha512-Lw6hV9W5mTLRdlnu+n4V1TOATI1WTcujnZ4a6JX4Su81BWHqgx6qgFXnup88u1Oawa0blAr3+fTSGjHZXuv8KA==}
+    engines: {node: '>=16.0.0'}
+
+  '@utxorpc/spec@0.5.1':
+    resolution: {integrity: sha512-wrL5w1cdjE2SeQ33aqIPs33a6PahNh7q70gnETau6xZJTCjeNAgJks/6vstBezaxJv/oVFCmqI3pCvMJayPBUQ==}
+    engines: {node: '>=16.0.0'}
 
   '@vitest/expect@1.4.0':
     resolution: {integrity: sha512-Jths0sWCJZ8BxjKe+p+eKsoqev1/T8lYcrjavEaz8auEJ4jAVY0GwW3JKmdVU4mmNPLPHixh4GNXP7GFtAiDHA==}
@@ -3287,6 +3319,8 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
+  '@bufbuild/protobuf@1.10.0': {}
+
   '@cloudflare/kv-asset-handler@0.3.1':
     dependencies:
       mime: 3.0.0
@@ -3311,6 +3345,16 @@ snapshots:
   '@commander-js/extra-typings@12.0.1(commander@12.0.0)':
     dependencies:
       commander: 12.0.0
+
+  '@connectrpc/connect-node@1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.0
+      '@connectrpc/connect': 1.4.0(@bufbuild/protobuf@1.10.0)
+      undici: 5.28.3
+
+  '@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0)':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.0
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -3996,6 +4040,23 @@ snapshots:
       eslint-visitor-keys: 3.4.3
 
   '@ungap/structured-clone@1.2.0': {}
+
+  '@utxorpc/sdk@0.1.0(@bufbuild/protobuf@1.10.0)':
+    dependencies:
+      '@connectrpc/connect': 1.4.0(@bufbuild/protobuf@1.10.0)
+      '@connectrpc/connect-node': 1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))
+      '@types/node': 20.11.24
+      '@utxorpc/spec': 0.3.0
+    transitivePeerDependencies:
+      - '@bufbuild/protobuf'
+
+  '@utxorpc/spec@0.3.0':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.0
+
+  '@utxorpc/spec@0.5.1':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.0
 
   '@vitest/expect@1.4.0':
     dependencies:
