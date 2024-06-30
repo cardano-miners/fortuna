@@ -7,7 +7,7 @@ use aiken/list
 use aiken/math.{pow2}
 use aiken/merkle_patricia_forestry.{Proof, from_root, insert}
 use aiken/transaction.{
-  InlineDatum, Mint, Output, OutputReference, ScriptContext, Spend, Transaction,
+  InlineDatum, Mint, Output, ScriptContext, Spend, Transaction,
 } as tx
 use aiken/transaction/credential.{Inline, ScriptCredential}
 use aiken/transaction/value.{from_minted_value}
@@ -16,7 +16,10 @@ use fortuna/parameters.{
   epoch_number, halving_number, initial_payout, miner_threshold,
   supply_threshold, vote_threshold,
 }
-use fortuna/types.{Statev2}
+use fortuna/types.{
+  BurnToken, FinalizeNomination, Genesis, MineTuna, NominateUpgrade, Redeem,
+  Statev2, TunaAction, VotingToken,
+}
 use fortuna/utils.{get_inline_datum, integer_to_bytes, resolve_output_reference}
 use fortunav2.{
   Mining, Nominated, TunaUpgradeProcess, expect_first, flip_hash, genesis_v2,
@@ -24,16 +27,6 @@ use fortunav2.{
 }
 use hardfork.{calculate_emission}
 use hardfork/hftypes.{Lock, NftForkAction}
-
-type TunaAction {
-  Genesis
-  MineTuna(OutputReference, Int)
-  Redeem
-  NominateUpgrade(ByteArray, Int)
-  VotingToken(OutputReference)
-  BurnToken
-  FinalizeNomination(OutputReference, OutputReference, Int, Int)
-}
 
 type TunaSpendAction {
   TokenVoteFor

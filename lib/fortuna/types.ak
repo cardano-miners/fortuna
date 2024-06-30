@@ -1,3 +1,5 @@
+use aiken/transaction.{OutputReference}
+
 /// State Data stored on chain.
 /// Used by the validator to check the next state.
 pub type State {
@@ -21,4 +23,14 @@ pub type Statev2 {
   epoch_time: Int,
   current_posix_time: Int,
   merkle_root: ByteArray,
+}
+
+pub type TunaAction {
+  Genesis
+  MineTuna(OutputReference, Int)
+  Redeem
+  NominateUpgrade(ByteArray, Int)
+  VotingToken(OutputReference)
+  BurnToken
+  FinalizeNomination(OutputReference, OutputReference, Int, Int)
 }
