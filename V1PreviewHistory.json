@@ -1,28 +1,17 @@
 [
   {
-    "block_number": 0,
-    "current_hash": "2aa538d5e7849d0e102f86a0ce4498c51c099ef06a61cd59d881d9e44a6c8ef1",
-    "leading_zeros": 5,
-    "target_number": 65535,
-    "epoch_time": 0,
-    "current_posix_time": 1693072307000
+    "current_hash": "357dc4014a70c866c01c5c0966b6c0ecebf826c0475877a92491d708d8a2a683"
   },
   {
-    "block_number": 1,
-    "current_hash": "000001df8cb64a5c273ff290b9c836c0d075433e12bd1d58b884c8637ee8f758",
-    "leading_zeros": 5,
-    "target_number": 65535,
-    "epoch_time": 556000,
-    "current_posix_time": 1693072863000,
-    "nonce": "D9A5487BBFCEAAF6AF04E7168FF64A8F"
+    "current_hash": "0000077d6412d9d9006bd5abd01191087e7a0b41aa7e4f9b69924eda9b8d564a"
   },
   {
-    "block_number": 2,
-    "current_hash": "000000a3d6f6bf984086c05f12f22f9973f258946684242d7f3c62d6360867b7",
-    "leading_zeros": 5,
-    "target_number": 65535,
-    "epoch_time": 1258310000,
-    "current_posix_time": 1694330617000,
-    "nonce": "959DE71E873E13D75ABDB2F21E4CCACC"
+    "current_hash": "00000fcdcb33f425a1fae31d92a847bdc60d75cf90a132608bf9074e9675d23e"
+  },
+  {
+    "current_hash": "000002057bf654592884cdd370317eeec835545c5b4909f15fae751b24b014db"
+  },
+  {
+    "current_hash": "00000d1c0cc8af18e5e69d1f43196f528af8b2b08d52467376b657b7232172a3"
   }
 ]

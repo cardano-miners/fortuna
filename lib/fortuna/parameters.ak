@@ -14,12 +14,12 @@ pub const padding = 16
 // New Params for V2
 
 pub const latest_merkle_root =
-  #"4fdcf1ae84ccbe49b7b2b9cc8e2ef1ef0ac7b380b8c3a3abe06abb8a30878d32"
+  #"e93fd5647f4c458e3a339c9700e1f86c66b55e133a768c32612c9f50ccdbf3f5"
 
 // pub const latest_merkle_root =
 //   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
 
-pub const voting_days = 14
+pub const voting_days = 1
 
 /// Minimum supply threshold for the upgrade contract vote to be successful
 /// In thousandth percentage i.e. 250 = 25%

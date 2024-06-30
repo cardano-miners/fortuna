@@ -1,6 +1,7 @@
 import { Argument, Command, Option } from '@commander-js/extra-typings';
 import { CardanoSyncClient } from '@utxorpc/sdk';
 import * as Cardano from '@utxorpc/spec/lib/utxorpc/v1alpha/cardano/cardano_pb.js';
+import { BlockRef } from '@utxorpc/spec/lib/utxorpc/v1alpha/sync/sync_pb.js';
 import crypto from 'crypto';
 import 'dotenv/config';
 import fs from 'fs';
@@ -20,17 +21,17 @@ import {
 } from 'lucid-cardano';
 import { WebSocket } from 'ws';
 
-import { plus100 } from './sha-gpu';
-
 import {
   blake256,
   calculateDifficultyNumber,
   getDifficulty,
   getDifficultyAdjustement,
   incrementNonce,
+  incrementNonceV2,
   readValidator,
   readValidators,
   sha256,
+  calculateInterlink,
 } from './utils';
 
 import { Store, Trie } from '@aiken-lang/merkle-patricia-forestry';
@@ -91,13 +92,213 @@ const utxoRpcApiKeyOption = new Option('-y, --utxo-rpc-api-key <string>', 'Utxo 
 const previewOption = new Option('-p, --preview', 'Use testnet').default(false);
 
 app
+  .command('mineV1')
+  .description('Start the miner')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const trueValue = true;
+    while (trueValue) {
+      const { validatorAddress, validator, validatorHash }: Genesis = JSON.parse(
+        fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
+          encoding: 'utf8',
+        }),
+      );
+
+      const provider = new Kupmios(kupoUrl, ogmiosUrl);
+      const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+      lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
+
+      let validatorUTXOs = await lucid.utxosAt(validatorAddress);
+
+      let validatorOutRef = validatorUTXOs.find(
+        (u) => u.assets[validatorHash + fromText('lord tuna')],
+      )!;
+
+      let validatorState = validatorOutRef.datum!;
+
+      let state = Data.from(validatorState) as Constr<string | bigint | string[]>;
+
+      let nonce = new Uint8Array(16);
+
+      crypto.getRandomValues(nonce);
+
+      let targetState = new Constr(0, [
+        // nonce: ByteArray
+        toHex(nonce),
+        // block_number: Int
+        state.fields[0] as bigint,
+        // current_hash: ByteArray
+        state.fields[1] as bigint,
+        // leading_zeros: Int
+        state.fields[2] as bigint,
+        // difficulty_number: Int
+        state.fields[3] as bigint,
+        //epoch_time: Int
+        state.fields[4] as bigint,
+      ]);
+
+      let targetHash: Uint8Array;
+
+      let difficulty: {
+        leadingZeros: bigint;
+        difficultyNumber: bigint;
+      };
+
+      console.log('Mining...');
+      let timer = new Date().valueOf();
+
+      while (trueValue) {
+        if (new Date().valueOf() - timer > 5000) {
+          console.log('New block not found in 5 seconds, updating state');
+          timer = new Date().valueOf();
+          validatorUTXOs = await lucid.utxosAt(validatorAddress);
+
+          validatorOutRef = validatorUTXOs.find(
+            (u) => u.assets[validatorHash + fromText('lord tuna')],
+          )!;
+
+          if (validatorState !== validatorOutRef.datum!) {
+            validatorState = validatorOutRef.datum!;
+
+            state = Data.from(validatorState) as Constr<string | bigint | string[]>;
+
+            nonce = new Uint8Array(16);
+
+            crypto.getRandomValues(nonce);
+
+            targetState = new Constr(0, [
+              // nonce: ByteArray
+              toHex(nonce),
+              // block_number: Int
+              state.fields[0] as bigint,
+              // current_hash: ByteArray
+              state.fields[1] as bigint,
+              // leading_zeros: Int
+              state.fields[2] as bigint,
+              // difficulty_number: Int
+              state.fields[3] as bigint,
+              //epoch_time: Int
+              state.fields[4] as bigint,
+            ]);
+          }
+        }
+
+        targetHash = await sha256(await sha256(fromHex(Data.to(targetState))));
+
+        difficulty = getDifficulty(targetHash);
+
+        const { leadingZeros, difficultyNumber } = difficulty;
+
+        if (
+          leadingZeros > (state.fields[2] as bigint) ||
+          (leadingZeros == (state.fields[2] as bigint) &&
+            difficultyNumber < (state.fields[3] as bigint))
+        ) {
+          break;
+        }
+
+        incrementNonce(nonce);
+
+        targetState.fields[0] = toHex(nonce);
+      }
+
+      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+
+      const interlink = calculateInterlink(
+        toHex(targetHash),
+        difficulty,
+        {
+          leadingZeros: state.fields[2] as bigint,
+          difficultyNumber: state.fields[3] as bigint,
+        },
+        state.fields[7] as string[],
+      );
+
+      let epoch_time =
+        (state.fields[4] as bigint) + BigInt(90000 + realTimeNow) - (state.fields[5] as bigint);
+
+      let difficulty_number = state.fields[3] as bigint;
+      let leading_zeros = state.fields[2] as bigint;
+
+      if ((state.fields[0] as bigint) % 2016n === 0n && (state.fields[0] as bigint) > 0) {
+        const adjustment = getDifficultyAdjustement(epoch_time, 1_209_600_000n);
+
+        epoch_time = 0n;
+
+        const new_difficulty = calculateDifficultyNumber(
+          {
+            leadingZeros: state.fields[2] as bigint,
+            difficultyNumber: state.fields[3] as bigint,
+          },
+          adjustment.numerator,
+          adjustment.denominator,
+        );
+
+        difficulty_number = new_difficulty.difficultyNumber;
+        leading_zeros = new_difficulty.leadingZeros;
+      }
+
+      // calculateDifficultyNumber();
+
+      const postDatum = new Constr(0, [
+        (state.fields[0] as bigint) + 1n,
+        toHex(targetHash),
+        leading_zeros,
+        difficulty_number,
+        epoch_time,
+        BigInt(90000 + realTimeNow),
+        fromText('AlL HaIl tUnA'),
+        interlink,
+      ]);
+
+      const outDat = Data.to(postDatum);
+
+      console.log(`Found next datum: ${outDat}`);
+
+      const mintTokens = { [validatorHash + fromText('TUNA')]: 5000000000n };
+      const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
+      try {
+        const readUtxo = await lucid.utxosByOutRef([
+          {
+            txHash: '01751095ea408a3ebe6083b4de4de8a24b635085183ab8a2ac76273ef8fff5dd',
+            outputIndex: 0,
+          },
+        ]);
+        const txMine = await lucid
+          .newTx()
+          .collectFrom([validatorOutRef], Data.to(new Constr(1, [toHex(nonce)])))
+          .payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
+          .mintAssets(mintTokens, Data.to(new Constr(0, [])))
+          .readFrom(readUtxo)
+          .validTo(realTimeNow + 180000)
+          .validFrom(realTimeNow)
+          .attachSpendingValidator({ script: validator, type: 'PlutusV2' })
+          .complete();
+
+        const signed = await txMine.sign().complete();
+
+        await signed.submit();
+
+        console.log(`TX HASH: ${signed.toHash()}`);
+        console.log('Waiting for confirmation...');
+
+        // // await lucid.awaitTx(signed.toHash());
+        await delay(5000);
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  });
+
+app
   .command('mine')
   .description('Start the miner')
   .addOption(kupoUrlOption)
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
-  .addOption(utxoRpcUriOption)
-  .addOption(utxoRpcApiKeyOption)
   .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
     const alwaysLoop = true;
 
@@ -153,8 +354,6 @@ app
       let state = Data.from(minerOutput.datum!) as Constr<string | bigint>;
 
       let nonce = new Uint8Array(16);
-
-      console.log('here2');
 
       crypto.getRandomValues(nonce);
 
@@ -265,7 +464,7 @@ app
           break;
         }
 
-        incrementNonce(targetState);
+        incrementNonceV2(targetState);
 
         targetHash = await sha256(await sha256(targetState));
       }
@@ -296,11 +495,9 @@ app
           adjustment.denominator,
         );
 
-        difficultyNumber = newDifficulty.difficulty_number;
+        difficultyNumber = newDifficulty.difficultyNumber;
         leadingZeros = newDifficulty.leadingZeros;
       }
-
-      // calculateDifficultyNumber();
 
       const postDatum = new Constr(0, [
         (state.fields[0] as bigint) + 1n,
@@ -373,8 +570,8 @@ app
         console.log(`TX HASH: ${signed.toHash()}`);
         console.log('Waiting for confirmation...');
 
-        // // await lucid.awaitTx(signed.toHash());
-        await delay(5000);
+        await lucid.awaitTx(signed.toHash());
+        await delay(3000);
       } catch (e) {
         console.log(e);
         await trie.delete(Buffer.from(blake256(targetHash)));
@@ -566,10 +763,14 @@ app
       string | bigint | string[]
     >;
 
+    console.log(lastestV1BlockData);
+
     const [bn, current_hash, leading_zeros, target_number, epoch_time, current_posix_time] =
       lastestV1BlockData.fields;
 
     const blockNumber = bn as bigint;
+
+    console.log(blockNumber);
 
     const blockNumberHex =
       blockNumber.toString(16).length % 2 === 0
@@ -614,9 +815,34 @@ app
       ]),
     );
 
+    console.log(
+      'State',
+      blockNumber,
+      current_hash,
+      (leading_zeros as bigint) - 2n,
+      target_number,
+      epoch_time,
+      current_posix_time,
+      forkMerkleRoot,
+    );
+
     const fortunaRedeemer = Data.to(new Constr(0, []));
 
     try {
+      // const txRegister = await lucid
+      //   .newTx()
+      //   .collectFrom([utxos.at(5)!])
+      //   .registerStake(forkValidatorRewardAddress)
+      //   .complete({ coinSelection: false });
+
+      // const signedRegister = await txRegister.sign().complete();
+
+      // await signedRegister.submit();
+
+      // console.log(`TX Hash: ${signedRegister.toHash()}`);
+
+      // await lucid.awaitTx(signedRegister.toHash());
+
       const tx = await lucid
         .newTx()
         .collectFrom([utxos.at(0)!])
@@ -670,13 +896,11 @@ app
 app
   .command('redeem')
   .description('Lock V1 Tuna and redeem V2 Tuna')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .addArgument(
     new Argument('<amount>', 'Amount of V1 Tuna to lock').argParser((val) => BigInt(val)),
   )
-  .action(async (amount, { preview, kupoUrl, ogmiosUrl }) => {
+  .action(async (amount, { preview }) => {
     const fortunaV1: Genesis = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
         encoding: 'utf8',
@@ -715,11 +939,7 @@ app
         return utxo.assets[forkValidatorHash + fromText('lock_state')] !== 1n;
       })!;
 
-      console.log('SUPER HERE');
-
       const prevState = Data.from(lockUtxo.datum!) as Constr<bigint>;
-
-      console.log('SUPER HERE22');
 
       const lockRedeemer = Data.to(new Constr(1, [0n, amount]));
 
@@ -752,11 +972,7 @@ app
         )
         .complete({ nativeUplc: false });
 
-      console.log('SUPER HERE33');
-
       const signed = await tx.sign().complete();
-
-      console.log(signed.toString());
 
       await signed.submit();
 
@@ -898,16 +1114,12 @@ app
 app
   .command('createMerkleRoot')
   .description('Create and output the merkle root of the fortuna blockchain')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .addOption(utxoRpcUriOption)
   .addOption(utxoRpcApiKeyOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl, utxoRpcUri, utxoRpcApiKey }) => {
+  .action(async ({ preview, utxoRpcUri, utxoRpcApiKey }) => {
     // Construct a new trie with on-disk storage under the file path 'db'.
     let trie = new Trie(new Store(preview ? 'dbPreview' : 'db'));
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
 
     const {
       tunaV2MintValidator: { validatorHash: tunav2ValidatorHash },
@@ -925,15 +1137,10 @@ app
       },
     });
 
-    let resp = await client.inner.dumpHistory({
-      startToken: {
-        index: 51578057n,
-        hash: fromHex('5d30054748275b8e90da46eb730d6d4d05ce8edcc54c44c991e218eab0e219d6'),
-      },
-      maxItems: 400,
+    let nextToken: BlockRef | undefined = new BlockRef({
+      index: 53122156n,
+      hash: fromHex('c65cfb3a1ec7d0ccc2a6841b5546183fa3842de0166113af088b3638d2520923'),
     });
-
-    let nextToken = resp.nextToken;
 
     const headerHashes = JSON.parse(
       fs.readFileSync(preview ? 'V1PreviewHistory.json' : 'V1History.json', 'utf8'),
@@ -953,6 +1160,13 @@ app
     console.log(rootPreFork);
 
     do {
+      const resp = await client.inner.dumpHistory({
+        startToken: nextToken,
+        maxItems: 25,
+      });
+
+      nextToken = resp.nextToken;
+
       for (const block of resp.block) {
         if (block.chain.case !== 'cardano') {
           return;
@@ -979,10 +1193,14 @@ app
 
               console.log('CURRENT HASH', currentHash);
 
-              trie = await trie.insert(
-                Buffer.from(blake256(fromHex(currentHash))),
-                Buffer.from(fromHex(currentHash)),
-              );
+              try {
+                trie = await trie.insert(
+                  Buffer.from(blake256(fromHex(currentHash))),
+                  Buffer.from(fromHex(currentHash)),
+                );
+              } catch (e) {
+                console.log(e);
+              }
 
               const root = trie.hash.toString('hex');
 
@@ -991,14 +1209,7 @@ app
           }
         }
       }
-
-      resp = await client.inner.dumpHistory({
-        startToken: nextToken,
-        maxItems: 50,
-      });
-
-      nextToken = resp.nextToken;
-    } while (nextToken !== undefined);
+    } while (!!nextToken);
 
     const root = trie.hash.toString('hex');
 
@@ -1066,10 +1277,25 @@ app
   });
 
 app
-  .command('test')
-  .description('does nothing')
-  .action(async () => {
-    console.log(plus100(3));
+  .command('nominate')
+  .description('Nominate a new Fortuna Spending Contract')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    const {
+      tunaV2MintValidator: {
+        validatorHash: tunav2ValidatorHash,
+        validatorAddress: tunav2ValidatorAddress,
+      },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
   });
 
 app.parse();

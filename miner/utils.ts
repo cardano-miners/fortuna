@@ -1,6 +1,5 @@
 import colors from 'colors/safe';
-import cbor from 'cbor';
-import { fromHex, type SpendingValidator, toHex, TxSigned } from 'lucid-cardano';
+import { type SpendingValidator, toHex, TxSigned } from 'lucid-cardano';
 import crypto from 'crypto';
 import blake from 'blakejs';
 
@@ -24,11 +23,11 @@ export function blake256(input: Uint8Array): Uint8Array {
 }
 
 export function readValidator(): SpendingValidator {
-  const validator = blueprint.validators[0];
+  const validator = blueprint.validators.filter((v) => v.title === 'tunav1.mint')[0];
 
   return {
     type: 'PlutusV2',
-    script: toHex(cbor.encode(fromHex(validator.compiledCode))),
+    script: validator.compiledCode,
   };
 }
 
@@ -138,7 +137,18 @@ export function getDifficulty(hash: Uint8Array): {
 }
 
 export function incrementNonce(x: Uint8Array) {
-  let subX = x.slice(4, 20);
+  for (let i = 0; i < x.length; i++) {
+    if (x[i] === 255) {
+      x[i] = 0;
+    } else {
+      x[i] += 1;
+      break;
+    }
+  }
+}
+
+export function incrementNonceV2(x: Uint8Array) {
+  const subX = x.slice(4, 20);
 
   for (let i = 0; i < subX.length; i++) {
     if (subX[i] === 255) {
@@ -151,20 +161,20 @@ export function incrementNonce(x: Uint8Array) {
   x.set(subX, 4);
 }
 
-export function halfDifficultyNumber(a: { leadingZeros: bigint; difficulty_number: bigint }): {
+export function halfDifficultyNumber(a: { leadingZeros: bigint; difficultyNumber: bigint }): {
   leadingZeros: bigint;
-  difficulty_number: bigint;
+  difficultyNumber: bigint;
 } {
-  const new_a = a.difficulty_number / 2n;
+  const new_a = a.difficultyNumber / 2n;
   if (new_a < 4096n) {
     return {
       leadingZeros: a.leadingZeros + 1n,
-      difficulty_number: new_a * 16n,
+      difficultyNumber: new_a * 16n,
     };
   } else {
     return {
       leadingZeros: a.leadingZeros,
-      difficulty_number: new_a,
+      difficultyNumber: new_a,
     };
   }
 }
@@ -186,32 +196,32 @@ export function calculateDifficultyNumber(
   a: { leadingZeros: bigint; difficultyNumber: bigint },
   numerator: bigint,
   denominator: bigint,
-): { leadingZeros: bigint; difficulty_number: bigint } {
+): { leadingZeros: bigint; difficultyNumber: bigint } {
   const new_padded_difficulty = (a.difficultyNumber * 16n * numerator) / denominator;
 
   const new_difficulty = new_padded_difficulty / 16n;
 
   if (new_padded_difficulty / 65536n == 0n) {
     if (a.leadingZeros >= 62n) {
-      return { difficulty_number: 4096n, leadingZeros: 62n };
+      return { difficultyNumber: 4096n, leadingZeros: 62n };
     } else {
       return {
-        difficulty_number: new_padded_difficulty,
+        difficultyNumber: new_padded_difficulty,
         leadingZeros: a.leadingZeros + 1n,
       };
     }
   } else if (new_difficulty / 65536n > 0n) {
     if (a.leadingZeros <= 2) {
-      return { difficulty_number: 65535n, leadingZeros: 2n };
+      return { difficultyNumber: 65535n, leadingZeros: 2n };
     } else {
       return {
-        difficulty_number: new_difficulty / 16n,
+        difficultyNumber: new_difficulty / 16n,
         leadingZeros: a.leadingZeros - 1n,
       };
     }
   } else {
     return {
-      difficulty_number: new_difficulty,
+      difficultyNumber: new_difficulty,
       leadingZeros: a.leadingZeros,
     };
   }
@@ -219,8 +229,8 @@ export function calculateDifficultyNumber(
 
 export function calculateInterlink(
   currentHash: string,
-  a: { leadingZeros: bigint; difficulty_number: bigint },
-  b: { leadingZeros: bigint; difficulty_number: bigint },
+  a: { leadingZeros: bigint; difficultyNumber: bigint },
+  b: { leadingZeros: bigint; difficultyNumber: bigint },
   currentInterlink: string[],
 ): string[] {
   let b_half = halfDifficultyNumber(b);
@@ -231,7 +241,7 @@ export function calculateInterlink(
 
   while (
     b_half.leadingZeros < a.leadingZeros ||
-    (b_half.leadingZeros == a.leadingZeros && b_half.difficulty_number > a.difficulty_number)
+    (b_half.leadingZeros == a.leadingZeros && b_half.difficultyNumber > a.difficultyNumber)
   ) {
     if (currentIndex < interlink.length) {
       interlink[currentIndex] = currentHash;
