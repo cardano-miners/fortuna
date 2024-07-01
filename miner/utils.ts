@@ -52,6 +52,15 @@ export function readValidators(): SpendingValidator[] {
   ];
 }
 
+export function readNewSpendValidator(): SpendingValidator {
+  const spendValidator = blueprint.validators.filter((v) => v.title === 'new_spend.mine')[0];
+
+  return {
+    type: 'PlutusV2',
+    script: spendValidator.compiledCode,
+  };
+}
+
 export function printExecutionDetails(tx: TxSigned, name: string) {
   const redeemers = tx.txSigned.witness_set().redeemers()!;
   let steps = 0;

@@ -30,6 +30,7 @@ import {
   incrementNonceV2,
   readValidator,
   readValidators,
+  readNewSpendValidator,
   sha256,
   calculateInterlink,
 } from './utils';
@@ -1296,6 +1297,55 @@ app
         encoding: 'utf8',
       }),
     );
+
+    const newSpend = readNewSpendValidator();
+
+    const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
+      return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
+    });
+
+    const utxoRef = utxos[0];
+
+    const newSpendApplied = applyParamsToScript(newSpend.script, [
+      tunav2ValidatorHash,
+      new Constr(0, [new Constr(0, [utxoRef.txHash]), BigInt(utxoRef.outputIndex)]),
+    ]);
+
+    const newSpendScript: Script = { script: newSpendApplied, type: 'PlutusV2' };
+
+    const newSpendAddress = lucid.utils.validatorToAddress(newSpendScript);
+    const newSpendHash = lucid.utils.validatorToScriptHash(newSpendScript);
+
+    // NominateUpgrade(validatorHash, outputIndex)
+    const mintNominateRedeemer = new Constr(3, [newSpendHash, 0n]);
+
+    const spendNominateRedeemer = new Constr(2, []);
+
+    const setupTx = await lucid
+      .newTx()
+      .collectFrom([utxos[1]])
+      .payToContract(newSpendAddress, { inline: Data.to(0n) }, { lovelace: 1500000n })
+      .complete();
+
+    const setupTxSigned = await setupTx.sign().complete();
+
+    await setupTxSigned.submit();
+
+    lucid.awaitTx(setupTxSigned.toHash());
+
+    const contractUtxo = await lucid.utxosByOutRef([
+      { txHash: setupTxSigned.toHash(), outputIndex: 0 },
+    ]);
+
+    const nominateTx = await lucid
+      .newTx()
+      .collectFrom(contractUtxo, Data.to(spendNominateRedeemer))
+      .mintAssets(
+        { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
+        Data.to(mintNominateRedeemer),
+      )
+      .payToContract(address, outputData, assets)
+      .complete();
   });
 
 app.parse();
