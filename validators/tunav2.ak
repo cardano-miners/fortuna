@@ -362,7 +362,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           value.without_lovelace(tuna_in_value) == expected_in_tuna_value,
           value.without_lovelace(in_value) == expected_in_value,
           value.without_lovelace(out_value) == expected_output_value,
-          block_height_deadline <= block_number,
+          block_height_deadline < block_number,
           miner_support_count >= expected_miner_votes,
           mint
             |> from_minted_value
@@ -417,7 +417,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         and {
           in_address == out_address,
-          block_height_deadline < block_number,
+          block_height_deadline > block_number,
           mint
             |> from_minted_value
             |> value.to_dict
@@ -455,11 +455,14 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         let common_checks =
           fn(script_hash) { and {
+              // checks the input has the correct NFT
               quantity_of(
                 in_value |> value.to_dict |> dict.to_pairs,
                 own_script_hash,
                 bytearray.concat(fortunav2.nominated_prefix, script_hash),
               ) == 1,
+              // checks for correctly referencing the latest fortuna block
+              // mostly to just check the block number in the redeemer is correct
               list.any(
                 reference_inputs,
                 fn(input) {
@@ -539,44 +542,40 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                   for_count < ( for_count + against_count ) * vote_threshold / 1000 || for_count + against_count < emitted_supply * supply_threshold / 1000,
                 },
               },
-              deadline <= lower_bound,
+              deadline < lower_bound,
               common_checks(script_hash),
             }
           }
 
           // Validate passed in block number is real
           Mining { script_hash, miner_support_count, block_height_deadline } ->
-            and {
-              or {
-                and {
-                  miner_support_count >= epoch_number * miner_threshold / 1000,
-                  {
-                    let upgrade_rdmr =
-                      expect_first(redeemers, Mint(own_script_hash))
+            or {
+              {
+                let upgrade_rdmr =
+                  expect_first(redeemers, Mint(own_script_hash))
 
-                    expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
+                expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
 
-                    True
-                  },
-                },
-                and {
-                  miner_support_count < epoch_number * miner_threshold / 1000,
-                  mint
-                    |> from_minted_value
-                    |> value.to_dict
-                    |> dict.to_pairs
-                    |> quantity_of(
-                        own_script_hash,
-                        bytearray.concat(
-                          fortunav2.nominated_prefix,
-                          script_hash,
-                        ),
-                      )
-                    |> builtin.equals_integer(-1),
-                },
+                quantity_of(
+                  in_value |> value.to_dict |> dict.to_pairs,
+                  own_script_hash,
+                  bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                ) == 1
               },
-              block_height_deadline <= block_number,
-              common_checks(script_hash),
+              and {
+                miner_support_count < epoch_number * miner_threshold / 1000,
+                mint
+                  |> from_minted_value
+                  |> value.to_dict
+                  |> dict.to_pairs
+                  |> quantity_of(
+                      own_script_hash,
+                      bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                    )
+                  |> builtin.equals_integer(-1),
+                common_checks(script_hash),
+                block_height_deadline < block_number,
+              },
             }
         }
       }
@@ -781,13 +780,24 @@ validator(tunav2_minting_policy: ByteArray) {
       }
 
       Upgrade -> {
-        let Transaction { redeemers, .. } = ctx.transaction
+        let ScriptContext { transaction, purpose } = ctx
+
+        expect Spend(own_reference) = purpose
+
+        let Transaction { redeemers, inputs, .. } = transaction
+
+        let Output { address, value, .. } =
+          resolve_output_reference(inputs, own_reference)
 
         let upgrade_rdmr = expect_first(redeemers, Mint(tunav2_minting_policy))
 
         expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
 
-        True
+        expect ScriptCredential(spend_hash) = address.payment_credential
+
+        let name = bytearray.concat(fortunav2.big_tuna_prefix, spend_hash)
+
+        value.quantity_of(value, tunav2_minting_policy, name) == 1
       }
     }
   }

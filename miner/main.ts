@@ -435,6 +435,8 @@ app
           }
 
           targetHash = await sha256(await sha256(targetState));
+
+          trie = await trie.insert(Buffer.from(blake256(targetHash)), Buffer.from(targetHash));
         }
 
         hashCounter++;
@@ -1287,11 +1289,14 @@ app
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
 
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
     const {
       tunaV2MintValidator: {
         validatorHash: tunav2ValidatorHash,
         validatorAddress: tunav2ValidatorAddress,
       },
+      forkValidator: { validatorAddress: forkValidatorAddress },
     }: GenesisV2 = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
         encoding: 'utf8',
@@ -1321,31 +1326,94 @@ app
 
     const spendNominateRedeemer = new Constr(2, []);
 
-    const setupTx = await lucid
-      .newTx()
-      .collectFrom([utxos[1]])
-      .payToContract(newSpendAddress, { inline: Data.to(0n) }, { lovelace: 1500000n })
-      .complete();
+    const antiScriptHash = toHex(
+      fromHex(newSpendHash).map((i) => {
+        return i ^ 0xff;
+      }),
+    );
 
-    const setupTxSigned = await setupTx.sign().complete();
+    const timeNow = Date.now() - 90000;
 
-    await setupTxSigned.submit();
-
-    lucid.awaitTx(setupTxSigned.toHash());
-
-    const contractUtxo = await lucid.utxosByOutRef([
-      { txHash: setupTxSigned.toHash(), outputIndex: 0 },
+    const spendOutputNominateDatum = new Constr(0, [
+      newSpendHash,
+      0n,
+      antiScriptHash,
+      0n,
+      // 20 minutes for testing
+      BigInt(timeNow + 1000 * 60 * 20),
     ]);
 
-    const nominateTx = await lucid
-      .newTx()
-      .collectFrom(contractUtxo, Data.to(spendNominateRedeemer))
-      .mintAssets(
-        { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
-        Data.to(mintNominateRedeemer),
-      )
-      .payToContract(address, outputData, assets)
-      .complete();
+    try {
+      console.log(newSpendAddress);
+      console.log(newSpendHash);
+
+      const setupTx = await lucid
+        .newTx()
+        .collectFrom([utxos[2]])
+        .payToContract(
+          newSpendAddress,
+          { inline: Data.to(0n), scriptRef: newSpendScript },
+          { lovelace: 50n },
+        )
+        .complete();
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
+
+      const contractUtxo = await lucid.utxosAt(newSpendAddress);
+
+      console.log(contractUtxo);
+      console.log('here2');
+
+      const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+      const nominateTx = await lucid
+        .newTx()
+        .readFrom(readUtxos)
+        .collectFrom(contractUtxo, Data.to(spendNominateRedeemer))
+        .mintAssets(
+          { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
+          Data.to(mintNominateRedeemer),
+        )
+        .payToContract(
+          tunav2ValidatorAddress,
+          { inline: Data.to(spendOutputNominateDatum) },
+          { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
+        )
+        .complete();
+
+      console.log('here3');
+
+      const nominateTxSigned = await nominateTx.sign().complete();
+
+      await nominateTxSigned.submit();
+
+      console.log(`Nominated new spending contract: ${newSpendHash}`);
+
+      await lucid.awaitTx(nominateTxSigned.toHash());
+
+      console.log(`Completed and saving governance file.`);
+
+      fs.writeFileSync(
+        `governance/${preview ? 'previewV2' : 'mainnetV2'}.json`,
+        JSON.stringify({
+          tunaV3SpendValidator: {
+            validator: newSpendScript,
+            validatorHash: newSpendHash,
+            validatorAddress: newSpendAddress,
+          },
+        }),
+        { encoding: 'utf-8' },
+      );
+    } catch (e) {
+      console.log(e);
+    }
   });
 
 app.parse();

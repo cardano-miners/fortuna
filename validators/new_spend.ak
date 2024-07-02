@@ -38,10 +38,10 @@ type TargetState {
 }
 
 validator(tunav2_minting_policy: ByteArray, init_utxo_ref: OutputReference) {
-  fn mine(datum: Statev2, redeemer: MineAction, ctx: ScriptContext) -> Bool {
+  fn mine(datum: Data, redeemer: MineAction, ctx: ScriptContext) -> Bool {
     when redeemer is {
       MinePow(nonce, miner, merkle_proof_list) -> {
-        let Statev2 {
+        expect Statev2 {
           block_number,
           current_hash,
           leading_zeros,
@@ -49,7 +49,7 @@ validator(tunav2_minting_policy: ByteArray, init_utxo_ref: OutputReference) {
           epoch_time,
           current_posix_time,
           merkle_root,
-        } = datum
+        }: Statev2 = datum
 
         let ScriptContext { transaction, purpose } = ctx
 
