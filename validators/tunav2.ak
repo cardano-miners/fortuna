@@ -149,9 +149,9 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         and {
           // input value check
-          (in_token_name == expected_in_token_name)?,
+          in_token_name == expected_in_token_name,
           // minted counter check
-          (minted_names == expected_mint)?,
+          minted_names == expected_mint,
         }
       }
 
@@ -161,12 +161,6 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         let valid_cred = ScriptCredential(script_hash)
 
         // Check contract is executable
-        expect Some(_) =
-          list.find(
-            inputs,
-            fn(input) { input.output.address.payment_credential == valid_cred },
-          )
-
         // Mint nomination token
         expect [Pair(nominated_contract_token, 1)] =
           mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_pairs
@@ -206,16 +200,20 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         } = utils.list_at(outputs, output_index)
 
         and {
-          nominated_contract_token == bytearray.concat(
+          (nominated_contract_token == bytearray.concat(
             fortunav2.nominated_prefix,
             script_hash,
-          ),
-          address.payment_credential == ScriptCredential(own_policy),
-          expected_value == value.without_lovelace(nominated_value),
-          expected_datum == nominated_datum,
+          ))?,
+          (address.payment_credential == ScriptCredential(own_policy))?,
+          (expected_value == value.without_lovelace(nominated_value))?,
+          (expected_datum == nominated_datum)?,
           !upper_is_inclusive,
           lower_is_inclusive,
-          upper_range - lower_range <= 180000,
+          (upper_range - lower_range <= 180000)?,
+          list.any(
+            inputs,
+            fn(input) { input.output.address.payment_credential == valid_cred },
+          )?,
         }
       }
 

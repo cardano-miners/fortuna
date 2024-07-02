@@ -94,10 +94,10 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
         )
 
   and {
-    (mine_state == expected_mine_state)?,
-    (tunav2_output.value
+    mine_state == expected_mine_state,
+    tunav2_output.value
       |> value.without_lovelace
-      |> builtin.equals_data(expected_value))?,
+      |> builtin.equals_data(expected_value),
   }
 }
 
@@ -266,7 +266,7 @@ pub fn count_votes(
           [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
             if
             tuna_name == fortuna.token_name && value_script_hash == script_hash{
-
+            
               tuna_quantity + count_votes(
                 rest,
                 own_hash,

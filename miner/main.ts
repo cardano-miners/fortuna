@@ -1373,6 +1373,8 @@ app
 
       const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
+      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+
       const nominateTx = await lucid
         .newTx()
         .readFrom(readUtxos)
@@ -1386,6 +1388,8 @@ app
           { inline: Data.to(spendOutputNominateDatum) },
           { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
         )
+        .validFrom(realTimeNow)
+        .validTo(realTimeNow + 170000)
         .complete();
 
       console.log('here3');
