@@ -231,16 +231,20 @@ pub fn vote(
     )
 
   and {
-    quantity_of(
+    (quantity_of(
       in_value |> value.to_dict |> dict.to_pairs,
       own_hash,
       bytearray.concat(nominated_prefix, script_hash),
-    ) == 1,
-    in_address == out_address,
-    upper_range <= deadline,
-    value.without_lovelace(in_value) == value.without_lovelace(out_value),
-    votes_in_tx > for_count,
-    expected_datum == out_datum,
+    ) == 1)?,
+    (in_address == out_address)?,
+    (upper_range <= deadline)?,
+    (value.without_lovelace(in_value) == value.without_lovelace(out_value))?,
+    if for {
+      votes_in_tx > for_count
+    } else {
+      votes_in_tx > against_count
+    }?,
+    (expected_datum == out_datum)?,
   }
 }
 

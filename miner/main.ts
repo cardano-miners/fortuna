@@ -18,6 +18,7 @@ import {
   toHex,
   type Script,
   Blockfrost,
+  Assets,
 } from 'lucid-cardano';
 import { WebSocket } from 'ws';
 
@@ -62,6 +63,14 @@ type GenesisV2 = {
     validatorAddress: string;
   };
   tunaV2SpendValidator: {
+    validator: string;
+    validatorHash: string;
+    validatorAddress: string;
+  };
+};
+
+type GenesisV3 = {
+  tunaV3SpendValidator: {
     validator: string;
     validatorHash: string;
     validatorAddress: string;
@@ -745,6 +754,8 @@ app
 
     const tunaV2MintAppliedHash = lucid.utils.validatorToScriptHash(tunaV2MintApplied);
 
+    const tunaV2MintAddress = lucid.utils.validatorToAddress(tunaV2MintApplied);
+
     console.log(tunaV2MintAppliedHash);
 
     const tunaV2SpendApplied: Script = {
@@ -766,14 +777,10 @@ app
       string | bigint | string[]
     >;
 
-    console.log(lastestV1BlockData);
-
     const [bn, current_hash, leading_zeros, target_number, epoch_time, current_posix_time] =
       lastestV1BlockData.fields;
 
     const blockNumber = bn as bigint;
-
-    console.log(blockNumber);
 
     const blockNumberHex =
       blockNumber.toString(16).length % 2 === 0
@@ -880,7 +887,7 @@ app
           tunaV2MintValidator: {
             validator: tunaV2MintApplied.script,
             validatorHash: tunaV2MintAppliedHash,
-            validatorAddress: fortunaV2Address,
+            validatorAddress: tunaV2MintAddress,
           },
           tunaV2SpendValidator: {
             validator: tunaV2SpendApplied.script,
@@ -1008,23 +1015,21 @@ app
     const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
-    // const tx_test = await lucid
-    //   .newTx()
-    //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-    //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-    //   .complete();
+    const tx_test = await lucid
+      .newTx()
+      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
+      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
+      .complete();
 
-    // const signed_test = await tx_test.sign().complete();
+    const signed_test = await tx_test.sign().complete();
 
-    // await signed_test.submit();
+    await signed_test.submit();
 
-    // await lucid.awaitTx(signed_test.toHash());
+    await lucid.awaitTx(signed_test.toHash());
 
     const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
       return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
     });
-
-    console.log(utxos);
 
     if (utxos.length === 0) {
       throw new Error('No UTXOs Found');
@@ -1162,57 +1167,54 @@ app
 
     console.log(rootPreFork);
 
-    do {
-      const resp = await client.inner.dumpHistory({
-        startToken: nextToken,
-        maxItems: 25,
-      });
+    // do {
+    //   const resp = await client.inner.dumpHistory({
+    //     startToken: nextToken,
+    //     maxItems: 25,
+    //   });
 
-      nextToken = resp.nextToken;
+    //   nextToken = resp.nextToken;
 
-      for (const block of resp.block) {
-        if (block.chain.case !== 'cardano') {
-          return;
-        }
-        console.log('SLOT', block.chain.value.header!.slot);
+    //   for (const block of resp.block) {
+    //     if (block.chain.case !== 'cardano') {
+    //       return;
+    //     }
 
-        for (const tx of block.chain.value.body!.tx) {
-          for (const output of tx.outputs) {
-            if (
-              output.assets.some((asset) => {
-                return (
-                  toHex(asset.policyId) === tunav2ValidatorHash &&
-                  asset.assets.some(
-                    (asset) => toHex(asset.name) === fromText('TUNA') + tunav2SpendValidatorHash,
-                  )
-                );
-              })
-            ) {
-              console.log('AFTER FILTER', output);
+    //     for (const tx of block.chain.value.body!.tx) {
+    //       for (const output of tx.outputs) {
+    //         if (
+    //           output.assets.some((asset) => {
+    //             return (
+    //               toHex(asset.policyId) === tunav2ValidatorHash &&
+    //               asset.assets.some(
+    //                 (asset) => toHex(asset.name) === fromText('TUNA') + tunav2SpendValidatorHash,
+    //               )
+    //             );
+    //           })
+    //         ) {
+    //           const datum = output.datum!.plutusData.value! as Cardano.Constr;
 
-              const datum = output.datum!.plutusData.value! as Cardano.Constr;
+    //           const currentHash = toHex(datum.fields[1].plutusData.value! as Uint8Array);
 
-              const currentHash = toHex(datum.fields[1].plutusData.value! as Uint8Array);
+    //           console.log('CURRENT HASH', currentHash);
 
-              console.log('CURRENT HASH', currentHash);
+    //           try {
+    //             trie = await trie.insert(
+    //               Buffer.from(blake256(fromHex(currentHash))),
+    //               Buffer.from(fromHex(currentHash)),
+    //             );
+    //           } catch (e) {
+    //             console.log(e);
+    //           }
 
-              try {
-                trie = await trie.insert(
-                  Buffer.from(blake256(fromHex(currentHash))),
-                  Buffer.from(fromHex(currentHash)),
-                );
-              } catch (e) {
-                console.log(e);
-              }
+    //           const root = trie.hash.toString('hex');
 
-              const root = trie.hash.toString('hex');
-
-              console.log(root);
-            }
-          }
-        }
-      }
-    } while (!!nextToken);
+    //           console.log(root);
+    //         }
+    //       }
+    //     }
+    //   }
+    // } while (!!nextToken);
 
     const root = trie.hash.toString('hex');
 
@@ -1270,8 +1272,8 @@ app
         return acc + (u.assets[validatorHashV2 + fromText('TUNA')] ?? 0n);
       }, 0n);
 
-      console.log(`TUNA Balance: ${tunaBalance / 100_000_000n}`);
-      console.log(`TUNAV2 Balance: ${tunaV2Balance / 100_000_000n}`);
+      console.log(`TUNA Balance: ${Number(tunaBalance) / 100_000_000}`);
+      console.log(`TUNAV2 Balance: ${Number(tunaV2Balance) / 100_000_000}`);
     } catch {
       console.log(`TUNA Balance: 0`);
     }
@@ -1292,10 +1294,7 @@ app
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
     const {
-      tunaV2MintValidator: {
-        validatorHash: tunav2ValidatorHash,
-        validatorAddress: tunav2ValidatorAddress,
-      },
+      tunaV2MintValidator: { validatorHash: tunav2ValidatorHash, validator: tunav2Validator },
       forkValidator: { validatorAddress: forkValidatorAddress },
     }: GenesisV2 = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
@@ -1304,6 +1303,11 @@ app
     );
 
     const newSpend = readNewSpendValidator();
+
+    const tunaV2RealAddress = lucid.utils.validatorToAddress({
+      script: tunav2Validator,
+      type: 'PlutusV2',
+    });
 
     const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
       return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
@@ -1332,7 +1336,7 @@ app
       }),
     );
 
-    const timeNow = Date.now() - 90000;
+    const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
     const spendOutputNominateDatum = new Constr(0, [
       newSpendHash,
@@ -1340,13 +1344,10 @@ app
       antiScriptHash,
       0n,
       // 20 minutes for testing
-      BigInt(timeNow + 1000 * 60 * 20),
+      BigInt(realTimeNow + 1000 * 60 * 20),
     ]);
 
     try {
-      console.log(newSpendAddress);
-      console.log(newSpendHash);
-
       const setupTx = await lucid
         .newTx()
         .collectFrom([utxos[2]])
@@ -1368,23 +1369,23 @@ app
 
       const contractUtxo = await lucid.utxosAt(newSpendAddress);
 
-      console.log(contractUtxo);
       console.log('here2');
 
       const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+      console.log(lucid.currentSlot());
 
       const nominateTx = await lucid
         .newTx()
         .readFrom(readUtxos)
         .collectFrom(contractUtxo, Data.to(spendNominateRedeemer))
+        .collectFrom([utxos[0]])
         .mintAssets(
           { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
           Data.to(mintNominateRedeemer),
         )
         .payToContract(
-          tunav2ValidatorAddress,
+          tunaV2RealAddress,
           { inline: Data.to(spendOutputNominateDatum) },
           { [tunav2ValidatorHash + fromText('NOMA') + newSpendHash]: 1n },
         )
@@ -1415,6 +1416,500 @@ app
         }),
         { encoding: 'utf-8' },
       );
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('mintVoteTokens')
+  .description('Mint a marker token for Voting')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const {
+      tunaV2MintValidator: { validatorHash: tunav2ValidatorHash, validator: tunav2Validator },
+      forkValidator: { validatorAddress: forkValidatorAddress },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const {
+      tunaV3SpendValidator: { validatorHash: tunaV3SpendHash },
+    }: GenesisV3 = JSON.parse(
+      fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const tunaV2RealAddress = lucid.utils.validatorToAddress({
+      script: tunav2Validator,
+      type: 'PlutusV2',
+    });
+
+    const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+
+    const mintVoteForRedeemer = new Constr(4, [
+      new Constr(0, [new Constr(0, [voteStateUtxo.txHash]), BigInt(voteStateUtxo.outputIndex)]),
+    ]);
+
+    try {
+      const setupTx = await lucid
+        .newTx()
+        .readFrom([voteStateUtxo])
+        .readFrom(readUtxos)
+        .mintAssets({ [tunav2ValidatorHash + tunaV3SpendHash]: 1n }, Data.to(mintVoteForRedeemer))
+        .complete();
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('mintVoteAgainstTokens')
+  .description('Mint a marker token for Against Voting')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const {
+      tunaV2MintValidator: {
+        validatorHash: tunav2ValidatorHash,
+
+        validator: tunav2Validator,
+      },
+      forkValidator: { validatorAddress: forkValidatorAddress },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const {
+      tunaV3SpendValidator: { validatorHash: tunaV3SpendHash },
+    }: GenesisV3 = JSON.parse(
+      fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const antiScriptHash = toHex(
+      fromHex(tunaV3SpendHash).map((i) => {
+        return i ^ 0xff;
+      }),
+    );
+
+    const tunaV2RealAddress = lucid.utils.validatorToAddress({
+      script: tunav2Validator,
+      type: 'PlutusV2',
+    });
+
+    const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+
+    const mintVoteForRedeemer = new Constr(4, [
+      new Constr(0, [new Constr(0, [voteStateUtxo.txHash]), BigInt(voteStateUtxo.outputIndex)]),
+    ]);
+
+    try {
+      const setupTx = await lucid
+        .newTx()
+        .readFrom([voteStateUtxo])
+        .readFrom(readUtxos)
+        .mintAssets({ [tunav2ValidatorHash + antiScriptHash]: 1n }, Data.to(mintVoteForRedeemer))
+        .complete();
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('countForVote')
+  .description('count referenced Utxos in Voting')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const {
+      tunaV2MintValidator: {
+        validatorHash: tunav2ValidatorHash,
+
+        validator: tunav2Validator,
+      },
+      forkValidator: { validatorAddress: forkValidatorAddress },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const {
+      tunaV3SpendValidator: { validatorHash: tunaV3SpendHash },
+    }: GenesisV3 = JSON.parse(
+      fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const tunaV2RealAddress = lucid.utils.validatorToAddress({
+      script: tunav2Validator,
+      type: 'PlutusV2',
+    });
+
+    const walletUtxos = await lucid.wallet.getUtxos();
+    console.log('HERE');
+
+    const nonAdaValue: Assets = {};
+
+    walletUtxos.forEach((utxo) => {
+      Object.entries(utxo.assets).forEach((asset) => {
+        const [name, amount] = asset;
+
+        if (
+          name === tunav2ValidatorHash + fromText('TUNA') ||
+          name === tunav2ValidatorHash + tunaV3SpendHash
+        ) {
+          nonAdaValue[name] = !!nonAdaValue[name] ? nonAdaValue[name] + amount : amount;
+        }
+      });
+    });
+
+    Object.entries(nonAdaValue).forEach((amount) => {
+      const [name] = amount;
+
+      nonAdaValue[name] = nonAdaValue[name] / 2n;
+    });
+
+    const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+
+    const [script_hash, for_count, anti_script_hash, against_count, deadline] = (
+      Data.from(voteStateUtxo.datum!) as Constr<string | bigint>
+    ).fields;
+
+    const voteSpendRedeemer = new Constr(1, [new Constr(0, [])]);
+
+    console.log('HERE222');
+
+    // Nominated {
+    //   script_hash: ByteArray,
+    //   for_count: Int,
+    //   anti_script_hash: ByteArray,
+    //   against_count: Int,
+    //   deadline: Int,
+    // }
+
+    console.log(nonAdaValue[tunav2ValidatorHash + fromText('TUNA')]);
+    const voteStateOutputDatum = new Constr(0, [
+      script_hash,
+      (for_count as bigint) + nonAdaValue[tunav2ValidatorHash + fromText('TUNA')],
+
+      anti_script_hash,
+      against_count,
+      deadline,
+    ]);
+
+    console.log('HERE333');
+
+    try {
+      const setupTx = await lucid
+        .newTx()
+        .payToAddress(await lucid.wallet.address(), nonAdaValue)
+        .payToAddress(await lucid.wallet.address(), nonAdaValue)
+        .complete();
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
+
+      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000;
+
+      console.log('HERE444');
+
+      const tx = await lucid
+        .newTx()
+        .readFrom(readUtxos)
+        .readFrom(await lucid.wallet.getUtxos())
+        .collectFrom([voteStateUtxo], Data.to(voteSpendRedeemer))
+        .payToContract(
+          tunaV2RealAddress,
+          { inline: Data.to(voteStateOutputDatum) },
+          { [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n },
+        )
+        .validTo(realTimeNow + 60000)
+        .complete();
+      console.log('here');
+
+      const txSigned = await tx.sign().complete();
+
+      await txSigned.submit();
+
+      await lucid.awaitTx(txSigned.toHash());
+
+      console.log(txSigned.toHash());
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('cancelNomination')
+  .description('Cancel a nomination that did not pass the vote')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const {
+      tunaV2MintValidator: { validatorHash: tunav2ValidatorHash, validator: tunav2Validator },
+      forkValidator: { validatorAddress: forkValidatorAddress },
+      tunaV2SpendValidator: { validatorAddress: spendAddress, validatorHash: spendHash },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const lordTunaUtxo = await lucid.utxosAtWithUnit(
+      spendAddress,
+      tunav2ValidatorHash + fromText('TUNA') + spendHash,
+    );
+
+    const {
+      tunaV3SpendValidator: { validatorHash: tunaV3SpendHash },
+    }: GenesisV3 = JSON.parse(
+      fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const tunaV2RealAddress = lucid.utils.validatorToAddress({
+      script: tunav2Validator,
+      type: 'PlutusV2',
+    });
+
+    const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+
+    const lordTunaDatum = Data.from(lordTunaUtxo[0].datum!) as Constr<bigint>;
+
+    const blockNumber = lordTunaDatum.fields[0];
+
+    const spendRedeemer = new Constr(1, [new Constr(3, [blockNumber])]);
+
+    const mintRedeemer = new Constr(5, []);
+    const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+    const antiScriptHash = toHex(
+      fromHex(tunaV3SpendHash).map((i) => {
+        return i ^ 0xff;
+      }),
+    );
+
+    try {
+      const setupTx = await lucid
+        .newTx()
+        // .collectFrom([voteStateUtxo], Data.to(spendRedeemer))
+        .readFrom(readUtxos)
+        .readFrom(lordTunaUtxo)
+        .mintAssets(
+          {
+            // [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: -1n,
+            [tunav2ValidatorHash + tunaV3SpendHash]: -1n,
+            // [tunav2ValidatorHash + antiScriptHash]: -1n,
+          },
+          Data.to(mintRedeemer),
+        )
+        .validFrom(realTimeNow)
+        .complete();
+
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('transitionNomination')
+  .description('Transition Nomination to the next stage')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const {
+      tunaV2MintValidator: { validatorHash: tunav2ValidatorHash, validator: tunav2Validator },
+      forkValidator: { validatorAddress: forkValidatorAddress },
+      tunaV2SpendValidator: { validatorAddress: spendAddress, validatorHash: spendHash },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const lordTunaUtxo = await lucid.utxosAtWithUnit(
+      spendAddress,
+      tunav2ValidatorHash + fromText('TUNA') + spendHash,
+    );
+
+    const {
+      tunaV3SpendValidator: { validatorHash: tunaV3SpendHash },
+    }: GenesisV3 = JSON.parse(
+      fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const tunaV2RealAddress = lucid.utils.validatorToAddress({
+      script: tunav2Validator,
+      type: 'PlutusV2',
+    });
+
+    const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+
+    const lordTunaDatum = Data.from(lordTunaUtxo[0].datum!) as Constr<bigint>;
+
+    const blockNumber = lordTunaDatum.fields[0];
+
+    const spendRedeemer = new Constr(1, [new Constr(3, [blockNumber])]);
+
+    const mintRedeemer = new Constr(5, []);
+    const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+
+    try {
+      const setupTx = await lucid
+        .newTx()
+        .collectFrom([voteStateUtxo], Data.to(spendRedeemer))
+        .readFrom(readUtxos)
+        .readFrom(lordTunaUtxo)
+        .mintAssets(
+          { [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: -1n },
+          Data.to(mintRedeemer),
+        )
+        .validFrom(realTimeNow)
+        .complete();
+
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+app
+  .command('clearWallet')
+  .description('Cancel a nomination that did not pass the vote')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+
+    const allUtxos = await lucid.wallet.getUtxos();
+
+    let nonAdaValue = {};
+
+    allUtxos.forEach((utxo) => {
+      Object.entries(utxo.assets).forEach((asset) => {
+        const [name, amount] = asset;
+
+        if (name !== 'lovelace') {
+          nonAdaValue[name] = !!nonAdaValue[name] ? nonAdaValue[name] + amount : amount;
+        }
+      });
+    });
+
+    try {
+      const setupTx = await lucid
+        .newTx()
+        .payToAddress(
+          'addr_test1vppht3ffmu4rerk4r50h6447stfhkm86ttc64ghza7wx8mg225lw4',
+          nonAdaValue,
+        )
+        .complete();
+
+      console.log('here');
+
+      const setupTxSigned = await setupTx.sign().complete();
+
+      await setupTxSigned.submit();
+
+      await lucid.awaitTx(setupTxSigned.toHash());
+
+      console.log(setupTxSigned.toHash());
     } catch (e) {
       console.log(e);
     }

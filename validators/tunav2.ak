@@ -200,20 +200,20 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         } = utils.list_at(outputs, output_index)
 
         and {
-          (nominated_contract_token == bytearray.concat(
+          nominated_contract_token == bytearray.concat(
             fortunav2.nominated_prefix,
             script_hash,
-          ))?,
-          (address.payment_credential == ScriptCredential(own_policy))?,
-          (expected_value == value.without_lovelace(nominated_value))?,
-          (expected_datum == nominated_datum)?,
+          ),
+          address.payment_credential == ScriptCredential(own_policy),
+          expected_value == value.without_lovelace(nominated_value),
+          expected_datum == nominated_datum,
           !upper_is_inclusive,
           lower_is_inclusive,
-          (upper_range - lower_range <= 180000)?,
+          upper_range - lower_range <= 180000,
           list.any(
             inputs,
             fn(input) { input.output.address.payment_credential == valid_cred },
-          )?,
+          ),
         }
       }
 
@@ -451,6 +451,11 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         expect Finite(lower_bound) = validity_range.lower_bound.bound_type
 
+        let block_number_as_bytes = integer_to_bytes(block_number, "")
+
+        let counter_token_name =
+          bytearray.concat(fortunav2.counter_prefix, block_number_as_bytes)
+
         let common_checks =
           fn(script_hash) { and {
               // checks the input has the correct NFT
@@ -465,27 +470,20 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                 reference_inputs,
                 fn(input) {
                   let Output { address, value, .. } = input.output
-
-                  let block_number_as_bytes = integer_to_bytes(block_number, "")
-
-                  let counter_token_name =
-                    bytearray.concat(
-                      fortunav2.counter_prefix,
-                      block_number_as_bytes,
-                    )
-
                   when address.payment_credential is {
                     ScriptCredential(script_hash) -> {
-                      expect [Pair(token_name, 1), Pair(token_name2, 1)] =
+                      let amounts =
                         value |> value.tokens(own_script_hash) |> dict.to_pairs
 
-                      and {
-                        token_name == bytearray.concat(
-                          fortunav2.big_tuna_prefix,
-                          script_hash,
-                        ),
-                        token_name2 == counter_token_name,
-                      }
+                      let expected_amounts =
+                        [
+                          Pair(counter_token_name, 1),
+                          Pair(fortunav2.big_tuna_prefix
+                            |> bytearray.concat(script_hash),
+                          1),
+                        ]
+
+                      amounts == expected_amounts
                     }
                     _ -> False
                   }
