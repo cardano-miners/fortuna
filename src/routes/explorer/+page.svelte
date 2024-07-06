@@ -56,11 +56,11 @@
             <div class="badge badge-primary">{block.number}</div>
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            <!-- eslint-disable svelte/no-at-html-tags -->
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html formatHash(makeTarget(block.target_number, block.leading_zeros))}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            <!-- eslint-disable svelte/no-at-html-tags -->
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html formatHash(block.hash)}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">

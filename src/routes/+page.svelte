@@ -2,7 +2,7 @@
   import SolarArrowRightBroken from '~icons/solar/arrow-right-broken';
   import { onMount } from 'svelte';
   import { type WalletOption, type WalletApi } from '../app.d';
-  import { Constr, Translucent, C, Data } from 'translucent-cardano';
+  import { Constr, Lucid, Data } from 'lucid-cardano';
 
   let open = false;
   let walletApi: WalletApi | undefined;
@@ -25,7 +25,7 @@
 
     if (walletApi && wallet) {
       // TODO: lock $TUNA
-      const lucid = await Translucent.new();
+      const lucid = await Lucid.new();
 
       const tunav1Policy = '';
       const hardforkScriptHash = '';
@@ -149,8 +149,8 @@
           </div>
           <div class="h-4" />
           <p class="md:hidden text-base-content/100 py-4 font-light md:text-lg xl:text-2xl">
-            The hardfork is coming. In order to prepare for the hardfork lock your $TUNA using
-            the page below. Locked $TUNA will be claimable on a new policy after the hardfork.
+            The hardfork is coming. In order to prepare for the hardfork lock your $TUNA using the
+            page below. Locked $TUNA will be claimable on a new policy after the hardfork.
           </p>
 
           <p class="hidden md:block text-base-content/100 py-4 font-light md:text-lg xl:text-2xl">

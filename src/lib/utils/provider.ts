@@ -13,8 +13,8 @@ import type {
   Delegation,
   OutRef,
   Datum,
-} from 'translucent-cardano';
-import { PROTOCOL_PARAMETERS_DEFAULT, Translucent, fromHex, toHex, C } from 'translucent-cardano';
+} from 'lucid-cardano';
+import { PROTOCOL_PARAMETERS_DEFAULT, Lucid, fromHex, toHex, C } from 'lucid-cardano';
 
 export class BrowserProvider implements Provider {
   private readonly baseUrl: string = '/api/provider';
@@ -31,7 +31,8 @@ export class BrowserProvider implements Provider {
 
     const response = await fetch(`${this.baseUrl}/utxos/${queryPredicate}?isAddress=${isAddress}`);
 
-    const { utxos } = await response.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { utxos }: any = await response.json();
 
     return this.kupmiosUtxosToUtxos(utxos);
   }
@@ -90,19 +91,20 @@ export class BrowserProvider implements Provider {
             (await (async () => {
               const response = await fetch(`${this.baseUrl}/scripts/${utxo.script_hash}`);
 
-              const { script, language } = await response.json();
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const { script, language }: any = await response.json();
 
               if (language === 'native') {
                 return { type: 'Native', script };
               } else if (language === 'plutus:v1') {
                 return {
                   type: 'PlutusV1',
-                  script: toHex(C.PlutusV1Script.new(fromHex(script)).to_bytes()),
+                  script: toHex(C.PlutusScript.new(fromHex(script)).to_bytes()),
                 };
               } else if (language === 'plutus:v2') {
                 return {
                   type: 'PlutusV2',
-                  script: toHex(C.PlutusV2Script.new(fromHex(script)).to_bytes()),
+                  script: toHex(C.PlutusScript.new(fromHex(script)).to_bytes()),
                 };
               }
             })()),
@@ -112,6 +114,6 @@ export class BrowserProvider implements Provider {
   }
 }
 
-export function createTranslucent(): Promise<Translucent> {
-  return Translucent.new(new BrowserProvider());
+export function createTranslucent(): Promise<Lucid> {
+  return Lucid.new(new BrowserProvider());
 }

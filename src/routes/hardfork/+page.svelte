@@ -4,7 +4,7 @@
   import UisPadlock from '~icons/uis/padlock';
   import IonFishOutline from '~icons/ion/fish-outline';
   import MaterialSymbolsAddShoppingCartSharp from '~icons/material-symbols/add-shopping-cart-sharp';
-  import { Constr, Data, fromText } from 'translucent-cardano';
+  import { Constr, Data, fromText } from 'lucid-cardano';
 
   // types
   interface TimeLeft {

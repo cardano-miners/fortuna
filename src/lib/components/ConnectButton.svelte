@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fromText, type Cardano } from 'translucent-cardano';
+  import { fromText, type Cardano } from 'lucid-cardano';
 
   import geroIcon from '$lib/assets/geroicon.png';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
@@ -143,7 +143,7 @@
 {:else}
   <button
     class="btn btn-primary"
-    on:click={(e) => {
+    on:click={() => {
       open = true;
     }}>Connect</button>
   <dialog id="my_modal_1" class="modal modal-middle" {open}>
@@ -170,7 +170,7 @@
         <form method="dialog">
           <button
             class="btn"
-            on:click={(_e) => {
+            on:click={() => {
               open = false;
             }}>Close</button>
         </form>
@@ -178,7 +178,7 @@
     </div>
     <form method="dialog" class="modal-backdrop">
       <button
-        on:click={(_e) => {
+        on:click={() => {
           open = false;
         }}>close</button>
     </form>
