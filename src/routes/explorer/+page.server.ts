@@ -1,14 +1,12 @@
-import postgres from 'postgres';
-
-import { DATABASE_URL } from '$env/static/private';
+import { count } from 'drizzle-orm';
 
 import type { PageServerLoadEvent } from './$types';
 
-import type { BlockData } from '$lib/types';
-import { V1_TUNA_POLICY_ID } from '$lib/constants';
+import { drizzle } from '$lib/server/drizzle';
+import * as schema from '$lib/server/schema.sql';
 
-export async function load({ url }: PageServerLoadEvent) {
-  const dbsync = postgres(DATABASE_URL);
+export async function load({ url, platform }: PageServerLoadEvent) {
+  const db = drizzle(platform!.env.DB);
 
   const pageNumber = url.searchParams.get('page') ?? '1';
 
@@ -19,140 +17,18 @@ export async function load({ url }: PageServerLoadEvent) {
     parsedPageNumber = 1;
   }
 
-  const data = await dbsync`
-    SELECT
-      "ma_tx_out_tx_out"."__data__" AS "tx_out"
-    FROM
-      "public"."ma_tx_out" AS "t1"
-      LEFT JOIN "public"."multi_asset" AS "j1" ON ("j1"."id") = ("t1"."ident")
-      LEFT JOIN LATERAL (
-        SELECT
-          JSONB_BUILD_OBJECT(
-            'datum', "tx_out_datum"."__data__",
-            'tx', "tx_out_tx"."__data__"
-          ) AS "__data__"
-        FROM
-          "public"."tx_out" AS "t2"
-          LEFT JOIN LATERAL (
-            SELECT
-              JSONB_BUILD_OBJECT(
-                'value', "t3"."value"
-              ) AS "__data__"
-            FROM
-              "public"."datum" AS "t3"
-            WHERE
-              "t2"."inline_datum_id" = "t3"."id"
-            LIMIT
-              1
-          ) AS "tx_out_datum" ON true
-          LEFT JOIN LATERAL (
-            SELECT
-              JSONB_BUILD_OBJECT(
-                'redeemers', "tx_redeemers"."__data__"
-              ) AS "__data__"
-            FROM
-              "public"."tx" AS "t4"
-              LEFT JOIN LATERAL (
-                SELECT
-                  COALESCE(
-                    JSONB_AGG("__data__"),
-                    '[]'
-                  ) AS "__data__"
-                FROM
-                  (
-                    SELECT
-                      "t7"."__data__"
-                    FROM
-                      (
-                        SELECT
-                          JSONB_BUILD_OBJECT(
-                            'redeemer_data', "redeemer_redeemer_data"."__data__"
-                          ) AS "__data__",
-                          "t6"."purpose",
-                          "t6"."script_hash",
-                          "t6"."redeemer_data_id"
-                        FROM
-                          (
-                            SELECT
-                              "t5".*
-                            FROM
-                              "public"."redeemer" AS "t5"
-                            WHERE
-                              "t4"."id" = "t5"."tx_id"
-                              ) AS "t6"
-                          LEFT JOIN LATERAL (
-                            SELECT
-                              JSONB_BUILD_OBJECT(
-                                'value', "t9"."value"
-                              ) AS "__data__"
-                            FROM
-                              "public"."redeemer_data" AS "t9"
-                            WHERE
-                              "t6"."redeemer_data_id" = "t9"."id"
-                            LIMIT
-                              1
-                          ) AS "redeemer_redeemer_data" ON true
-                          ) AS "t7"
-                    WHERE
-                      (
-                        "t7"."purpose" = CAST(
-                          ${'spend'} :: text AS "public"."scriptpurposetype"
-                        )
-                        AND "t7"."script_hash" = decode(${V1_TUNA_POLICY_ID}, 'hex')
-                      )
-                      ) AS "t8"
-                  ) AS "tx_redeemers" ON true
-            WHERE
-              "t2"."tx_id" = "t4"."id"
-            LIMIT
-              1
-          ) AS "tx_out_tx" ON true
-        WHERE
-          "t1"."tx_out_id" = "t2"."id"
-        LIMIT
-          1
-      ) AS "ma_tx_out_tx_out" ON true
-    WHERE
-      (
-        "j1"."policy" = decode(${V1_TUNA_POLICY_ID}, 'hex')
-        AND "j1"."name" = ${Buffer.from('lord tuna').toString()}
-        AND ("j1"."id" IS NOT NULL)
-      )
-    ORDER BY
-      "t1"."id" DESC
-    LIMIT
-      ${parsedPageLimit} OFFSET ${(parsedPageNumber - 1) * parsedPageLimit}
-    `;
+  const blocks = await db.query.blocks.findMany({
+    limit: parsedPageLimit,
+    offset: (parsedPageNumber - 1) * parsedPageLimit,
+  });
 
-  const count = await dbsync`
-    SELECT COUNT(*)
-    FROM "public"."ma_tx_out" AS "t1"
-    LEFT JOIN "public"."multi_asset" AS "j1" ON ("j1"."id") = ("t1"."ident")
-    WHERE
-      (
-        "j1"."policy" = decode(${V1_TUNA_POLICY_ID}, 'hex')
-        AND "j1"."name" = ${Buffer.from('lord tuna').toString()}
-        AND ("j1"."id" IS NOT NULL)
-      )
-  `;
+  const result = await db.select({ count: count() }).from(schema.blocks);
 
-  const totalCount = count[0].count;
+  const totalCount = result[0].count;
 
   const canNextPage = totalCount > parsedPageLimit * parsedPageNumber;
   const canPrevPage = parsedPageNumber > 1;
   const totalPages = Math.ceil(totalCount / parsedPageLimit);
-
-  const blocks: BlockData[] = data.map((maTxOut) => ({
-    block_number: maTxOut.tx_out.datum!.value.fields[0].int as number,
-    current_hash: maTxOut.tx_out.datum!.value.fields[1].bytes as string,
-    leading_zeros: maTxOut.tx_out.datum!.value.fields[2].int as number,
-    target_number: maTxOut.tx_out.datum!.value.fields[3].int as number,
-    epoch_time: maTxOut.tx_out.datum!.value.fields[4].int as number,
-    current_posix_time: maTxOut.tx_out.datum!.value.fields[5].int as number,
-    nonce: maTxOut.tx_out.tx.redeemers[0]?.redeemer_data?.value?.fields[0].bytes as
-      | string
-      | undefined,
-  }));
 
   return { blocks, canNextPage, canPrevPage, totalPages, totalCount };
 }

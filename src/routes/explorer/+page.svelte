@@ -4,7 +4,6 @@
 
   import type { PageData } from './$types';
   import { intlFormat } from 'date-fns/intlFormat';
-  import { formatDistance } from 'date-fns/formatDistance';
 
   export let data: PageData;
 
@@ -51,19 +50,21 @@
         <div class="table-cell p-4">Time</div>
       </div>
 
-      {#each data.blocks as block (block.block_number)}
+      {#each data.blocks as block (block.number)}
         <div class="table-row-group bg-base-200">
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            <div class="badge badge-primary">{block.block_number}</div>
+            <div class="badge badge-primary">{block.number}</div>
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
+            <!-- eslint-disable svelte/no-at-html-tags -->
             {@html formatHash(makeTarget(block.target_number, block.leading_zeros))}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            {@html formatHash(block.current_hash)}
+            <!-- eslint-disable svelte/no-at-html-tags -->
+            {@html formatHash(block.hash)}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            <div class="badge badge-success">{Math.floor(block.block_number / 2016 + 1)}</div>
+            <div class="badge badge-success">{Math.floor(block.number / 2016 + 1)}</div>
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
             {intlFormat(block.current_posix_time)}
