@@ -18,6 +18,9 @@ export async function load({ url, platform }: PageServerLoadEvent) {
   }
 
   const blocks = await db.query.blocks.findMany({
+    orderBy(fields, { desc }) {
+      return [desc(fields.number)];
+    },
     limit: parsedPageLimit,
     offset: (parsedPageNumber - 1) * parsedPageLimit,
   });
