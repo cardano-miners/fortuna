@@ -3,16 +3,15 @@ use aiken/bytearray
 use aiken/dict.{Dict}
 use aiken/interval.{Finite}
 use aiken/list
-use aiken/pairs
 use aiken/transaction.{InlineDatum,
   Input, Output, OutputReference, Transaction} as tx
 use aiken/transaction/credential.{
   Address, Inline, ScriptCredential, StakeCredential,
 }
-use aiken/transaction/value.{AssetName, PolicyId}
+use aiken/transaction/value.{AssetName, PolicyId, Value}
 use fortuna.{master_token_name}
 use fortuna/parameters.{latest_merkle_root, voting_days}
-use fortuna/types.{State, Statev2}
+use fortuna/types.{Nominated, State, Statev2, TunaUpgradeProcess}
 use fortuna/utils.{
   get_inline_datum, integer_to_bytes, list_at, resolve_output_reference,
 }
@@ -20,7 +19,11 @@ use hardfork/hftypes.{HardFork, NftForkAction}
 
 pub const big_tuna_prefix = "TUNA"
 
+pub const big_tuna_length = 4
+
 pub const counter_prefix = "COUNTER"
+
+pub const counter_length = 7
 
 pub const nominated_prefix = "NOMA"
 
@@ -34,12 +37,11 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
   expect [Pair(_, 1), Pair(_, 1)] =
     mint
       |> value.from_minted_value
-      |> value.tokens(own_policy)
-      |> dict.to_pairs
+      |> tokens(own_policy)
 
   let fork_purpose = tx.WithdrawFrom(Inline(ScriptCredential(fork_script_hash)))
 
-  expect Some(fork_redeemer) = pairs.get_first(tx.redeemers, fork_purpose)
+  let fork_redeemer = expect_first(tx.redeemers, fork_purpose)
 
   // By looking at the other contract redeemer action that can only run once,
   // We can ensure this action only runs once.
@@ -102,7 +104,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
 }
 
 // Voting and governance functions
-
+// TODO change back to normal before launch
 pub fn voting_period() -> Int {
   1000 * 60 * 20 * 1 * voting_days
 }
@@ -127,18 +129,6 @@ fn do_flip_hash(hash: ByteArray, new_hash: ByteArray, index: Int) -> ByteArray {
   }
 }
 
-fn mini_loop(assets: Pairs<AssetName, Int>, script_hash: AssetName) -> Int {
-  when assets is {
-    [] -> 0
-    [Pair(asset, quantity), ..rest] ->
-      if asset == script_hash {
-        quantity
-      } else {
-        mini_loop(rest, script_hash)
-      }
-  }
-}
-
 pub fn quantity_of(
   value: Pairs<PolicyId, Dict<AssetName, Int>>,
   own_hash: PolicyId,
@@ -155,18 +145,15 @@ pub fn quantity_of(
   }
 }
 
-pub type TunaUpgradeProcess {
-  Nominated {
-    script_hash: ByteArray,
-    for_count: Int,
-    anti_script_hash: ByteArray,
-    against_count: Int,
-    deadline: Int,
-  }
-  Mining {
-    script_hash: ByteArray,
-    miner_support_count: Int,
-    block_height_deadline: Int,
+fn mini_loop(assets: Pairs<AssetName, Int>, script_hash: AssetName) -> Int {
+  when assets is {
+    [] -> 0
+    [Pair(asset, quantity), ..rest] ->
+      if asset == script_hash {
+        quantity
+      } else {
+        mini_loop(rest, script_hash)
+      }
   }
 }
 
@@ -231,20 +218,20 @@ pub fn vote(
     )
 
   and {
-    (quantity_of(
+    quantity_of(
       in_value |> value.to_dict |> dict.to_pairs,
       own_hash,
       bytearray.concat(nominated_prefix, script_hash),
-    ) == 1)?,
-    (in_address == out_address)?,
-    (upper_range <= deadline)?,
-    (value.without_lovelace(in_value) == value.without_lovelace(out_value))?,
+    ) == 1,
+    in_address == out_address,
+    upper_range <= deadline,
+    value.without_lovelace(in_value) == value.without_lovelace(out_value),
     if for {
       votes_in_tx > for_count
     } else {
       votes_in_tx > against_count
-    }?,
-    (expected_datum == out_datum)?,
+    },
+    expected_datum == out_datum,
   }
 }
 
@@ -266,7 +253,7 @@ pub fn count_votes(
           fortuna.token_name,
         ) + count_votes(rest, own_hash, script_hash, stake_cred)
       } else {
-        when value |> value.tokens(own_hash) |> dict.to_pairs is {
+        when value |> tokens(own_hash) is {
           [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
             if
             tuna_name == fortuna.token_name && value_script_hash == script_hash{
@@ -298,4 +285,12 @@ pub fn expect_first(self: Pairs<key, value>, key k: key) -> value {
         expect_first(rest, k)
       }
   }
+}
+
+pub fn tokens(value: Value, own_policy: PolicyId) -> Pairs<AssetName, Int> {
+  value
+    |> value.to_dict()
+    |> dict.to_pairs()
+    |> expect_first(own_policy)
+    |> dict.to_pairs()
 }

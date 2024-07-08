@@ -328,17 +328,6 @@ app
       }),
     );
 
-    // const client = new CardanoSyncClient({
-    //   uri: utxoRpcUri,
-    //   headers: {
-    //     'dmtr-api-key': utxoRpcApiKey,
-    //   },
-    // });
-
-    // const tip = client.followTip([
-    //   { slot: 51578057, hash: '5d30054748275b8e90da46eb730d6d4d05ce8edcc54c44c991e218eab0e219d6' },
-    // ]);
-
     const provider = new Kupmios(kupoUrl, ogmiosUrl);
     const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
@@ -1146,8 +1135,8 @@ app
     });
 
     let nextToken: BlockRef | undefined = new BlockRef({
-      index: 53122156n,
-      hash: fromHex('c65cfb3a1ec7d0ccc2a6841b5546183fa3842de0166113af088b3638d2520923'),
+      index: 53728577n,
+      hash: fromHex('92efbc119569efbcde7216387159ef007b281763b1cd94ab4fe84d8403063c6d'),
     });
 
     const headerHashes = JSON.parse(
@@ -1167,54 +1156,54 @@ app
 
     console.log(rootPreFork);
 
-    // do {
-    //   const resp = await client.inner.dumpHistory({
-    //     startToken: nextToken,
-    //     maxItems: 25,
-    //   });
+    do {
+      const resp = await client.inner.dumpHistory({
+        startToken: nextToken,
+        maxItems: 25,
+      });
 
-    //   nextToken = resp.nextToken;
+      nextToken = resp.nextToken;
 
-    //   for (const block of resp.block) {
-    //     if (block.chain.case !== 'cardano') {
-    //       return;
-    //     }
+      for (const block of resp.block) {
+        if (block.chain.case !== 'cardano') {
+          return;
+        }
 
-    //     for (const tx of block.chain.value.body!.tx) {
-    //       for (const output of tx.outputs) {
-    //         if (
-    //           output.assets.some((asset) => {
-    //             return (
-    //               toHex(asset.policyId) === tunav2ValidatorHash &&
-    //               asset.assets.some(
-    //                 (asset) => toHex(asset.name) === fromText('TUNA') + tunav2SpendValidatorHash,
-    //               )
-    //             );
-    //           })
-    //         ) {
-    //           const datum = output.datum!.plutusData.value! as Cardano.Constr;
+        for (const tx of block.chain.value.body!.tx) {
+          for (const output of tx.outputs) {
+            if (
+              output.assets.some((asset) => {
+                return (
+                  toHex(asset.policyId) === tunav2ValidatorHash &&
+                  asset.assets.some(
+                    (asset) => toHex(asset.name) === fromText('TUNA') + tunav2SpendValidatorHash,
+                  )
+                );
+              })
+            ) {
+              const datum = output.datum!.plutusData.value! as Cardano.Constr;
 
-    //           const currentHash = toHex(datum.fields[1].plutusData.value! as Uint8Array);
+              const currentHash = toHex(datum.fields[1].plutusData.value! as Uint8Array);
 
-    //           console.log('CURRENT HASH', currentHash);
+              console.log('CURRENT HASH', currentHash);
 
-    //           try {
-    //             trie = await trie.insert(
-    //               Buffer.from(blake256(fromHex(currentHash))),
-    //               Buffer.from(fromHex(currentHash)),
-    //             );
-    //           } catch (e) {
-    //             console.log(e);
-    //           }
+              try {
+                trie = await trie.insert(
+                  Buffer.from(blake256(fromHex(currentHash))),
+                  Buffer.from(fromHex(currentHash)),
+                );
+              } catch (e) {
+                console.log(e);
+              }
 
-    //           const root = trie.hash.toString('hex');
+              const root = trie.hash.toString('hex');
 
-    //           console.log(root);
-    //         }
-    //       }
-    //     }
-    //   }
-    // } while (!!nextToken);
+              console.log(root);
+            }
+          }
+        }
+      }
+    } while (!!nextToken);
 
     const root = trie.hash.toString('hex');
 
@@ -1630,6 +1619,8 @@ app
     const voteSpendRedeemer = new Constr(1, [new Constr(0, [])]);
 
     console.log('HERE222');
+    console.log('Input Datum', script_hash, for_count, anti_script_hash, against_count, deadline);
+    console.log(nonAdaValue[tunav2ValidatorHash + fromText('TUNA')] * 2n);
 
     // Nominated {
     //   script_hash: ByteArray,
@@ -1638,11 +1629,9 @@ app
     //   against_count: Int,
     //   deadline: Int,
     // }
-
-    console.log(nonAdaValue[tunav2ValidatorHash + fromText('TUNA')]);
     const voteStateOutputDatum = new Constr(0, [
       script_hash,
-      (for_count as bigint) + nonAdaValue[tunav2ValidatorHash + fromText('TUNA')],
+      (for_count as bigint) + nonAdaValue[tunav2ValidatorHash + fromText('TUNA')] * 2n,
 
       anti_script_hash,
       against_count,
@@ -1652,20 +1641,20 @@ app
     console.log('HERE333');
 
     try {
-      const setupTx = await lucid
-        .newTx()
-        .payToAddress(await lucid.wallet.address(), nonAdaValue)
-        .payToAddress(await lucid.wallet.address(), nonAdaValue)
-        .complete();
-      console.log('here');
+      // const setupTx = await lucid
+      //   .newTx()
+      //   .payToAddress(await lucid.wallet.address(), nonAdaValue)
+      //   .payToAddress(await lucid.wallet.address(), nonAdaValue)
+      //   .complete();
+      // console.log('here');
 
-      const setupTxSigned = await setupTx.sign().complete();
+      // const setupTxSigned = await setupTx.sign().complete();
 
-      await setupTxSigned.submit();
+      // await setupTxSigned.submit();
 
-      await lucid.awaitTx(setupTxSigned.toHash());
+      // await lucid.awaitTx(setupTxSigned.toHash());
 
-      console.log(setupTxSigned.toHash());
+      // console.log(setupTxSigned.toHash());
 
       const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000;
 
@@ -1758,13 +1747,13 @@ app
     try {
       const setupTx = await lucid
         .newTx()
-        // .collectFrom([voteStateUtxo], Data.to(spendRedeemer))
+        .collectFrom([voteStateUtxo], Data.to(spendRedeemer))
         .readFrom(readUtxos)
         .readFrom(lordTunaUtxo)
         .mintAssets(
           {
-            // [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: -1n,
-            [tunav2ValidatorHash + tunaV3SpendHash]: -1n,
+            [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: -1n,
+            // [tunav2ValidatorHash + tunaV3SpendHash]: -1n,
             // [tunav2ValidatorHash + antiScriptHash]: -1n,
           },
           Data.to(mintRedeemer),
@@ -1836,7 +1825,6 @@ app
 
     const spendRedeemer = new Constr(1, [new Constr(3, [blockNumber])]);
 
-    const mintRedeemer = new Constr(5, []);
     const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
 
     try {
@@ -1845,9 +1833,14 @@ app
         .collectFrom([voteStateUtxo], Data.to(spendRedeemer))
         .readFrom(readUtxos)
         .readFrom(lordTunaUtxo)
-        .mintAssets(
-          { [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: -1n },
-          Data.to(mintRedeemer),
+        .payToContract(
+          tunaV2RealAddress,
+          {
+            inline: Data.to(new Constr(1, [tunaV3SpendHash, 0n, (blockNumber as bigint) + 2016n])),
+          },
+          {
+            [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n,
+          },
         )
         .validFrom(realTimeNow)
         .complete();
@@ -1867,6 +1860,73 @@ app
   });
 
 app
+  .command('transitionNominationMiner')
+  .description('Transition Nomination to activate')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    // const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    // lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+    // const {
+    //   tunaV2MintValidator: { validatorHash: tunav2ValidatorHash, validator: tunav2Validator },
+    //   forkValidator: { validatorAddress: forkValidatorAddress },
+    //   tunaV2SpendValidator: { validatorAddress: spendAddress, validatorHash: spendHash },
+    // }: GenesisV2 = JSON.parse(
+    //   fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+    //     encoding: 'utf8',
+    //   }),
+    // );
+    // const lordTunaUtxo = await lucid.utxosAtWithUnit(
+    //   spendAddress,
+    //   tunav2ValidatorHash + fromText('TUNA') + spendHash,
+    // );
+    // const {
+    //   tunaV3SpendValidator: { validatorHash: tunaV3SpendHash },
+    // }: GenesisV3 = JSON.parse(
+    //   fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+    //     encoding: 'utf8',
+    //   }),
+    // );
+    // const tunaV2RealAddress = lucid.utils.validatorToAddress({
+    //   script: tunav2Validator,
+    //   type: 'PlutusV2',
+    // });
+    // const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+    // const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    // const lordTunaDatum = Data.from(lordTunaUtxo[0].datum!) as Constr<bigint>;
+    // const blockNumber = lordTunaDatum.fields[0];
+    // const spendRedeemer = new Constr(1, [new Constr(3, [blockNumber])]);
+    // const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+    // try {
+    //   const setupTx = await lucid
+    //     .newTx()
+    //     .collectFrom([voteStateUtxo], Data.to(spendRedeemer))
+    //     .readFrom(readUtxos)
+    //     .readFrom(lordTunaUtxo)
+    //     .payToContract(
+    //       tunaV2RealAddress,
+    //       {
+    //         inline: Data.to(new Constr(1, [tunaV3SpendHash, 0n, (blockNumber as bigint) + 2016n])),
+    //       },
+    //       {
+    //         [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n,
+    //       },
+    //     )
+    //     .validFrom(realTimeNow)
+    //     .complete();
+    //   console.log('here');
+    //   const setupTxSigned = await setupTx.sign().complete();
+    //   await setupTxSigned.submit();
+    //   await lucid.awaitTx(setupTxSigned.toHash());
+    //   console.log(setupTxSigned.toHash());
+    // } catch (e) {
+    //   console.log(e);
+    // }
+  });
+
+app
   .command('clearWallet')
   .description('Cancel a nomination that did not pass the vote')
   .addOption(kupoUrlOption)
@@ -1880,7 +1940,7 @@ app
 
     const allUtxos = await lucid.wallet.getUtxos();
 
-    let nonAdaValue = {};
+    const nonAdaValue = {};
 
     allUtxos.forEach((utxo) => {
       Object.entries(utxo.assets).forEach((asset) => {
@@ -1912,6 +1972,312 @@ app
       console.log(setupTxSigned.toHash());
     } catch (e) {
       console.log(e);
+    }
+  });
+
+app
+  .command('mineWithNominatedContract')
+  .description('Start the miner and allows vote for nominated contract')
+  .addOption(kupoUrlOption)
+  .addOption(ogmiosUrlOption)
+  .addOption(previewOption)
+  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+    const alwaysLoop = true;
+
+    // Construct a new trie with on-disk storage under the file path 'db'.
+    let trie: Trie = await Trie.load(new Store(preview ? 'dbPreview' : 'db'));
+
+    const {
+      tunaV2MintValidator: {
+        validatorHash: tunav2ValidatorHash,
+        validatorAddress: tunaV2MintAddress,
+      },
+      tunaV2SpendValidator: {
+        validatorHash: tunav2SpendValidatorHash,
+        validatorAddress: tunaV2ValidatorAddress,
+      },
+      forkValidator: { validatorAddress: forkValidatorAddress },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const {
+      tunaV3SpendValidator: { validatorHash: tunaV3Hash },
+    }: GenesisV3 = JSON.parse(
+      fs.readFileSync(`governance/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
+        encoding: 'utf8',
+      }),
+    );
+
+    const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
+
+    const userPkh = lucid.utils.getAddressDetails(await lucid.wallet.address()).paymentCredential!;
+
+    const minerCredential = new Constr(0, [userPkh.hash, fromText('AlL HaIl tUnA')]);
+
+    console.log(Data.to(minerCredential));
+
+    const minerCredHash = blake256(fromHex(Data.to(minerCredential)));
+
+    console.log('here');
+
+    while (alwaysLoop) {
+      let minerOutput = (
+        await lucid.utxosAtWithUnit(
+          tunaV2ValidatorAddress,
+          tunav2ValidatorHash + fromText('TUNA') + tunav2SpendValidatorHash,
+        )
+      )[0];
+
+      let state = Data.from(minerOutput.datum!) as Constr<string | bigint>;
+
+      let nonce = new Uint8Array(16);
+
+      crypto.getRandomValues(nonce);
+
+      let targetState = fromHex(
+        Data.to(
+          new Constr(0, [
+            // nonce: ByteArray
+            toHex(nonce),
+            // miner_cred_hash: ByteArray
+            toHex(minerCredHash),
+            // epoch_time: Int
+            state.fields[4] as bigint,
+            // block_number: Int
+            state.fields[0] as bigint,
+            // current_hash: ByteArray
+            state.fields[1] as string,
+            // leading_zeros: Int
+            state.fields[2] as bigint,
+            // difficulty_number: Int
+            state.fields[3] as bigint,
+          ]),
+        ),
+      );
+
+      let targetHash = await sha256(await sha256(targetState));
+
+      let difficulty = {
+        leadingZeros: 50n,
+        difficultyNumber: 50n,
+      };
+
+      console.log('Mining...');
+      let timer = Date.now();
+      let hashCounter = 0;
+      let startTime = timer;
+
+      const alwaysLoop2 = true;
+
+      while (alwaysLoop2) {
+        if (Date.now() - timer > 10000) {
+          console.log('New block not found in 10 seconds, updating state');
+          timer = new Date().valueOf();
+
+          minerOutput = (
+            await lucid.utxosAtWithUnit(
+              tunaV2ValidatorAddress,
+              tunav2ValidatorHash + fromText('TUNA') + tunav2SpendValidatorHash,
+            )
+          )[0];
+
+          if (state !== Data.from(minerOutput.datum!)) {
+            state = Data.from(minerOutput.datum!) as Constr<string | bigint>;
+
+            nonce = new Uint8Array(16);
+
+            crypto.getRandomValues(nonce);
+
+            targetState = fromHex(
+              Data.to(
+                new Constr(0, [
+                  // nonce: ByteArray
+                  toHex(nonce),
+                  // miner_cred_hash: ByteArray
+                  toHex(minerCredHash),
+                  //epoch_time: Int
+                  state.fields[4] as bigint,
+                  // block_number: Int
+                  state.fields[0] as bigint,
+                  // current_hash: ByteArray
+                  state.fields[1] as bigint,
+                  // leading_zeros: Int
+                  state.fields[2] as bigint,
+                  // difficulty_number: Int
+                  state.fields[3] as bigint,
+                ]),
+              ),
+            );
+          }
+
+          targetHash = await sha256(await sha256(targetState));
+
+          trie = await trie.insert(Buffer.from(blake256(targetHash)), Buffer.from(targetHash));
+        }
+
+        hashCounter++;
+
+        if (Date.now() - startTime > 30000) {
+          // Every 30,000 milliseconds (or 30 seconds)
+          const rate = hashCounter / ((Date.now() - startTime) / 1000); // Calculate rate
+          console.log(`Average Hashrate over the last 30 seconds: ${rate.toFixed(2)} H/s`);
+
+          // Reset the counter and the timer
+          hashCounter = 0;
+          startTime = Date.now();
+        }
+
+        difficulty = getDifficulty(targetHash);
+
+        const { leadingZeros, difficultyNumber } = difficulty;
+
+        if (
+          leadingZeros > (state.fields[2] as bigint) ||
+          (leadingZeros == (state.fields[2] as bigint) &&
+            difficultyNumber < (state.fields[3] as bigint))
+        ) {
+          console.log(toHex(targetHash));
+          console.log(toHex(targetState));
+          // Found a valid nonce so break out of the loop
+          nonce = targetState.slice(4, 20);
+          break;
+        }
+
+        incrementNonceV2(targetState);
+
+        targetHash = await sha256(await sha256(targetState));
+      }
+
+      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+
+      trie = await trie.insert(Buffer.from(blake256(targetHash)), Buffer.from(targetHash));
+
+      const newMerkleRoot = trie.hash;
+
+      let epochTime =
+        (state.fields[4] as bigint) + BigInt(90000 + realTimeNow) - (state.fields[5] as bigint);
+
+      let difficultyNumber = state.fields[3] as bigint;
+      let leadingZeros = state.fields[2] as bigint;
+
+      if ((state.fields[0] as bigint) % 2016n === 0n && (state.fields[0] as bigint) > 0) {
+        const adjustment = getDifficultyAdjustement(epochTime, 1_209_600_000n);
+
+        epochTime = 0n;
+
+        const newDifficulty = calculateDifficultyNumber(
+          {
+            leadingZeros: state.fields[2] as bigint,
+            difficultyNumber: state.fields[3] as bigint,
+          },
+          adjustment.numerator,
+          adjustment.denominator,
+        );
+
+        difficultyNumber = newDifficulty.difficultyNumber;
+        leadingZeros = newDifficulty.leadingZeros;
+      }
+
+      const postDatum = new Constr(0, [
+        (state.fields[0] as bigint) + 1n,
+        toHex(targetHash),
+        leadingZeros,
+        difficultyNumber,
+        epochTime,
+        BigInt(90000 + realTimeNow),
+        toHex(newMerkleRoot),
+      ]);
+
+      const outDat = Data.to(postDatum);
+
+      console.log(`Found next datum: ${outDat}`);
+
+      const blockNumberHex =
+        (state.fields[0] as bigint).toString(16).length % 2 === 0
+          ? (state.fields[0] as bigint).toString(16)
+          : `0${(state.fields[0] as bigint).toString(16)}`;
+
+      const blockNumberHexNext =
+        ((state.fields[0] as bigint) + 1n).toString(16).length % 2 === 0
+          ? ((state.fields[0] as bigint) + 1n).toString(16)
+          : `0${((state.fields[0] as bigint) + 1n).toString(16)}`;
+
+      const mintTokens = {
+        [tunav2ValidatorHash + fromText('TUNA')]: 5000000000n,
+        [tunav2ValidatorHash + fromText('COUNTER') + blockNumberHexNext]: 1n,
+        [tunav2ValidatorHash + fromText('COUNTER') + blockNumberHex]: -1n,
+      };
+
+      const masterTokens = {
+        [tunav2ValidatorHash + fromText('TUNA') + tunav2SpendValidatorHash]: 1n,
+        [tunav2ValidatorHash + fromText('COUNTER') + blockNumberHexNext]: 1n,
+      };
+
+      try {
+        const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+
+        const merkleProof = Data.from(
+          (await trie.prove(Buffer.from(blake256(targetHash)))).toCBOR().toString('hex'),
+        );
+
+        const minerRedeemer = Data.to(new Constr(0, [toHex(nonce), minerCredential, merkleProof]));
+
+        const spendGovRedeemer = new Constr(1, [
+          new Constr(2, [1n, (state.fields[0] as bigint) + 1n]),
+        ]);
+
+        const mintRedeemer = Data.to(
+          new Constr(1, [
+            new Constr(0, [new Constr(0, [minerOutput.txHash]), BigInt(minerOutput.outputIndex)]),
+            state.fields[0] as bigint,
+          ]),
+        );
+
+        const mintUtxos = await lucid.utxosAt(tunaV2MintAddress);
+
+        const mintUtxoDatum = Data.from(mintUtxos[0].datum!) as Constr<bigint | string>;
+
+        const outputGovDatum = new Constr(1, [
+          mintUtxoDatum.fields[0],
+          (mintUtxoDatum.fields[1] as bigint) + 1n,
+          mintUtxoDatum.fields[2],
+        ]);
+
+        const txMine = await lucid
+          .newTx()
+          .collectFrom([minerOutput], minerRedeemer)
+          .collectFrom(mintUtxos, Data.to(spendGovRedeemer))
+          .payToContract(tunaV2ValidatorAddress, { inline: outDat }, masterTokens)
+          .payToContract(
+            tunaV2MintAddress,
+            { inline: Data.to(outputGovDatum) },
+            { [tunav2ValidatorHash + fromText('NOMA') + tunaV3Hash]: 1n },
+          )
+          .mintAssets(mintTokens, mintRedeemer)
+          .addSigner(await lucid.wallet.address())
+          .readFrom(readUtxos)
+          .validTo(realTimeNow + 180000)
+          .validFrom(realTimeNow)
+          .complete();
+
+        const signed = await txMine.sign().complete();
+
+        await signed.submit();
+
+        console.log(`TX HASH: ${signed.toHash()}`);
+        console.log('Waiting for confirmation...');
+
+        await lucid.awaitTx(signed.toHash());
+        await delay(3000);
+      } catch (e) {
+        console.log(e);
+        await trie.delete(Buffer.from(blake256(targetHash)));
+      }
     }
   });
 

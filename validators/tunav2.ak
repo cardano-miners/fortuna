@@ -17,13 +17,13 @@ use fortuna/parameters.{
   supply_threshold, vote_threshold,
 }
 use fortuna/types.{
-  BurnToken, FinalizeNomination, Genesis, MineTuna, NominateUpgrade, Redeem,
-  Statev2, TunaAction, VotingToken,
+  BurnToken, FinalizeNomination, Genesis, MineTuna, Mining, NominateUpgrade,
+  Nominated, Redeem, Statev2, TunaAction, TunaUpgradeProcess, VotingToken,
 }
 use fortuna/utils.{get_inline_datum, integer_to_bytes, resolve_output_reference}
 use fortunav2.{
-  Mining, Nominated, TunaUpgradeProcess, expect_first, flip_hash, genesis_v2,
-  quantity_of, vote, voting_period,
+  big_tuna_length, counter_length, expect_first, flip_hash, genesis_v2,
+  quantity_of, tokens, vote, voting_period,
 }
 use hardfork.{calculate_emission}
 use hardfork/hftypes.{Lock, NftForkAction}
@@ -78,8 +78,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         expect [Pair(mint_name, mint_amount)] =
           mint
             |> value.from_minted_value
-            |> value.tokens(own_policy)
-            |> dict.to_pairs
+            |> tokens(own_policy)
 
         and {
           mint_name == fortuna.token_name,
@@ -91,7 +90,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
       MineTuna(input_ref, block_number) -> {
         let Transaction { inputs, mint, .. } = tx
 
-        let minted_names = mint |> from_minted_value |> value.tokens(own_policy)
+        let minted_names = mint |> from_minted_value |> tokens(own_policy)
 
         let Output { address: spend_address, value: spend_value, .. } =
           resolve_output_reference(inputs, input_ref)
@@ -102,7 +101,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           bytearray.concat(fortunav2.big_tuna_prefix, spend_cred)
 
         expect [Pair(token1, 1), Pair(token2, 1)] =
-          spend_value |> value.tokens(own_policy) |> dict.to_pairs
+          spend_value |> tokens(own_policy)
 
         let in_token_name =
           // By ledger rules we should only hit this first if since token names
@@ -132,18 +131,28 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         // within the Lord Tuna token name.
         let expected_mint = {
           let expect_mint =
-            dict.new()
-              |> dict.insert(expected_out_token_name, 1)
-              |> dict.insert(expected_in_token_name, -1)
+            if
+            expected_in_token_name
+              |> builtin.less_than_equals_bytearray(expected_out_token_name){
+            
+              [
+                Pair(expected_in_token_name, -1),
+                Pair(expected_out_token_name, 1),
+              ]
+            } else {
+              [
+                Pair(expected_out_token_name, 1),
+                Pair(expected_in_token_name, -1),
+              ]
+            }
 
           if halving_exponent > 32 {
             expect_mint
           } else {
-            expect_mint
-              |> dict.insert(
-                  fortuna.token_name,
-                  initial_payout / pow2(halving_exponent),
-                )
+            [
+              Pair(fortuna.token_name, initial_payout / pow2(halving_exponent)),
+              ..expect_mint
+            ]
           }
         }
 
@@ -163,7 +172,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         // Check contract is executable
         // Mint nomination token
         expect [Pair(nominated_contract_token, 1)] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_pairs
+          mint |> from_minted_value |> tokens(own_policy)
 
         let expected_value =
           value.from_asset(own_policy, nominated_contract_token, 1)
@@ -231,7 +240,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           get_inline_datum(spend_datum)
 
         expect [Pair(voting_token, 1)] =
-          mint |> from_minted_value |> value.tokens(own_policy) |> dict.to_pairs
+          mint |> from_minted_value |> tokens(own_policy)
 
         and {
           // Is from this contract
@@ -256,12 +265,20 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         mint
           |> from_minted_value
-          |> value.tokens(own_policy)
-          |> dict.to_pairs
+          |> tokens(own_policy)
           |> list.all(
               fn(pair) {
+                let tuna_and_master_tokens_burned =
+                  fn(name) {
+                    builtin.slice_bytearray(0, big_tuna_length, name) == fortuna.token_name || builtin.slice_bytearray(
+                      0,
+                      counter_length,
+                      name,
+                    ) == fortunav2.counter_prefix
+                  }
+
                 let Pair(name, quantity) = pair
-                quantity < 0 && name != fortuna.token_name
+                quantity < 0 && !tuna_and_master_tokens_burned(name)
               },
             )
       }
@@ -335,23 +352,27 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                 1,
               )
 
-        let expected_mint =
-          dict.new()
-            |> dict.insert(
-                bytearray.concat(fortunav2.nominated_prefix, script_hash),
-                -1,
-              )
-            |> dict.insert(
-                bytearray.concat(
-                  fortunav2.big_tuna_prefix,
-                  current_spend_validator,
-                ),
-                -1,
-              )
-            |> dict.insert(
-                bytearray.concat(fortunav2.big_tuna_prefix, script_hash),
-                1,
-              )
+        let expected_mint = {
+          let minted = bytearray.concat(fortunav2.big_tuna_prefix, script_hash)
+          let burned =
+            bytearray.concat(fortunav2.big_tuna_prefix, current_spend_validator)
+
+          if builtin.less_than_equals_bytearray(minted, burned) {
+            [
+              Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
+              -1),
+              Pair(minted, 1),
+              Pair(burned, -1),
+            ]
+          } else {
+            [
+              Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
+              -1),
+              Pair(minted, -1),
+              Pair(burned, 1),
+            ]
+          }
+        }
 
         and {
           in_address.payment_credential == ScriptCredential(own_policy),
@@ -364,7 +385,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           miner_support_count >= expected_miner_votes,
           mint
             |> from_minted_value
-            |> value.tokens(own_policy)
+            |> tokens(own_policy)
             |> builtin.equals_data(expected_mint),
           out_datum == in_tuna_datum,
         }
@@ -472,8 +493,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                   let Output { address, value, .. } = input.output
                   when address.payment_credential is {
                     ScriptCredential(script_hash) -> {
-                      let amounts =
-                        value |> value.tokens(own_script_hash) |> dict.to_pairs
+                      let amounts = value |> tokens(own_script_hash)
 
                       let expected_amounts =
                         [

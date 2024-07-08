@@ -14,7 +14,7 @@ pub const padding = 16
 // New Params for V2
 
 pub const latest_merkle_root =
-  #"e93fd5647f4c458e3a339c9700e1f86c66b55e133a768c32612c9f50ccdbf3f5"
+  #"98e42f28ca4afbe7bd43686163ad059342ab93d293321a03b5a272286695ab51"
 
 // pub const latest_merkle_root =
 //   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"

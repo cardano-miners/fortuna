@@ -34,3 +34,18 @@ pub type TunaAction {
   BurnToken
   FinalizeNomination(OutputReference, OutputReference, Int, Int)
 }
+
+pub type TunaUpgradeProcess {
+  Nominated {
+    script_hash: ByteArray,
+    for_count: Int,
+    anti_script_hash: ByteArray,
+    against_count: Int,
+    deadline: Int,
+  }
+  Mining {
+    script_hash: ByteArray,
+    miner_support_count: Int,
+    block_height_deadline: Int,
+  }
+}
