@@ -253,7 +253,7 @@ pub fn count_votes(
           fortuna.token_name,
         ) + count_votes(rest, own_hash, script_hash, stake_cred)
       } else {
-        when value |> tokens(own_hash) is {
+        when value |> tokens2(own_hash) is {
           [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
             if
             tuna_name == fortuna.token_name && value_script_hash == script_hash{
@@ -293,4 +293,27 @@ pub fn tokens(value: Value, own_policy: PolicyId) -> Pairs<AssetName, Int> {
     |> dict.to_pairs()
     |> expect_first(own_policy)
     |> dict.to_pairs()
+}
+
+fn tokens2(self: Value, own_policy: PolicyId) -> Pairs<AssetName, Int> {
+  self
+    |> value.to_dict()
+    |> dict.to_pairs()
+    |> loop_tokens(own_policy)
+}
+
+fn loop_tokens(
+  self: Pairs<PolicyId, Dict<AssetName, Int>>,
+  own_policy: PolicyId,
+) -> Pairs<AssetName, Int> {
+  when self is {
+    [] ->
+      []
+    [Pair(k2, v), ..rest] ->
+      if own_policy == k2 {
+        v |> dict.to_pairs()
+      } else {
+        loop_tokens(rest, own_policy)
+      }
+  }
 }

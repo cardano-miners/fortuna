@@ -130,28 +130,30 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         // that the input has the correct 2 tokens (Lord Tuna and counter) and the payment credential is contained 
         // within the Lord Tuna token name.
         let expected_mint = {
-          let expect_mint =
-            if
-            expected_in_token_name
-              |> builtin.less_than_equals_bytearray(expected_out_token_name){
-            
-              [
-                Pair(expected_in_token_name, -1),
-                Pair(expected_out_token_name, 1),
-              ]
+          let tail =
+            if halving_exponent > 32 {
+              []
             } else {
               [
-                Pair(expected_out_token_name, 1),
-                Pair(expected_in_token_name, -1),
+                Pair(fortuna.token_name,
+                initial_payout / pow2(halving_exponent)),
               ]
             }
 
-          if halving_exponent > 32 {
-            expect_mint
+          if
+          expected_in_token_name
+            |> builtin.less_than_bytearray(expected_out_token_name){
+          
+            [
+              Pair(expected_in_token_name, -1),
+              Pair(expected_out_token_name, 1),
+              ..tail
+            ]
           } else {
             [
-              Pair(fortuna.token_name, initial_payout / pow2(halving_exponent)),
-              ..expect_mint
+              Pair(expected_out_token_name, 1),
+              Pair(expected_in_token_name, -1),
+              ..tail
             ]
           }
         }
@@ -490,23 +492,12 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
               list.any(
                 reference_inputs,
                 fn(input) {
-                  let Output { address, value, .. } = input.output
-                  when address.payment_credential is {
-                    ScriptCredential(script_hash) -> {
-                      let amounts = value |> tokens(own_script_hash)
-
-                      let expected_amounts =
-                        [
-                          Pair(counter_token_name, 1),
-                          Pair(fortunav2.big_tuna_prefix
-                            |> bytearray.concat(script_hash),
-                          1),
-                        ]
-
-                      amounts == expected_amounts
-                    }
-                    _ -> False
-                  }
+                  let Output { value, .. } = input.output
+                  quantity_of(
+                    value |> value.to_dict |> dict.to_pairs,
+                    own_script_hash,
+                    counter_token_name,
+                  ) == 1
                 },
               ),
             } }
@@ -570,13 +561,22 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                 let upgrade_rdmr =
                   expect_first(redeemers, Mint(own_script_hash))
 
-                expect FinalizeNomination { .. }: TunaAction = upgrade_rdmr
+                expect FinalizeNomination(_, _, output_index, _): TunaAction =
+                  upgrade_rdmr
 
-                quantity_of(
-                  in_value |> value.to_dict |> dict.to_pairs,
-                  own_script_hash,
-                  bytearray.concat(fortunav2.nominated_prefix, script_hash),
-                ) == 1
+                let Output { address: out_address, .. } =
+                  utils.list_at(outputs, output_index)
+
+                and {
+                  quantity_of(
+                    in_value |> value.to_dict |> dict.to_pairs,
+                    own_script_hash,
+                    bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                  ) == 1,
+                  out_address.payment_credential == ScriptCredential(
+                    script_hash,
+                  ),
+                }
               },
               and {
                 miner_support_count < epoch_number * miner_threshold / 1000,

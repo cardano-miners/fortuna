@@ -1,7 +1,7 @@
 /// Bitcoin constants imagined by Satoshi Nakamoto
 pub const halving_number = 210000
 
-pub const epoch_number = 2016
+pub const epoch_number = 50
 
 /// The target time for each epoch to be mined in milliseconds
 pub const epoch_target = 1_209_600_000
@@ -14,7 +14,7 @@ pub const padding = 16
 // New Params for V2
 
 pub const latest_merkle_root =
-  #"98e42f28ca4afbe7bd43686163ad059342ab93d293321a03b5a272286695ab51"
+  #"4d564ab67ab1594042747cbae9fd17da7c0e4241bad0ad6532dcb5620792eca1"
 
 // pub const latest_merkle_root =
 //   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
