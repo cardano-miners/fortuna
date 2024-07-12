@@ -359,7 +359,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           let burned =
             bytearray.concat(fortunav2.big_tuna_prefix, current_spend_validator)
 
-          if builtin.less_than_equals_bytearray(minted, burned) {
+          if builtin.less_than_bytearray(minted, burned) {
             [
               Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
               -1),
@@ -370,26 +370,26 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
             [
               Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
               -1),
-              Pair(minted, -1),
-              Pair(burned, 1),
+              Pair(burned, -1),
+              Pair(minted, 1),
             ]
           }
         }
 
         and {
-          in_address.payment_credential == ScriptCredential(own_policy),
-          out_address.payment_credential == ScriptCredential(script_hash),
-          out_address.stake_credential == None,
-          value.without_lovelace(tuna_in_value) == expected_in_tuna_value,
-          value.without_lovelace(in_value) == expected_in_value,
-          value.without_lovelace(out_value) == expected_output_value,
-          block_height_deadline < block_number,
-          miner_support_count >= expected_miner_votes,
-          mint
+          (in_address.payment_credential == ScriptCredential(own_policy))?,
+          (out_address.payment_credential == ScriptCredential(script_hash))?,
+          (out_address.stake_credential == None)?,
+          (value.without_lovelace(tuna_in_value) == expected_in_tuna_value)?,
+          (value.without_lovelace(in_value) == expected_in_value)?,
+          (value.without_lovelace(out_value) == expected_output_value)?,
+          (block_height_deadline < block_number)?,
+          (miner_support_count >= expected_miner_votes)?,
+          (mint
             |> from_minted_value
             |> tokens(own_policy)
-            |> builtin.equals_data(expected_mint),
-          out_datum == in_tuna_datum,
+            |> builtin.equals_data(expected_mint))?,
+          (out_datum == in_tuna_datum)?,
         }
       }
     }
@@ -438,7 +438,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         and {
           in_address == out_address,
-          block_height_deadline > block_number,
+          block_height_deadline >= block_number,
           mint
             |> from_minted_value
             |> value.to_dict
@@ -472,8 +472,6 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         expect ScriptCredential(own_script_hash) = in_address.payment_credential
 
-        expect Finite(lower_bound) = validity_range.lower_bound.bound_type
-
         let block_number_as_bytes = integer_to_bytes(block_number, "")
 
         let counter_token_name =
@@ -504,6 +502,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         when dat is {
           Nominated { script_hash, for_count, against_count, deadline, .. } -> {
+            expect Finite(lower_bound) = validity_range.lower_bound.bound_type
+
             let Output {
               address: out_address,
               value: out_value,
@@ -557,6 +557,21 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           // Validate passed in block number is real
           Mining { script_hash, miner_support_count, block_height_deadline } ->
             or {
+              and {
+                miner_support_count < epoch_number * miner_threshold / 1000,
+                mint
+                  |> from_minted_value
+                  |> value.to_dict
+                  |> dict.to_pairs
+                  |> quantity_of(
+                      own_script_hash,
+                      bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                    )
+                  |> builtin.equals_integer(-1),
+                common_checks(script_hash),
+                block_height_deadline < block_number,
+              },
+              // Purposely fails in this block if FinalizeNomination is not present
               {
                 let upgrade_rdmr =
                   expect_first(redeemers, Mint(own_script_hash))
@@ -577,20 +592,6 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                     script_hash,
                   ),
                 }
-              },
-              and {
-                miner_support_count < epoch_number * miner_threshold / 1000,
-                mint
-                  |> from_minted_value
-                  |> value.to_dict
-                  |> dict.to_pairs
-                  |> quantity_of(
-                      own_script_hash,
-                      bytearray.concat(fortunav2.nominated_prefix, script_hash),
-                    )
-                  |> builtin.equals_integer(-1),
-                common_checks(script_hash),
-                block_height_deadline < block_number,
               },
             }
         }
@@ -649,6 +650,8 @@ validator(tunav2_minting_policy: ByteArray) {
         let averaged_current_time =
           ( upper_range - lower_range ) / 2 + lower_range
 
+        let serialized_miner = builtin.serialise_data(miner)
+
         // Target state now includes a miner credential
         let target =
           TargetState {
@@ -658,7 +661,7 @@ validator(tunav2_minting_policy: ByteArray) {
             current_hash,
             leading_zeros,
             target_number,
-            miner: blake2b_256(builtin.serialise_data(miner)),
+            miner: blake2b_256(serialized_miner),
           }
 
         let found_bytearray =
@@ -789,7 +792,7 @@ validator(tunav2_minting_policy: ByteArray) {
             merkle_proof_list,
           ) == from_root(out_merkle),
           // Spend(14) requirement: Data size doesn't exceed 1/4 tx size
-          builtin.serialise_data(miner)
+          serialized_miner
             |> builtin.length_of_bytearray()
             |> builtin.less_than_equals_integer(4096),
         }

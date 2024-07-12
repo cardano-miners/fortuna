@@ -4,7 +4,7 @@ pub const halving_number = 210000
 pub const epoch_number = 50
 
 /// The target time for each epoch to be mined in milliseconds
-pub const epoch_target = 1_209_600_000
+pub const epoch_target = 30_000_000
 
 pub const initial_payout = 5000000000
 
@@ -19,7 +19,7 @@ pub const latest_merkle_root =
 // pub const latest_merkle_root =
 //   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
 
-pub const voting_days = 1
+pub const voting_days = 14
 
 /// Minimum supply threshold for the upgrade contract vote to be successful
 /// In thousandth percentage i.e. 250 = 25%

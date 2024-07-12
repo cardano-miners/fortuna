@@ -106,7 +106,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
 // Voting and governance functions
 // TODO change back to normal before launch
 pub fn voting_period() -> Int {
-  1000 * 60 * 20 * 1 * voting_days
+  1000 * 60 * 60 * 24 * voting_days
 }
 
 /// Flips the bits of a hash
@@ -207,31 +207,31 @@ pub fn vote(
         } else {
           for_count
         },
-        deadline,
         anti_script_hash,
         against_count: if for {
           against_count
         } else {
           votes_in_tx
         },
+        deadline,
       },
     )
 
   and {
-    quantity_of(
+    (quantity_of(
       in_value |> value.to_dict |> dict.to_pairs,
       own_hash,
       bytearray.concat(nominated_prefix, script_hash),
-    ) == 1,
-    in_address == out_address,
-    upper_range <= deadline,
-    value.without_lovelace(in_value) == value.without_lovelace(out_value),
+    ) == 1)?,
+    (in_address == out_address)?,
+    (upper_range <= deadline)?,
+    (value.without_lovelace(in_value) == value.without_lovelace(out_value))?,
     if for {
       votes_in_tx > for_count
     } else {
       votes_in_tx > against_count
-    },
-    expected_datum == out_datum,
+    }?,
+    (expected_datum == out_datum)?,
   }
 }
 
@@ -254,20 +254,22 @@ pub fn count_votes(
         ) + count_votes(rest, own_hash, script_hash, stake_cred)
       } else {
         when value |> tokens2(own_hash) is {
-          [Pair(tuna_name, tuna_quantity), Pair(value_script_hash, 1)] ->
-            if
-            tuna_name == fortuna.token_name && value_script_hash == script_hash{
-            
-              tuna_quantity + count_votes(
-                rest,
-                own_hash,
-                script_hash,
-                stake_cred,
-              )
+          [Pair(name1, quantity1), Pair(name2, quantity2)] ->
+            if and {
+              name1 == script_hash,
+              quantity1 == 1,
+              name2 == fortuna.token_name,
+            } {
+              quantity2
+            } else if and {
+              name2 == script_hash,
+              quantity2 == 1,
+              name1 == fortuna.token_name,
+            } {
+              quantity1
             } else {
-              count_votes(rest, own_hash, script_hash, stake_cred)
-            }
-
+              0
+            } + count_votes(rest, own_hash, script_hash, stake_cred)
           _ -> count_votes(rest, own_hash, script_hash, stake_cred)
         }
       }
