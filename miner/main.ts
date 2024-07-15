@@ -371,8 +371,6 @@ app
             toHex(nonce),
             // miner_cred_hash: ByteArray
             toHex(minerCredHash),
-            // epoch_time: Int
-            state.fields[4] as bigint,
             // block_number: Int
             state.fields[0] as bigint,
             // current_hash: ByteArray
@@ -381,6 +379,8 @@ app
             state.fields[2] as bigint,
             // difficulty_number: Int
             state.fields[3] as bigint,
+            // epoch_time: Int
+            state.fields[4] as bigint,
           ]),
         ),
       );
@@ -425,8 +425,6 @@ app
                   toHex(nonce),
                   // miner_cred_hash: ByteArray
                   toHex(minerCredHash),
-                  //epoch_time: Int
-                  state.fields[4] as bigint,
                   // block_number: Int
                   state.fields[0] as bigint,
                   // current_hash: ByteArray
@@ -435,6 +433,8 @@ app
                   state.fields[2] as bigint,
                   // difficulty_number: Int
                   state.fields[3] as bigint,
+                  //epoch_time: Int
+                  state.fields[4] as bigint,
                 ]),
               ),
             );
@@ -2362,8 +2362,7 @@ app
             toHex(nonce),
             // miner_cred_hash: ByteArray
             toHex(minerCredHash),
-            // epoch_time: Int
-            state.fields[4] as bigint,
+
             // block_number: Int
             state.fields[0] as bigint,
             // current_hash: ByteArray
@@ -2372,6 +2371,8 @@ app
             state.fields[2] as bigint,
             // difficulty_number: Int
             state.fields[3] as bigint,
+            // epoch_time: Int
+            state.fields[4] as bigint,
           ]),
         ),
       );
@@ -2416,8 +2417,6 @@ app
                   toHex(nonce),
                   // miner_cred_hash: ByteArray
                   toHex(minerCredHash),
-                  //epoch_time: Int
-                  state.fields[4] as bigint,
                   // block_number: Int
                   state.fields[0] as bigint,
                   // current_hash: ByteArray
@@ -2426,6 +2425,8 @@ app
                   state.fields[2] as bigint,
                   // difficulty_number: Int
                   state.fields[3] as bigint,
+                  //epoch_time: Int
+                  state.fields[4] as bigint,
                 ]),
               ),
             );

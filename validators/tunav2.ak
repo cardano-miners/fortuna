@@ -48,11 +48,11 @@ type MineAction {
 type TargetState {
   nonce: ByteArray,
   miner: ByteArray,
-  epoch_time: Int,
   block_number: Int,
   current_hash: ByteArray,
   leading_zeros: Int,
   target_number: Int,
+  epoch_time: Int,
 }
 
 validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
