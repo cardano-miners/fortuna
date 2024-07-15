@@ -10,6 +10,7 @@ use aiken/transaction/value
 use fortuna
 use fortuna/types.{State}
 use fortuna/utils
+use fortunav2.{quantity_of}
 use hardfork
 use hardfork/hftypes.{HardFork, Lock, NftForkAction}
 use hardfork/params.{lock_state_token}
@@ -63,7 +64,9 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             expect Some(v1_miner_ref) = {
               let input <- list.find(reference_inputs)
               input.output.value
-                |> value.quantity_of(fortuna_v1_hash, fortuna.master_token_name)
+                |> value.to_dict
+                |> dict.to_pairs
+                |> quantity_of(fortuna_v1_hash, fortuna.master_token_name)
                 |> builtin.equals_integer(1)
             }
 
@@ -118,20 +121,19 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
                 fn(input) { input.output.address == own_address },
               )
 
-            let expected_lock_value =
-              value.from_asset(own_policy, lock_state_token, 1)
-
             // grab output from specified index
             let Output(out_address, out_value, out_datum, _) =
               utils.list_at(outputs, lock_output_index)
 
-            // grab next output too
-            let Output(lock_address, lock_value, _, _) =
-              utils.list_at(outputs, lock_output_index + 1)
-
             let v1_tuna_amount =
-              lock_value
-                |> value.quantity_of(fortuna_v1_hash, fortuna.token_name)
+              out_value
+                |> value.to_dict
+                |> dict.to_pairs
+                |> quantity_of(fortuna_v1_hash, fortuna.token_name)
+
+            let expected_lock_value =
+              value.from_asset(own_policy, lock_state_token, 1)
+                |> value.add(fortuna_v1_hash, fortuna.token_name, v1_tuna_amount)
 
             expect LockState { block_height, current_locked_tuna }: LockState =
               in_datum |> utils.get_inline_datum
@@ -145,17 +147,18 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
             and {
               // Validate output state
               in_address == out_address,
-              in_address == lock_address,
               // Validate input value
               in_lock_value
-                |> value.without_lovelace
-                |> builtin.equals_data(expected_lock_value),
+                |> value.to_dict
+                |> dict.to_pairs
+                |> quantity_of(own_policy, lock_state_token)
+                |> builtin.equals_integer(1),
               // Validate output value
               out_value
                 |> value.without_lovelace
                 |> builtin.equals_data(expected_lock_value),
+              new_locked_tuna == v1_tuna_amount,
               block_height == out_block_height,
-              current_locked_tuna + v1_tuna_amount >= new_locked_tuna,
               new_locked_tuna <= total_forked_emission,
               locking_amount == new_locked_tuna - current_locked_tuna,
             }

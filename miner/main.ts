@@ -959,7 +959,10 @@ app
 
       const spendRedeemer = Data.to(new Constr(1, [0n]));
 
-      const masterLockToken = { [forkValidatorHash + fromText('lock_state')]: 1n };
+      const masterLockToken = {
+        [forkValidatorHash + fromText('lock_state')]: 1n,
+        [fortunaV1.validatorHash + fromText('TUNA')]: prevState.fields[1] + amount,
+      };
 
       const mintTokens = { [tunav2ValidatorHash + fromText('TUNA')]: amount };
 
@@ -971,13 +974,6 @@ app
         .mintAssets(mintTokens, tunaRedeemer)
         .withdraw(rewardAddress, 0n, lockRedeemer)
         .addSigner(await lucid.wallet.address())
-        .payToContract(
-          forkValidatorAddress,
-          { inline: Data.to(0n) },
-          {
-            [fortunaV1.validatorHash + fromText('TUNA')]: amount,
-          },
-        )
         .complete({ nativeUplc: false });
 
       const signed = await tx.sign().complete();
@@ -987,8 +983,8 @@ app
       console.log(`TX HASH: ${signed.toHash()}`);
       console.log('Waiting for confirmation...');
 
-      // // await lucid.awaitTx(signed.toHash());
-      await delay(5000);
+      await lucid.awaitTx(signed.toHash());
+      // await delay(5000);
     } catch (e) {
       console.log(e);
     }
@@ -1013,17 +1009,17 @@ app
     const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
-    // const tx_test = await lucid
-    //   .newTx()
-    //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-    //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-    //   .complete();
+    const tx_test = await lucid
+      .newTx()
+      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
+      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
+      .complete();
 
-    // const signed_test = await tx_test.sign().complete();
+    const signed_test = await tx_test.sign().complete();
 
-    // await signed_test.submit();
+    await signed_test.submit();
 
-    // await lucid.awaitTx(signed_test.toHash());
+    await lucid.awaitTx(signed_test.toHash());
 
     const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
       return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
@@ -1141,7 +1137,6 @@ app
         'dmtr-api-key': utxoRpcApiKey,
       },
     });
-
     let nextToken: BlockRef | undefined = new BlockRef({
       index: 54103735n,
       hash: fromHex('f21e511c723cda05afca8dddf9338577eb65d953f3cfdca1e604d202e1451c1d'),
