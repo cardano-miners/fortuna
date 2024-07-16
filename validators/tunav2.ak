@@ -385,10 +385,11 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           (value.without_lovelace(out_value) == expected_output_value)?,
           (block_height_deadline < block_number)?,
           (miner_support_count >= expected_miner_votes)?,
-          (mint
-            |> from_minted_value
-            |> tokens(own_policy)
-            |> builtin.equals_data(expected_mint))?,
+          ((
+            mint
+              |> from_minted_value
+              |> tokens(own_policy)
+          ) == expected_mint)?,
           (out_datum == in_tuna_datum)?,
         }
       }
@@ -795,6 +796,7 @@ validator(tunav2_minting_policy: ByteArray) {
           serialized_miner
             |> builtin.length_of_bytearray()
             |> builtin.less_than_equals_integer(4096),
+          builtin.length_of_bytearray(nonce) <= 32,
         }
       }
 
