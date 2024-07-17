@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "dfb1da91-7ce9-427f-b65b-a6dedab53a34",
+  "id": "b051fed5-1dde-419a-ac35-ca7a3642a698",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "blocks": {
@@ -51,7 +51,28 @@
         },
         "nonce": {
           "name": "nonce",
-          "type": "text(32)",
+          "type": "text(64)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "miner_cred": {
+          "name": "miner_cred",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nft_cred": {
+          "name": "nft_cred",
+          "type": "text(120)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "data": {
+          "name": "data",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

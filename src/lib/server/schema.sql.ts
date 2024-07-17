@@ -8,5 +8,10 @@ export const blocks = sqliteTable('blocks', {
   epochTime: integer('epoch_time').notNull(),
   currentPosixTime: integer('current_posix_time').notNull(),
   // only the genesis block has an undefined nonce
-  nonce: text('nonce', { length: 32 }),
+  nonce: text('nonce', { length: 64 }),
+  // payment key of 28 bytes
+  // NFT max of 60 bytes
+  paymentCred: text('miner_cred'),
+  nftCred: text('nft_cred', { length: 120 }),
+  data: text('data'),
 });
