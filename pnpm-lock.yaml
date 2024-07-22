@@ -12,17 +12,17 @@ importers:
         specifier: ^1.0.1
         version: 1.0.1
       '@blaze-cardano/blueprint':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.2.2
+        version: 0.2.2(rxjs@7.8.1)
       '@blaze-cardano/core':
         specifier: ^0.2.5
         version: 0.2.5
       '@blaze-cardano/sdk':
-        specifier: ^0.0.32
-        version: 0.0.32
+        specifier: ^0.0.37
+        version: 0.0.37(rxjs@7.8.1)
       '@blaze-cardano/tx':
-        specifier: ^0.0.25
-        version: 0.0.25
+        specifier: ^0.0.26
+        version: 0.0.26
       '@blaze-cardano/uplc':
         specifier: ^0.0.8
         version: 0.0.8(rxjs@7.8.1)
@@ -220,8 +220,9 @@ packages:
   '@balena/dockerignore@1.0.2':
     resolution: {integrity: sha512-wMue2Sy4GAVTk6Ic4tJVcnfdau+gx2EnG7S+uAEe+TWJFqE4YoWN4/H8MSLj4eYJKxGg26lZwboEniNiNwZQ6Q==}
 
-  '@blaze-cardano/blueprint@0.0.1':
-    resolution: {integrity: sha512-wmxRpaS+Qh7kYJMCmallyfrgSSONtCNfH1xXP12icUTZvj2jDFSV5Z7A+3og+JEymP87YdmBTRXoLcBRoPBExw==}
+  '@blaze-cardano/blueprint@0.2.2':
+    resolution: {integrity: sha512-DGwrLqRMilkYBp/1i8aMWRUMZxMnLKg+wU3zoC37sbBKc8CsC8OphOR0hoZ/zbBh94Kwyg2MJnvX/+88e/OfCA==}
+    hasBin: true
 
   '@blaze-cardano/core@0.2.5':
     resolution: {integrity: sha512-GHUwO7cGN1OMuv8uWLgnue2VfYAajuvw/AFIPp5GZBrqUApDNMEEz07GBOS8yNnMhR5pGfUJxmMnXILtKGYiJQ==}
@@ -232,11 +233,8 @@ packages:
   '@blaze-cardano/query@0.1.3':
     resolution: {integrity: sha512-C8Q63Tgj/CXlkSpoHSl3DJTv7emZ7rCqfi2hB/14hLYt421u1va46u2OxZRwJuOSKXi21l13St1oOeADSyo75g==}
 
-  '@blaze-cardano/sdk@0.0.32':
-    resolution: {integrity: sha512-Ld7VRlc94pZZYWeB5Z2nK7fubas0+GsC/bY/choYLy9eV5+eIXtGI9yP8BPbCwdzW0El/KHf7fvXWs1v0O2KgQ==}
-
-  '@blaze-cardano/tx@0.0.25':
-    resolution: {integrity: sha512-KSpdme7++ZeCGMOoBMT14fL3sPU8PoysbitEWcq71r2Hj0AgH1TYFYXXpvdbpzBHyVbWiif+ahx2Id0PT4PF1w==}
+  '@blaze-cardano/sdk@0.0.37':
+    resolution: {integrity: sha512-ahaNye44CaPerNnMbMzQUVIcVQqZVn+IHiM3rOvD3wrvtdzQpBG2mL6jDUs47HNY3nGNe/1L1Ukxy2IJHuigYQ==}
 
   '@blaze-cardano/tx@0.0.26':
     resolution: {integrity: sha512-cTXBw+oEgvjJxAjeEMP/GUs80OcoDu+TyvC26ZztjAKof7aPT2pDfeVFz0gckU9iBvZa7O0f0Oh4WBwyvWgnCA==}
@@ -244,8 +242,8 @@ packages:
   '@blaze-cardano/uplc@0.0.8':
     resolution: {integrity: sha512-TUFQv9zqDKpmz3WwL9d0qEtYV6TI+LhneM5/f1krhea/HodMH2g76qabFzQw+aM/qsF9noFqRktgZthTmBC5lg==}
 
-  '@blaze-cardano/wallet@0.1.10':
-    resolution: {integrity: sha512-GxInMzv/9087njqW1zRu440MgqvIbGS+/M7Wz++j5pMjwCrPbwEA29d5lqXYUhf9f3puysiiaJ5ppPbQ1o6ehQ==}
+  '@blaze-cardano/wallet@0.1.11':
+    resolution: {integrity: sha512-M17n7X2BWpby6WNrT6muUjdw28J0OE7GRuajiTX+iPiZ8bs8OqUp8ME/UjGyQQBIfiRoiSjLMa6sk2XPMoHJ/w==}
 
   '@bufbuild/protobuf@1.10.0':
     resolution: {integrity: sha512-QDdVFLoN93Zjg36NoQPZfsVH9tZew7wKDKyV5qRdj8ntT4wQCOradQjRaTdwMhWUYsgKsvCINKKm87FdEk96Ag==}
@@ -346,6 +344,11 @@ packages:
     resolution: {integrity: sha512-OvkMobb1eMqOCuJdbuSin/KJkkZr7n24/UNV+Lcz/0Dhepf3r2p9PaGwpRpAWej7A+gQnny4h8mGhpFl4giKkg==}
     peerDependencies:
       commander: ~12.0.0
+
+  '@commander-js/extra-typings@12.1.0':
+    resolution: {integrity: sha512-wf/lwQvWAA0goIghcb91dQYpkLBcyhOhQNqG/VgWhnKzgt+UOMvra7EX/2fv70arm5RW+PUHoQHHDa6/p77Eqg==}
+    peerDependencies:
+      commander: ~12.1.0
 
   '@connectrpc/connect-node@1.4.0':
     resolution: {integrity: sha512-0ANnrr6SvsjevsWEgdzHy7BaHkluZyS6s4xNoVt7RBHFR5V/kT9lPokoIbYUOU9JHzdRgTaS3x5595mwUsu15g==}
@@ -1744,6 +1747,10 @@ packages:
 
   commander@12.0.0:
     resolution: {integrity: sha512-MwVNWlYjDTtOjX5PiD7o5pK0UrFU/OYgcJfjjK4RaHZETNtjJqrZa9Y9ds88+A+f+d5lv+561eZ+yCKoS3gbAA==}
+    engines: {node: '>=18'}
+
+  commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
 
   commander@2.20.3:
@@ -4068,7 +4075,24 @@ snapshots:
 
   '@balena/dockerignore@1.0.2': {}
 
-  '@blaze-cardano/blueprint@0.0.1': {}
+  '@blaze-cardano/blueprint@0.2.2(rxjs@7.8.1)':
+    dependencies:
+      '@blaze-cardano/core': 0.2.5
+      '@blaze-cardano/tx': 0.0.26
+      '@blaze-cardano/uplc': 0.0.8(rxjs@7.8.1)
+      '@cardano-sdk/core': 0.35.2(rxjs@7.8.1)
+      '@commander-js/extra-typings': 12.1.0(commander@12.1.0)
+      commander: 12.1.0
+    transitivePeerDependencies:
+      - '@dcspark/cardano-multiplatform-lib-asmjs'
+      - '@dcspark/cardano-multiplatform-lib-browser'
+      - '@dcspark/cardano-multiplatform-lib-nodejs'
+      - bufferutil
+      - debug
+      - encoding
+      - rxjs
+      - supports-color
+      - utf-8-validate
 
   '@blaze-cardano/core@0.2.5':
     dependencies:
@@ -4109,13 +4133,13 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@blaze-cardano/sdk@0.0.32':
+  '@blaze-cardano/sdk@0.0.37(rxjs@7.8.1)':
     dependencies:
-      '@blaze-cardano/blueprint': 0.0.1
+      '@blaze-cardano/blueprint': 0.2.2(rxjs@7.8.1)
       '@blaze-cardano/core': 0.2.5
       '@blaze-cardano/query': 0.1.3
-      '@blaze-cardano/tx': 0.0.25
-      '@blaze-cardano/wallet': 0.1.10
+      '@blaze-cardano/tx': 0.0.26
+      '@blaze-cardano/wallet': 0.1.11
     transitivePeerDependencies:
       - '@dcspark/cardano-multiplatform-lib-asmjs'
       - '@dcspark/cardano-multiplatform-lib-browser'
@@ -4123,21 +4147,7 @@ snapshots:
       - bufferutil
       - debug
       - encoding
-      - supports-color
-      - utf-8-validate
-
-  '@blaze-cardano/tx@0.0.25':
-    dependencies:
-      '@blaze-cardano/core': 0.2.5
-      '@sinclair/typebox': 0.32.34
-      uplc-node: 0.0.3
-    transitivePeerDependencies:
-      - '@dcspark/cardano-multiplatform-lib-asmjs'
-      - '@dcspark/cardano-multiplatform-lib-browser'
-      - '@dcspark/cardano-multiplatform-lib-nodejs'
-      - bufferutil
-      - debug
-      - encoding
+      - rxjs
       - supports-color
       - utf-8-validate
 
@@ -4173,11 +4183,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@blaze-cardano/wallet@0.1.10':
+  '@blaze-cardano/wallet@0.1.11':
     dependencies:
       '@blaze-cardano/core': 0.2.5
       '@blaze-cardano/query': 0.1.3
-      '@blaze-cardano/tx': 0.0.25
+      '@blaze-cardano/tx': 0.0.26
     transitivePeerDependencies:
       - '@dcspark/cardano-multiplatform-lib-asmjs'
       - '@dcspark/cardano-multiplatform-lib-browser'
@@ -4354,6 +4364,10 @@ snapshots:
   '@commander-js/extra-typings@12.0.1(commander@12.0.0)':
     dependencies:
       commander: 12.0.0
+
+  '@commander-js/extra-typings@12.1.0(commander@12.1.0)':
+    dependencies:
+      commander: 12.1.0
 
   '@connectrpc/connect-node@1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))':
     dependencies:
@@ -5584,6 +5598,8 @@ snapshots:
       delayed-stream: 1.0.0
 
   commander@12.0.0: {}
+
+  commander@12.1.0: {}
 
   commander@2.20.3: {}
 

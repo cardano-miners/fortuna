@@ -62,10 +62,10 @@
   "type": "module",
   "dependencies": {
     "@aiken-lang/merkle-patricia-forestry": "^1.0.1",
-    "@blaze-cardano/blueprint": "^0.0.1",
+    "@blaze-cardano/blueprint": "^0.2.2",
     "@blaze-cardano/core": "^0.2.5",
-    "@blaze-cardano/sdk": "^0.0.32",
-    "@blaze-cardano/tx": "^0.0.25",
+    "@blaze-cardano/sdk": "^0.0.37",
+    "@blaze-cardano/tx": "^0.0.26",
     "@blaze-cardano/uplc": "^0.0.8",
     "@utxorpc/sdk": "^0.1.0",
     "@utxorpc/spec": "^0.5.1",
