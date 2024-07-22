@@ -1,10 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { translucent, v1TunaAmount } from '$lib/store';
+  import { Data } from '@blaze-cardano/tx';
+  import MaterialSymbolsAddShoppingCartSharp from '~icons/material-symbols/add-shopping-cart-sharp';
+
+  import { blaze, v1TunaAmount, userAddress } from '$lib/store';
+  import * as plutus from '$lib/plutus';
   import UisPadlock from '~icons/uis/padlock';
   import IonFishOutline from '~icons/ion/fish-outline';
-  import MaterialSymbolsAddShoppingCartSharp from '~icons/material-symbols/add-shopping-cart-sharp';
-  import { Constr, Data, fromText } from 'lucid-cardano';
+  import { AssetId } from '@blaze-cardano/core';
+  import {
+    HARD_FORK_HASH,
+    TUNA_ASSET_NAME,
+    V1_TUNA_POLICY_ID,
+    V2_TUNA_POLICY_ID,
+  } from '$lib/constants';
 
   // types
   interface TimeLeft {
@@ -48,34 +57,47 @@
   });
 
   const tunaTx = async () => {
-    const hardforkHash = '';
-    const tunaV1Hash = '';
-    const tunaV2Hash = '';
+    if (!$blaze || !$userAddress) {
+      return;
+    }
 
-    const tunaV2Redeem = new Constr(1, []);
+    const tunaV2Redeem = Data.to('Redeem', plutus.Tunav2Tuna.redeemer);
 
-    const hardforkRedeem = new Constr(1, [0n, $v1TunaAmount]);
+    const hardforkRedeem = Data.to(
+      { Lock: { lockOutputIndex: 0n, lockingAmount: $v1TunaAmount } },
+      plutus.SimplerforkNftFork.redeemer,
+    );
 
-    const lockUtxo = (await $translucent?.utxosAtWithUnit(
-      '',
-      hardforkHash + fromText('lock_state'),
-    ))!;
+    // lock_state
+    const lockStateAssetId = AssetId(HARD_FORK_HASH + '6c6f636b5f7374617465');
 
-    const lockDatum = Data.from(lockUtxo[0].datum!) as Constr<bigint>;
-    const blockheight = lockDatum.fields[0];
-    const currentLocked = lockDatum.fields[1];
+    const tunaV1AssetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
+    const tunaV2AssetId = AssetId(V2_TUNA_POLICY_ID + TUNA_ASSET_NAME);
 
-    const inputUtxos = (await $translucent?.utxosAtWithUnit(
-      await $translucent.wallet.address(),
-      tunaV1Hash + fromText('TUNA'),
-    ))!;
+    const lockUtxo = await $blaze.provider.getUnspentOutputByNFT(lockStateAssetId);
 
-    const outputLockDatum = new Constr(0, [blockheight, currentLocked + $v1TunaAmount]);
+    const lockDatum = Data.from(
+      lockUtxo.output().datum()!.asInlineData()!,
+      plutus.SimplerforkFork._datum,
+    );
+
+    const inputUtxos = await $blaze.provider.getUnspentOutputsWithAsset(
+      $userAddress,
+      tunaV1AssetId,
+    );
+
+    const outputLockDatum = Data.to(
+      {
+        blockHeight: lockDatum.blockHeight,
+        currentLockedTuna: lockDatum.currentLockedTuna + $v1TunaAmount,
+      },
+      plutus.SimplerforkFork._datum,
+    );
 
     // add tuna tx logic or import a function to lock tuna here
-    const lockTx = await $translucent
+    const lockTx = await $blaze
       ?.newTx()
-      .mintAssets({ [tunaV2Hash + fromText('TUNA')]: $v1TunaAmount }, Data.to(tunaV2Redeem))
+      .mintAssets({ [tunaV2Hash + fromText('TUNA')]: $v1TunaAmount }, tunaV2Redeem)
       .collectFrom(lockUtxo, '00')
       .collectFrom(inputUtxos)
       .withdraw('', 0n, Data.to(hardforkRedeem))
@@ -156,10 +178,10 @@
               Lock
             </button>
           {:else}
-            <button class="btn btn-md btn-warning"
-              ><a href={tunaMinswap} target="_blank" class="hidden md:flex">Get v1 $TUNA</a>
-              <a href={tunaMinswap} target="_blank" class="md:hidden">Buy Some</a>
-              <MaterialSymbolsAddShoppingCartSharp class="text-black" /></button>
+            <a href={tunaMinswap} target="_blank" class="btn btn-md btn-warning"
+              ><span class="hidden md:flex">Get v1 $TUNA</span>
+              <span class="md:hidden">Buy Some</span>
+              <MaterialSymbolsAddShoppingCartSharp class="text-black" /></a>
           {/if}
         </div>
         <div class="stat-value text-white">{$v1TunaAmount.toLocaleString('en-US')}</div>

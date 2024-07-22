@@ -27,7 +27,7 @@ type LockState {
 /// The reason this is a withdraw based validator is for the ease of grabbing the redeemer
 /// using the tunav2 validator.
 validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
-  fn nft_fork(redeemer: Data, ctx: ScriptContext) -> Bool {
+  fn nft_fork(redeemer: Data<NftForkAction>, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
     when purpose is {
@@ -170,7 +170,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
     }
   }
 
-  fn fork(_datum, _redeemer, ctx: ScriptContext) -> Bool {
+  fn fork(_datum: Data<LockState>, _redeemer, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
     expect tx.Spend(own_ref) = purpose

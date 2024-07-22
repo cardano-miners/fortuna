@@ -1,17 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fromText, type Cardano } from 'lucid-cardano';
 
   import geroIcon from '$lib/assets/geroicon.png';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
-  import { walletApi, v1TunaAmount, wallet, userAddress, translucent } from '$lib/store';
-  import { V1_TUNA_POLICY_ID } from '$lib/constants';
+  import { v1TunaAmount, wallet, walletApi, walletOption, userAddress, blaze } from '$lib/store';
+  import { TUNA_ASSET_NAME, V1_TUNA_POLICY_ID } from '$lib/constants';
+  import { createBlaze } from '$lib/utils/provider';
+  import { AssetId } from '@blaze-cardano/core';
+  import { Cardano } from '../../app';
 
   let open = false;
 
   let wallets: [string, Cardano['']][] = [];
 
-  // change to the new address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
+  // change to the sew address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
   let tunaMinswap =
     'https://app.minswap.org/pt-BR/swap?currencySymbolA=&tokenNameA=&currencySymbolB=279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a&tokenNameB=54554e41';
 
@@ -34,32 +36,30 @@
   }
 
   async function connect(walletKey: string) {
-    $wallet = window.cardano?.[walletKey];
+    $walletOption = window.cardano?.[walletKey];
 
-    $walletApi = await $wallet?.enable();
+    $walletApi = await $walletOption?.enable();
 
-    $translucent?.selectWallet($walletApi!);
+    $blaze = await createBlaze($walletApi!);
 
     open = false;
   }
 
-  $: if ($walletApi && !$v1TunaAmount) {
+  $: if ($blaze && !$v1TunaAmount) {
     (async () => {
-      //const stakeAddr = await walletApi.getRewardAddresses();
-      //const stakeAddrHex = stakeAddr[0];
+      const addresses = await $blaze.wallet.getUsedAddresses();
 
-      // the stakeAddrHex value needs to be converted to bench32
-      // and passed in the function below replacing userAddr
+      console.log('User addresses:', addresses);
 
-      $userAddress = await $translucent?.wallet.address();
+      $userAddress = addresses[0];
 
-      console.log('User address:', $userAddress);
+      if ($userAddress) {
+        const assetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
 
-      if ($userAddress && $translucent) {
-        const utxos = await $translucent.utxosAt($userAddress);
+        const utxos = await $blaze.provider.getUnspentOutputsWithAsset($userAddress, assetId);
 
         $v1TunaAmount = utxos.reduce((acc, u) => {
-          return acc + (u.assets[V1_TUNA_POLICY_ID + fromText('TUNA')] ?? 0n);
+          return acc + (u.output().amount().multiasset()?.get(assetId) ?? 0n);
         }, 0n);
       }
     })();
@@ -71,8 +71,8 @@
         .filter(([key, value]) => typeof value === 'object' && WalletNames.includes(key))
         .map(([key, value]) => [key, value]);
 
-      for (const [key, walletOption] of wallets) {
-        const isEnabled = await walletOption.isEnabled();
+      for (const [key, walletOpt] of wallets) {
+        const isEnabled = await walletOpt.isEnabled();
 
         if (isEnabled) {
           connect(key);
@@ -83,11 +83,11 @@
   });
 </script>
 
-{#if $walletApi && $wallet}
+{#if $walletOption && $wallet}
   <div class="dropdown dropdown-hover dropdown-left md:dropdown-right md:dropdown-bottom">
     <div tabIndex={0} role="button" class="btn btn-accent btn-outline">
       <img
-        src={$wallet.name === 'GeroWallet' ? geroIcon : $wallet.icon}
+        src={$walletOption.name === 'GeroWallet' ? geroIcon : $walletOption.icon}
         alt="logo"
         class="w-6 h-6 justify-center" />
     </div>
@@ -111,27 +111,25 @@
       {/if}
       {#if $v1TunaAmount > 0}
         <li class="mt-2">
-          <button class="indicator w-full btn btn-sm">
+          <a href="/hardfork" class="indicator w-full btn btn-sm">
             <span class="indicator-item indicator-top indicator-end badge badge-secondary">
               TUNA V2
             </span>
-            <a href="/hardfork">Lock Tuna</a>
-          </button>
+            Lock Tuna
+          </a>
         </li>
       {:else}
         <li class="mt-2">
-          <button class="indicator w-full btn btn-sm">
+          <a href="/mine" class="indicator w-full btn btn-sm">
             <span class="indicator-item indicator-top indicator-end badge badge-secondary">
               Mine Now
             </span>
-            <a href="/mine">Get Tuna</a>
-          </button>
+            Get Tuna
+          </a>
         </li>
 
         <li class="">
-          <button class=" w-full btn btn-sm">
-            <a href={tunaMinswap} target="_blank">Buy on Minswap</a>
-          </button>
+          <a href={tunaMinswap} target="_blank" class=" w-full btn btn-sm">Buy on Minswap</a>
         </li>
       {/if}
 

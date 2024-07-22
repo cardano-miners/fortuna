@@ -57,7 +57,7 @@
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html formatHash(makeTarget(block.target_number, block.leading_zeros))}
+            {@html formatHash(makeTarget(block.targetNumber, block.leadingZeros))}
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -67,7 +67,7 @@
             <div class="badge badge-success">{Math.floor(block.number / 2016 + 1)}</div>
           </div>
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            {intlFormat(block.current_posix_time)}
+            {intlFormat(block.currentPosixTime)}
           </div>
         </div>
       {/each}

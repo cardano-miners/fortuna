@@ -47,7 +47,7 @@
       "redeemer": {
         "title": "redeemer",
         "schema": {
-          "$ref": "#/definitions/Data"
+          "$ref": "#/definitions/hardfork~1hftypes~1NftForkAction"
         }
       },
       "parameters": [
@@ -72,7 +72,7 @@
       "datum": {
         "title": "_datum",
         "schema": {
-          "$ref": "#/definitions/Data"
+          "$ref": "#/definitions/simplerfork~1LockState"
         }
       },
       "redeemer": {
@@ -681,6 +681,38 @@
         }
       ]
     },
+    "hardfork/hftypes/NftForkAction": {
+      "title": "NftForkAction",
+      "anyOf": [
+        {
+          "title": "HardFork",
+          "description": "This action is only run once and it sets up the ability to convert v1 tuna tokens to v2 tuna tokens",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "lock_output_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        },
+        {
+          "title": "Lock",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "title": "lock_output_index",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "locking_amount",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
     "new_spend/MineAction": {
       "title": "MineAction",
       "anyOf": [
@@ -750,6 +782,27 @@
             {
               "title": "extra",
               "$ref": "#/definitions/Data"
+            }
+          ]
+        }
+      ]
+    },
+    "simplerfork/LockState": {
+      "title": "LockState",
+      "description": "Simplified fork with only 2 actions. HardFork current tuna v1 version to v2 version\n and Lock action to lock v1 tokens and mint v2 tokens. This is simpler version that does not have miners'\n input in the hardfork action. This is mainly because there are no current miners anyway.\n Ensures that maximum lockable tuna is equal to emitted tuna at block height",
+      "anyOf": [
+        {
+          "title": "LockState",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "block_height",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "current_locked_tuna",
+              "$ref": "#/definitions/Int"
             }
           ]
         }

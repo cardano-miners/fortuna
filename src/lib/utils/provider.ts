@@ -1,119 +1,145 @@
-import type {
-  DatumHash,
-  RewardAddress,
-  Transaction,
-  TxHash,
-  Provider,
+import {
   ProtocolParameters,
   Address,
-  Credential,
-  UTxO,
-  Assets,
-  Unit,
-  Delegation,
-  OutRef,
-  Datum,
-} from 'lucid-cardano';
-import { PROTOCOL_PARAMETERS_DEFAULT, Lucid, fromHex, toHex, C } from 'lucid-cardano';
+  TransactionUnspentOutput,
+  AssetId,
+  TransactionInput,
+  DatumHash,
+  PlutusData,
+  TransactionId,
+  Transaction,
+  Redeemers,
+  HexBlob,
+} from '@blaze-cardano/core';
+import { Provider, Blaze, WebWallet, CIP30Interface } from '@blaze-cardano/sdk';
 
 export class BrowserProvider implements Provider {
   private readonly baseUrl: string = '/api/provider';
 
-  constructor() {}
-
-  async getProtocolParameters(): Promise<ProtocolParameters> {
-    return new Promise((resolve) => resolve(PROTOCOL_PARAMETERS_DEFAULT));
-  }
-
-  async getUtxos(addressOrCredential: Address | Credential): Promise<UTxO[]> {
-    const isAddress = typeof addressOrCredential === 'string';
-    const queryPredicate = isAddress ? addressOrCredential : addressOrCredential.hash;
-
-    const response = await fetch(`${this.baseUrl}/utxos/${queryPredicate}?isAddress=${isAddress}`);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { utxos }: any = await response.json();
-
-    return this.kupmiosUtxosToUtxos(utxos);
-  }
-
-  getUtxosWithUnit(addressOrCredential: Address | Credential, unit: Unit): Promise<UTxO[]> {
-    throw new Error(
-      `Provider does not implement getUtxosWithUnit: ${addressOrCredential}, ${unit}`,
-    );
-  }
-
-  async getUtxoByUnit(unit: Unit): Promise<UTxO> {
-    throw new Error(`Provider does not implement getUtxoByUnit: ${unit}`);
-  }
-
-  async getUtxosByOutRef(outRefs: OutRef[]): Promise<UTxO[]> {
-    throw new Error(`Provider does not implement getUtxosByOutRef: ${outRefs}`);
-  }
-
-  async getDelegation(rewardAddress: RewardAddress): Promise<Delegation> {
-    throw new Error(`Provider does not implement getDelegation: ${rewardAddress}`);
-  }
-
-  async getDatum(datumHash: DatumHash): Promise<Datum> {
-    throw new Error(`Provider does not implement getDatum: ${datumHash}`);
-  }
-
-  awaitTx(txHash: TxHash, checkInterval = 3000): Promise<boolean> {
-    throw new Error(
-      `Provider does not implement awaitTx(${txHash}, ${checkInterval}), use walletApi directly`,
-    );
-  }
-
-  async submitTx(tx: Transaction): Promise<TxHash> {
-    throw new Error(`Provider does not implement submitTx(${tx}), use walletApi directly`);
-  }
-
-  private kupmiosUtxosToUtxos(utxos: unknown): Promise<UTxO[]> {
-    return Promise.all(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (utxos as any).map(async (utxo: any) => {
-        return {
-          txHash: utxo.transaction_id,
-          outputIndex: parseInt(utxo.output_index),
-          address: utxo.address,
-          assets: (() => {
-            const a: Assets = { lovelace: BigInt(utxo.value.coins) };
-            Object.keys(utxo.value.assets).forEach((unit) => {
-              a[unit.replace('.', '')] = BigInt(utxo.value.assets[unit]);
-            });
-            return a;
-          })(),
-          datumHash: utxo?.datum_type === 'hash' ? utxo.datum_hash : null,
-          datum: utxo?.datum_type === 'inline' ? await this.getDatum(utxo.datum_hash) : null,
-          scriptRef:
-            utxo.script_hash &&
-            (await (async () => {
-              const response = await fetch(`${this.baseUrl}/scripts/${utxo.script_hash}`);
-
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const { script, language }: any = await response.json();
-
-              if (language === 'native') {
-                return { type: 'Native', script };
-              } else if (language === 'plutus:v1') {
-                return {
-                  type: 'PlutusV1',
-                  script: toHex(C.PlutusScript.new(fromHex(script)).to_bytes()),
-                };
-              } else if (language === 'plutus:v2') {
-                return {
-                  type: 'PlutusV2',
-                  script: toHex(C.PlutusScript.new(fromHex(script)).to_bytes()),
-                };
-              }
-            })()),
-        } as UTxO;
+  async getParameters(): Promise<ProtocolParameters> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'getParameters',
       }),
-    );
+    });
+
+    const { parameters } = await res.json<{ parameters: ProtocolParameters }>();
+
+    return parameters;
+  }
+
+  async getUnspentOutputs(address: Address): Promise<TransactionUnspentOutput[]> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'getUnspentOutputs',
+        address: address.toBech32().toString(),
+      }),
+    });
+
+    const { utxos } = await res.json<{ utxos: TransactionUnspentOutput[] }>();
+
+    return utxos;
+  }
+
+  async getUnspentOutputsWithAsset(
+    address: Address,
+    unit: AssetId,
+  ): Promise<TransactionUnspentOutput[]> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'getUnspentOutputsWithAsset',
+        address: address.toBech32().toString(),
+        unit,
+      }),
+    });
+
+    const { utxos } = await res.json<{ utxos: TransactionUnspentOutput[] }>();
+
+    return utxos;
+  }
+
+  async getUnspentOutputByNFT(unit: AssetId): Promise<TransactionUnspentOutput> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'getUnspentOutputByNFT',
+        unit,
+      }),
+    });
+
+    const { utxo } = await res.json<{ utxo: TransactionUnspentOutput }>();
+
+    return utxo;
+  }
+
+  async resolveUnspentOutputs(txIns: TransactionInput[]): Promise<TransactionUnspentOutput[]> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'resolveUnspentOutputs',
+        txIns: txIns.map((txIn) => txIn.toCbor().toString()),
+      }),
+    });
+
+    const { utxos } = await res.json<{ utxos: TransactionUnspentOutput[] }>();
+
+    return utxos;
+  }
+
+  async resolveDatum(datumHash: DatumHash): Promise<PlutusData> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'resolveDatum',
+        datumHash: datumHash.toString(),
+      }),
+    });
+
+    const { datum } = await res.json<{ datum: string }>();
+
+    return PlutusData.fromCbor(HexBlob(datum));
+  }
+
+  awaitTransactionConfirmation(txId: TransactionId, timeout?: number): Promise<boolean> {
+    throw new Error(`Method not implemented. ${txId} ${timeout}`);
+  }
+
+  async postTransactionToChain(tx: Transaction): Promise<TransactionId> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'postTransactionToChain',
+        tx: tx.toCbor().toString(),
+      }),
+    });
+
+    const { txId } = await res.json<{ txId: string }>();
+
+    return TransactionId.fromHexBlob(HexBlob(txId));
+  }
+
+  async evaluateTransaction(
+    tx: Transaction,
+    additionalUtxos: TransactionUnspentOutput[],
+  ): Promise<Redeemers> {
+    const res = await fetch(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'evaluateTransaction',
+        tx: tx.toCbor().toString(),
+        additionalUtxos: additionalUtxos.map((utxo) => utxo.toCbor().toString()),
+      }),
+    });
+
+    const { redeemers } = await res.json<{ redeemers: string }>();
+
+    return Redeemers.fromCbor(HexBlob(redeemers));
   }
 }
 
-export function createTranslucent(): Promise<Lucid> {
-  return Lucid.new(new BrowserProvider());
+export function createBlaze(wallet: CIP30Interface) {
+  return Blaze.from(new BrowserProvider(), new WebWallet(wallet));
 }
