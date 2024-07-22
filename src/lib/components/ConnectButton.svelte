@@ -7,7 +7,7 @@
   import { TUNA_ASSET_NAME, V1_TUNA_POLICY_ID } from '$lib/constants';
   import { createBlaze } from '$lib/utils/provider';
   import { AssetId } from '@blaze-cardano/core';
-  import { Cardano } from '../../app';
+  import type { Cardano } from '../../app';
 
   let open = false;
 

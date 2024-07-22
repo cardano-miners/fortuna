@@ -22,19 +22,17 @@
           target="_blank">Fortuna Channel</a>
       </p>
       <div class="mt-4 flex">
-        <button class=" btn-primary btn btn-sm">
-          <a
-            href="https://discord.gg/Vc3x8N9nz2"
-            target="_blank"
-            class=" inline-block text-white font-bold rounded">Discord</a>
-          <IcBaselineDiscord class="text-white text-xl" /></button>
-        <button class="btn-primary btn btn-sm ml-4"
-          ><a
-            href="https://github.com/aiken-lang/fortuna"
-            target="_blank"
-            class="inline-block text-white font-bold rounded">Fortuna</a>
+        <a href="https://discord.gg/Vc3x8N9nz2" target="_blank" class="btn-primary btn btn-sm">
+          <span class="inline-block text-white font-bold rounded">Discord</span>
+          <IcBaselineDiscord class="text-white text-xl" />
+        </a>
+        <a
+          href="https://github.com/aiken-lang/fortuna"
+          target="_blank"
+          class="btn-primary btn btn-sm ml-4"
+          ><span class="inline-block text-white font-bold rounded">Fortuna</span>
           <OcticonMarkGithub16 class="text-white text-xl" />
-        </button>
+        </a>
       </div>
     </div>
   </section>
@@ -60,15 +58,16 @@
             >{repo.category}</span>
           <p class="mt-2">{repo.description}</p>
           <div class="">
-            <button class="btn btn-primary btn-ghost border border-base-100 btn-sm my-4">
-              <a href={repo.repoLink} class="inline-block text-white font-bold py-2 px-4 rounded"
-                >Repository</a
-              ></button>
+            <a
+              href={repo.repoLink}
+              class="btn btn-primary btn-ghost border border-base-100 btn-sm my-4">
+              <span class="inline-block text-white font-bold py-2 px-4 rounded">Repository</span
+              ></a>
             {#if repo.toolLink}
-              <button class="btn btn-primary btn-ghost border border-base-100 btn-sm my-4">
-                <a href={repo.toolLink} class="inline-block text-white font-bold py-2 px-4 rounded"
-                  >Website</a
-                ></button>
+              <a
+                href={repo.toolLink}
+                class="btn btn-primary btn-ghost border border-base-100 btn-sm my-4">
+                <span class="inline-block text-white font-bold py-2 px-4 rounded">Website</span></a>
             {/if}
           </div>
         </div>
@@ -79,11 +78,8 @@
   <section class="p-6 text-center pb-[10vh]">
     <h2 class="text-4xl mb-4 font-bold text-white">Submit your project</h2>
     <p class="mb-4">Join our community of contributors and help us shape the future of Fortuna.</p>
-    <button class="btn btn-primary"
-      ><a
-        href="https://github.com/aiken-lang/fortuna"
-        target="_blank"
-        class="inline-block text-white font-bold py-2 px-4 rounded">Start Contributing</a>
-    </button>
+    <a href="https://github.com/aiken-lang/fortuna" target="_blank" class="btn btn-primary"
+      ><span class="inline-block text-white font-bold py-2 px-4 rounded">Start Contributing</span>
+    </a>
   </section>
 </div>

@@ -1,13 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Data } from '@blaze-cardano/tx';
+  import {
+    Address,
+    AssetId,
+    HexBlob,
+    PlutusData,
+    RewardAccount,
+    NetworkId,
+    CredentialType,
+    Hash28ByteBase16,
+  } from '@blaze-cardano/core';
+  import { makeValue } from '@blaze-cardano/sdk';
   import MaterialSymbolsAddShoppingCartSharp from '~icons/material-symbols/add-shopping-cart-sharp';
 
   import { blaze, v1TunaAmount, userAddress } from '$lib/store';
   import * as plutus from '$lib/plutus';
   import UisPadlock from '~icons/uis/padlock';
   import IonFishOutline from '~icons/ion/fish-outline';
-  import { AssetId } from '@blaze-cardano/core';
   import {
     HARD_FORK_HASH,
     TUNA_ASSET_NAME,
@@ -61,6 +71,12 @@
       return;
     }
 
+    const forkValidatorAddress = Address.fromBech32('');
+    const rewardAccount = RewardAccount.fromCredential(
+      { type: CredentialType['ScriptHash'], hash: Hash28ByteBase16('') },
+      NetworkId.Mainnet,
+    );
+
     const tunaV2Redeem = Data.to('Redeem', plutus.Tunav2Tuna.redeemer);
 
     const hardforkRedeem = Data.to(
@@ -75,6 +91,10 @@
     const tunaV2AssetId = AssetId(V2_TUNA_POLICY_ID + TUNA_ASSET_NAME);
 
     const lockUtxo = await $blaze.provider.getUnspentOutputByNFT(lockStateAssetId);
+    const lockRedeemer = Data.to(
+      { wrapper: PlutusData.fromCbor(HexBlob('00')) },
+      plutus.SimplerforkFork._redeemer,
+    );
 
     const lockDatum = Data.from(
       lockUtxo.output().datum()!.asInlineData()!,
@@ -86,30 +106,37 @@
       tunaV1AssetId,
     );
 
+    const currentLockedTuna = lockDatum.currentLockedTuna + $v1TunaAmount;
     const outputLockDatum = Data.to(
       {
         blockHeight: lockDatum.blockHeight,
-        currentLockedTuna: lockDatum.currentLockedTuna + $v1TunaAmount,
+        currentLockedTuna,
       },
       plutus.SimplerforkFork._datum,
     );
 
-    // add tuna tx logic or import a function to lock tuna here
     const lockTx = await $blaze
-      ?.newTx()
-      .mintAssets({ [tunaV2Hash + fromText('TUNA')]: $v1TunaAmount }, tunaV2Redeem)
-      .collectFrom(lockUtxo, '00')
-      .collectFrom(inputUtxos)
-      .withdraw('', 0n, Data.to(hardforkRedeem))
-      .payToContract('', Data.to(outputLockDatum), { [hardforkHash + fromText('lock_state')]: 1n })
-      .payToContract('', Data.to(0n), { [tunaV1Hash + fromText('TUNA')]: $v1TunaAmount })
+      .newTransaction()
+      .addMint(
+        AssetId.getPolicyId(tunaV2AssetId),
+        new Map([[AssetId.getAssetName(tunaV2AssetId), $v1TunaAmount]]),
+        tunaV2Redeem,
+      )
+      .addInput(lockUtxo, lockRedeemer)
+      .addInput(inputUtxos[0])
+      .lockAssets(
+        forkValidatorAddress,
+        makeValue(0n, [lockStateAssetId, 1n], [tunaV1AssetId, currentLockedTuna]),
+        outputLockDatum,
+      )
+      .addWithdrawal(rewardAccount, 0n, hardforkRedeem)
       .complete();
 
-    const signed = await lockTx?.sign().complete();
+    const signedLockTx = await $blaze.signTransaction(lockTx);
 
-    await signed?.submit();
+    const lockTxId = await $blaze.wallet.postTransaction(signedLockTx);
 
-    lockTxHash = signed?.toHash();
+    lockTxHash = lockTxId;
   };
 </script>
 

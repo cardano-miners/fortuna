@@ -170,7 +170,7 @@ validator(init_utxo_ref: OutputReference, fortuna_v1_hash: ByteArray) {
     }
   }
 
-  fn fork(_datum: Data<LockState>, _redeemer, ctx: ScriptContext) -> Bool {
+  fn fork(_datum: Data<LockState>, _redeemer: Data<Int>, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
     expect tx.Spend(own_ref) = purpose
