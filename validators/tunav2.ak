@@ -271,13 +271,16 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           |> list.all(
               fn(pair) {
                 let tuna_and_master_tokens_burned =
-                  fn(name) {
-                    builtin.slice_bytearray(0, big_tuna_length, name) == fortuna.token_name || builtin.slice_bytearray(
-                      0,
-                      counter_length,
-                      name,
-                    ) == fortunav2.counter_prefix
-                  }
+                  fn(name) { or {
+                      and {
+                        builtin.slice_bytearray(0, big_tuna_length, name) == fortuna.token_name,
+                        or {
+                          builtin.length_of_bytearray(name) == 4,
+                          builtin.length_of_bytearray(name) == 32,
+                        },
+                      },
+                      builtin.slice_bytearray(0, counter_length, name) == fortunav2.counter_prefix,
+                    } }
 
                 let Pair(name, quantity) = pair
                 quantity < 0 && !tuna_and_master_tokens_burned(name)
