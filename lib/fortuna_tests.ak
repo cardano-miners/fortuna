@@ -162,11 +162,11 @@ test format_found_bytearray_9(random_input via get_bytes_and_difficulty()) {
 }
 
 test get_difficulty_adjustment_1() {
-  get_difficulty_adjustment(1_209_600_000) == (1_209_600_000, 1_209_600_000)
+  get_difficulty_adjustment(epoch_target) == (epoch_target, epoch_target)
 }
 
 test get_difficulty_adjustment_2() {
-  get_difficulty_adjustment(1_200_600_000) == (1_200_600_000, 1_209_600_000)
+  get_difficulty_adjustment(302_000_000) == (302_000_000, epoch_target)
 }
 
 test get_difficulty_adjustment_3() {
@@ -174,7 +174,7 @@ test get_difficulty_adjustment_3() {
 }
 
 test get_difficulty_adjustment_4() {
-  get_difficulty_adjustment(200_000_000) == (1, 4)
+  get_difficulty_adjustment(50_000_000) == (1, 4)
 }
 
 test get_difficulty_adjustment_5(i via epoch_number()) {
@@ -202,6 +202,25 @@ test get_difficulty_adjustment_6(boundaries via epoch_numb_boundary()) {
     lower == (1, 4),
     upper == (4, 1),
   }
+}
+
+test get_difficulty_adjustment_7() {
+  get_difficulty_adjustment(epoch_target * 4) == (4, 1)
+}
+
+test get_difficulty_adjustment_8() {
+  get_difficulty_adjustment(epoch_target / 4) == (1, 4)
+}
+
+test get_difficulty_adjustment_9() {
+  get_difficulty_adjustment(epoch_target * 3) == (
+    epoch_target * 3,
+    epoch_target,
+  )
+}
+
+test get_difficulty_adjustment_10() {
+  get_difficulty_adjustment(epoch_target * 6) == (4, 1)
 }
 
 test get_new_difficulty_1() {

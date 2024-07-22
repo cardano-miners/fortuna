@@ -9,7 +9,7 @@ use aiken/merkle_patricia_forestry.{Proof, from_root, insert}
 use aiken/transaction.{
   InlineDatum, Mint, Output, ScriptContext, Spend, Transaction,
 } as tx
-use aiken/transaction/credential.{Inline, ScriptCredential}
+use aiken/transaction/credential.{Address, Inline, ScriptCredential}
 use aiken/transaction/value.{from_minted_value}
 use fortuna
 use fortuna/parameters.{
@@ -31,8 +31,8 @@ use hardfork/hftypes.{Lock, NftForkAction}
 type TunaSpendAction {
   TokenVoteFor
   TokenVoteAgainst
-  MinerVoteFor(Int, Int)
-  TransitionState(Int)
+  MinerVoteFor { output_index: Int, block_number: Int }
+  TransitionState { block_number: Int }
 }
 
 type Miner {
@@ -71,9 +71,9 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
             Inline(ScriptCredential(fork_script_hash |> builtin.un_b_data)),
           )
 
-        let lock_rdmr = expect_first(redeemers, withdraw_purpose)
-
-        expect Lock { locking_amount, .. }: NftForkAction = lock_rdmr
+        // Check fork contract for locked amount of v1 TUNA
+        expect Lock { locking_amount, .. }: NftForkAction =
+          expect_first(redeemers, withdraw_purpose)
 
         expect [Pair(mint_name, mint_amount)] =
           mint
@@ -82,7 +82,9 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         and {
           mint_name == fortuna.token_name,
+          // Allow for minting that same amount
           mint_amount == locking_amount,
+          // redundant but cheap enough check that I'll just leave it in
           mint_amount > 0,
         }
       }
@@ -92,9 +94,11 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         let minted_names = mint |> from_minted_value |> tokens(own_policy)
 
+        // Fortuna input regardless of version
         let Output { address: spend_address, value: spend_value, .. } =
           resolve_output_reference(inputs, input_ref)
 
+        // Get whatever the current spend cred is
         expect ScriptCredential(spend_cred) = spend_address.payment_credential
 
         let big_tuna_name =
@@ -104,7 +108,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           spend_value |> tokens(own_policy)
 
         let in_token_name =
-          // By ledger rules we should only hit this first if since token names
+          // By ledger rules we should only hit this first since token names
           // are lexographically sorted
           if token2 == big_tuna_name {
             token1
@@ -122,6 +126,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           integer_to_bytes(block_number + 1, "")
             |> bytearray.concat(fortunav2.counter_prefix, _)
 
+        // Minted amount of TUNA halves every halving number
         let halving_exponent = block_number / halving_number
 
         // We don't check the output because we expect the spend script to take care of 
@@ -140,6 +145,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
               ]
             }
 
+          // Here we burn the previous counter and mint the new one
+          // Thus ensuring the minting policy is always aware of the current block number
           if
           expected_in_token_name
             |> builtin.less_than_bytearray(expected_out_token_name){
@@ -171,7 +178,6 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         let valid_cred = ScriptCredential(script_hash)
 
-        // Check contract is executable
         // Mint nomination token
         expect [Pair(nominated_contract_token, 1)] =
           mint |> from_minted_value |> tokens(own_policy)
@@ -182,14 +188,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         let anti_script_hash = flip_hash(script_hash)
 
         expect Interval {
-          upper_bound: IntervalBound {
-            bound_type: Finite(upper_range),
-            is_inclusive: upper_is_inclusive,
-          },
-          lower_bound: IntervalBound {
-            bound_type: Finite(lower_range),
-            is_inclusive: lower_is_inclusive,
-          },
+          upper_bound: IntervalBound { bound_type: Finite(upper_range), .. },
+          lower_bound: IntervalBound { bound_type: Finite(lower_range), .. },
         } = validity_range
 
         let expected_datum =
@@ -218,9 +218,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           address.payment_credential == ScriptCredential(own_policy),
           expected_value == value.without_lovelace(nominated_value),
           expected_datum == nominated_datum,
-          !upper_is_inclusive,
-          lower_is_inclusive,
           upper_range - lower_range <= 180000,
+          // Check contract is executable
           list.any(
             inputs,
             fn(input) { input.output.address.payment_credential == valid_cred },
@@ -263,25 +262,23 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
       }
 
       BurnToken -> {
-        let Transaction { mint, .. } = tx
+        let tuna_and_master_tokens_burned =
+          fn(name) { or {
+              and {
+                builtin.slice_bytearray(0, big_tuna_length, name) == fortuna.token_name,
+                or {
+                  builtin.length_of_bytearray(name) == 4,
+                  builtin.length_of_bytearray(name) == 32,
+                },
+              },
+              builtin.slice_bytearray(0, counter_length, name) == fortunav2.counter_prefix,
+            } }
 
-        mint
+        tx.mint
           |> from_minted_value
           |> tokens(own_policy)
           |> list.all(
               fn(pair) {
-                let tuna_and_master_tokens_burned =
-                  fn(name) { or {
-                      and {
-                        builtin.slice_bytearray(0, big_tuna_length, name) == fortuna.token_name,
-                        or {
-                          builtin.length_of_bytearray(name) == 4,
-                          builtin.length_of_bytearray(name) == 32,
-                        },
-                      },
-                      builtin.slice_bytearray(0, counter_length, name) == fortunav2.counter_prefix,
-                    } }
-
                 let Pair(name, quantity) = pair
                 quantity < 0 && !tuna_and_master_tokens_burned(name)
               },
@@ -409,7 +406,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
       TokenVoteFor -> vote(True, own_ref, tx, dat)
       TokenVoteAgainst -> vote(False, own_ref, tx, dat)
       MinerVoteFor(output_index, block_number) -> {
-        let Transaction { inputs, outputs, mint, .. } = tx
+        let Transaction { inputs, outputs, mint, redeemers, .. } = tx
 
         expect Mining {
           script_hash,
@@ -423,6 +420,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           resolve_output_reference(inputs, own_ref)
 
         expect ScriptCredential(own_hash) = in_address.payment_credential
+
+        let mint_purpose = Mint(own_hash)
 
         let Output {
           address: out_address,
@@ -440,21 +439,26 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
             },
           )
 
+        // Expect Minter is running MineTuna action
+        expect MineTuna { .. }: TunaAction =
+          expect_first(redeemers, mint_purpose)
+
         and {
           in_address == out_address,
           block_height_deadline >= block_number,
-          mint
-            |> from_minted_value
-            |> value.to_dict
-            |> dict.to_pairs
-            |> quantity_of(
-                own_hash,
-                bytearray.concat(
-                  fortunav2.counter_prefix,
-                  block_number_as_bytes,
-                ),
-              )
-            |> builtin.equals_integer(1),
+          (
+            mint
+              |> from_minted_value
+              |> value.to_dict
+              |> dict.to_pairs
+              |> quantity_of(
+                  own_hash,
+                  bytearray.concat(
+                    fortunav2.counter_prefix,
+                    block_number_as_bytes,
+                  ),
+                )
+          ) == 1,
           expected_datum == out_datum,
           value.without_lovelace(in_value) == value.without_lovelace(out_value),
         }
@@ -494,12 +498,27 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
               list.any(
                 reference_inputs,
                 fn(input) {
-                  let Output { value, .. } = input.output
-                  quantity_of(
-                    value |> value.to_dict |> dict.to_pairs,
-                    own_script_hash,
-                    counter_token_name,
-                  ) == 1
+                  let Output { value, address: Address(payment_cred, _), .. } =
+                    input.output
+                  when payment_cred is {
+                    ScriptCredential(hash) -> {
+                      let tuna_name =
+                        bytearray.concat(fortunav2.big_tuna_prefix, hash)
+                      and {
+                        quantity_of(
+                          value |> value.to_dict |> dict.to_pairs,
+                          own_script_hash,
+                          counter_token_name,
+                        ) == 1,
+                        quantity_of(
+                          value |> value.to_dict |> dict.to_pairs,
+                          own_script_hash,
+                          tuna_name,
+                        ) == 1,
+                      }
+                    }
+                    _ -> False
+                  }
                 },
               ),
             } }
@@ -538,19 +557,23 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                   for_count + against_count >= emitted_supply * supply_threshold / 1000,
                 },
                 and {
-                  mint
-                    |> from_minted_value
-                    |> value.to_dict
-                    |> dict.to_pairs
-                    |> quantity_of(
-                        own_script_hash,
-                        bytearray.concat(
-                          fortunav2.nominated_prefix,
-                          script_hash,
-                        ),
-                      )
-                    |> builtin.equals_integer(-1),
-                  for_count < ( for_count + against_count ) * vote_threshold / 1000 || for_count + against_count < emitted_supply * supply_threshold / 1000,
+                  (
+                    mint
+                      |> from_minted_value
+                      |> value.to_dict
+                      |> dict.to_pairs
+                      |> quantity_of(
+                          own_script_hash,
+                          bytearray.concat(
+                            fortunav2.nominated_prefix,
+                            script_hash,
+                          ),
+                        )
+                  ) == -1,
+                  or {
+                    for_count < ( for_count + against_count ) * vote_threshold / 1000,
+                    for_count + against_count < emitted_supply * supply_threshold / 1000,
+                  },
                 },
               },
               deadline < lower_bound,
@@ -563,15 +586,19 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
             or {
               and {
                 miner_support_count < epoch_number * miner_threshold / 1000,
-                mint
-                  |> from_minted_value
-                  |> value.to_dict
-                  |> dict.to_pairs
-                  |> quantity_of(
-                      own_script_hash,
-                      bytearray.concat(fortunav2.nominated_prefix, script_hash),
-                    )
-                  |> builtin.equals_integer(-1),
+                (
+                  mint
+                    |> from_minted_value
+                    |> value.to_dict
+                    |> dict.to_pairs
+                    |> quantity_of(
+                        own_script_hash,
+                        bytearray.concat(
+                          fortunav2.nominated_prefix,
+                          script_hash,
+                        ),
+                      )
+                ) == -1,
                 common_checks(script_hash),
                 block_height_deadline < block_number,
               },

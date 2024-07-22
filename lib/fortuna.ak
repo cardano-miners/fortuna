@@ -1,11 +1,13 @@
 use aiken/builtin
 use aiken/dict
 use aiken/transaction/value.{PolicyId, Value, tokens}
-use fortuna/parameters.{epoch_target, padding}
+use fortuna/parameters.{epoch_target, max_difficulty_adjustment, padding}
 
 pub const master_token_name = "lord tuna"
 
 pub const token_name = "TUNA"
+
+pub const two_byte_max = 65536
 
 pub fn format_found_bytearray(target: ByteArray) -> (Int, Int) {
   let leading_zeros = find_first_nonzero_byte(target, 0)
@@ -92,12 +94,14 @@ pub fn value_contains_master_token(val: Value, own_policy: PolicyId) -> Bool {
 }
 
 pub fn get_difficulty_adjustment(total_epoch_time: Int) -> (Int, Int) {
-  if
-  epoch_target / total_epoch_time >= 4 && epoch_target % total_epoch_time > 0{
-  
-    (1, 4)
-  } else if total_epoch_time / epoch_target >= 4 && total_epoch_time % epoch_target > 0 {
-    (4, 1)
+  if epoch_target >= total_epoch_time * max_difficulty_adjustment {
+    // epoch target was at least 4 times greater than total epoch time
+    // difficulty increases by 4x
+    (1, max_difficulty_adjustment)
+  } else if total_epoch_time / epoch_target >= max_difficulty_adjustment {
+    // epoch target was at least 4 times less than total epoch time
+    // difficulty decreases by 1/4
+    (max_difficulty_adjustment, 1)
   } else {
     (total_epoch_time, epoch_target)
   }
@@ -114,14 +118,16 @@ pub fn get_new_difficulty(
 
   let new_difficulty = new_padded_difficulty / padding
 
-  if new_padded_difficulty / 65536 == 0 {
+  if new_padded_difficulty / two_byte_max == 0 {
     if current_leading_zeros >= 60 {
+      // max difficulty possible
       (4096, 60)
     } else {
       (new_padded_difficulty, current_leading_zeros + 1)
     }
-  } else if new_difficulty / 65536 > 0 {
+  } else if new_difficulty / two_byte_max > 0 {
     if current_leading_zeros <= 2 {
+      // minimum difficulty possible
       (65535, 2)
     } else {
       (new_difficulty / padding, current_leading_zeros - 1)

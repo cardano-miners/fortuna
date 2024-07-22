@@ -47,8 +47,10 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
   // We can ensure this action only runs once.
   expect HardFork { lock_output_index }: NftForkAction = fork_redeemer
 
+  // We can assume the next output is the one we look at
   let tunav2_output = list_at(outputs, lock_output_index + 1)
 
+  // Need to reference Fortuna V1 to get the current state
   expect Some(v1_miner_ref) = {
     let input <- list.find(reference_inputs)
     input.output.value
@@ -58,6 +60,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
       |> builtin.equals_integer(1)
   }
 
+  // The only place where State type is used in the minter
   expect State {
     block_number,
     current_hash,
@@ -68,6 +71,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
     ..
   }: State = get_inline_datum(v1_miner_ref.output.datum)
 
+  // The only place where Statev2 type is used in the minter
   let expected_mine_state: Data =
     Statev2 {
       block_number,
@@ -91,7 +95,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
     )
       |> value.add(
           own_policy,
-          bytearray.concat(counter_prefix, integer_to_bytes(block_number, #"")),
+          bytearray.concat(counter_prefix, integer_to_bytes(block_number, "")),
           1,
         )
 
