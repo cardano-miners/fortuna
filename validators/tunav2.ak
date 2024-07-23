@@ -14,7 +14,7 @@ use aiken/transaction/value.{from_minted_value}
 use fortuna
 use fortuna/parameters.{
   epoch_number, halving_number, initial_payout, miner_threshold,
-  supply_threshold, vote_threshold,
+  miner_voting_period, supply_threshold, vote_threshold,
 }
 use fortuna/types.{
   BurnToken, FinalizeNomination, Genesis, MineTuna, Mining, NominateUpgrade,
@@ -539,7 +539,7 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
                 Mining {
                   script_hash,
                   miner_support_count: 0,
-                  block_height_deadline: block_number + epoch_number,
+                  block_height_deadline: block_number + miner_voting_period,
                 },
               )
 
