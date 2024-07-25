@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 
 import { RequestEvent } from './$types';
 
-import { newKupmios } from '$lib/server/blaze';
+import { newProvider } from '$lib/server/blaze';
 import {
   Address,
   AssetId,
@@ -26,30 +26,30 @@ type ProviderRequest =
   | { method: 'evaluateTransaction'; tx: string; additionalUtxos: string[] };
 
 export async function POST({ request }: RequestEvent) {
-  const allowedOrigin = 'https://minefortuna.com';
+  const allowedOrigin = 'http://localhost:5173';
   const origin = request.headers.get('origin');
 
   if (origin !== allowedOrigin) {
-    return {
+    return json({
       status: 403,
       body: 'Forbidden: Cross-origin requests are not allowed',
-    };
+    });
   }
 
-  const kupmios = newKupmios();
+  const provider = newProvider();
 
   const payload = await request.json<ProviderRequest>();
 
   switch (payload.method) {
     case 'getParameters': {
-      const parameters = await kupmios.getParameters();
+      const parameters = await provider.getParameters();
 
       return json({ parameters });
     }
     case 'getUnspentOutputs': {
       const address = Address.fromBech32(payload.address);
 
-      const utxos = await kupmios.getUnspentOutputs(address);
+      const utxos = await provider.getUnspentOutputs(address);
 
       return json({ utxos });
     }
@@ -57,26 +57,26 @@ export async function POST({ request }: RequestEvent) {
       const address = Address.fromBech32(payload.address);
       const unit = AssetId(payload.unit);
 
-      const utxos = await kupmios.getUnspentOutputsWithAsset(address, unit);
+      const utxos = await provider.getUnspentOutputsWithAsset(address, unit);
 
       return json({ utxos });
     }
     case 'getUnspentOutputByNFT': {
       const unit = AssetId(payload.unit);
 
-      const utxo = await kupmios.getUnspentOutputByNFT(unit);
+      const utxo = await provider.getUnspentOutputByNFT(unit);
 
       return json({ utxo });
     }
     case 'resolveUnspentOutputs': {
       const inputs = payload.inputs.map((input) => TransactionInput.fromCbor(HexBlob(input)));
 
-      const utxos = await kupmios.resolveUnspentOutputs(inputs);
+      const utxos = await provider.resolveUnspentOutputs(inputs);
 
       return json({ utxos });
     }
     case 'resolveDatum': {
-      const datum = await kupmios.resolveDatum(DatumHash(payload.datumHash));
+      const datum = await provider.resolveDatum(DatumHash(payload.datumHash));
 
       return json({ datum: datum.toCbor().toString() });
     }
@@ -86,7 +86,7 @@ export async function POST({ request }: RequestEvent) {
     case 'postTransactionToChain': {
       const tx = Transaction.fromCbor(TxCBOR(payload.tx));
 
-      const txId = await kupmios.postTransactionToChain(tx);
+      const txId = await provider.postTransactionToChain(tx);
 
       return json({ txId: txId.toString() });
     }
@@ -96,7 +96,7 @@ export async function POST({ request }: RequestEvent) {
         TransactionUnspentOutput.fromCbor(HexBlob(utxo)),
       );
 
-      const redeemers = await kupmios.evaluateTransaction(tx, additionalUtxos);
+      const redeemers = await provider.evaluateTransaction(tx, additionalUtxos);
 
       return json({ redeemers: redeemers.toCbor().toString() });
     }

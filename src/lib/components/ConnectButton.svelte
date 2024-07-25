@@ -9,9 +9,9 @@
   import { AssetId } from '@blaze-cardano/core';
   import type { Cardano } from '../../app';
 
-  let open = false;
+  let open = $state(false);
 
-  let wallets: [string, Cardano['']][] = [];
+  let wallets: [string, Cardano['']][] = $state([]);
 
   // change to the sew address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
   let tunaMinswap =
@@ -45,25 +45,27 @@
     open = false;
   }
 
-  $: if ($blaze && !$v1TunaAmount) {
-    (async () => {
-      const addresses = await $blaze.wallet.getUsedAddresses();
+  $effect(() => {
+    async function getTunaBalance() {
+      if ($blaze) {
+        const addresses = await $blaze.wallet.getUnusedAddresses();
 
-      console.log('User addresses:', addresses);
+        $userAddress = addresses[0];
 
-      $userAddress = addresses[0];
+        if ($userAddress) {
+          const assetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
 
-      if ($userAddress) {
-        const assetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
+          const utxos = await $blaze.provider.getUnspentOutputsWithAsset($userAddress, assetId);
 
-        const utxos = await $blaze.provider.getUnspentOutputsWithAsset($userAddress, assetId);
-
-        $v1TunaAmount = utxos.reduce((acc, u) => {
-          return acc + (u.output().amount().multiasset()?.get(assetId) ?? 0n);
-        }, 0n);
+          $v1TunaAmount = utxos.reduce((acc, u) => {
+            return acc + (u.output().amount().multiasset()?.get(assetId) ?? 0n);
+          }, 0n);
+        }
       }
-    })();
-  }
+    }
+
+    getTunaBalance();
+  });
 
   onMount(async () => {
     if (typeof window.cardano !== 'undefined') {
@@ -83,7 +85,7 @@
   });
 </script>
 
-{#if $walletOption && $wallet}
+{#if $walletOption}
   <div class="dropdown dropdown-hover dropdown-left md:dropdown-right md:dropdown-bottom">
     <div tabIndex={0} role="button" class="btn btn-accent btn-outline">
       <img
@@ -134,14 +136,14 @@
       {/if}
 
       <li class="mt-4">
-        <button class="btn btn-danger" on:click={disconnect}>Disconnect</button>
+        <button class="btn btn-danger" onclick={disconnect}>Disconnect</button>
       </li>
     </ul>
   </div>
 {:else}
   <button
     class="btn btn-primary"
-    on:click={() => {
+    onclick={() => {
       open = true;
     }}>Connect</button>
   <dialog id="my_modal_1" class="modal modal-middle" {open}>
@@ -151,7 +153,7 @@
       {#each wallets as [key, value]}
         <button
           class="btn btn-ghost flex items-center justify-center gap-2"
-          on:click={(e) => {
+          onclick={(e) => {
             e.preventDefault();
 
             connect(key);
@@ -168,7 +170,7 @@
         <form method="dialog">
           <button
             class="btn"
-            on:click={() => {
+            onclick={() => {
               open = false;
             }}>Close</button>
         </form>
@@ -176,7 +178,7 @@
     </div>
     <form method="dialog" class="modal-backdrop">
       <button
-        on:click={() => {
+        onclick={() => {
           open = false;
         }}>close</button>
     </form>
