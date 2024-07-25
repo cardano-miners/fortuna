@@ -29,7 +29,6 @@
     "@types/d3-shape": "^3.1.6",
     "@types/eslint": "^8.56.0",
     "@types/node": "^20.11.24",
-    "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "autoprefixer": "^10.4.17",
@@ -53,8 +52,6 @@
     "typescript": "^5.0.0",
     "unplugin-icons": "^0.18.5",
     "vite": "^5.2.8",
-    "vite-plugin-node-polyfills": "^0.21.0",
-    "vite-plugin-top-level-await": "^1.4.1",
     "vite-plugin-wasm": "^3.3.0",
     "vitest": "^1.4.0",
     "wrangler": "^3.63.1"
@@ -62,14 +59,16 @@
   "type": "module",
   "dependencies": {
     "@aiken-lang/merkle-patricia-forestry": "^1.0.1",
-    "@blaze-cardano/blueprint": "^0.2.2",
-    "@blaze-cardano/core": "^0.2.5",
-    "@blaze-cardano/sdk": "^0.0.37",
-    "@blaze-cardano/tx": "^0.0.26",
+    "@blaze-cardano/blueprint": "^0.2.6",
+    "@blaze-cardano/core": "^0.2.7",
+    "@blaze-cardano/query": "^0.1.7",
+    "@blaze-cardano/sdk": "^0.0.43",
+    "@blaze-cardano/tx": "^0.0.29",
     "@blaze-cardano/uplc": "^0.0.8",
+    "@blaze-cardano/wallet": "^0.1.16",
     "@utxorpc/sdk": "^0.1.0",
     "@utxorpc/spec": "^0.5.1",
-    "blakejs": "^1.2.1",
+    "buffer": "^6.0.3",
     "d3-array": "^3.2.4",
     "d3-scale": "^4.0.2",
     "d3-shape": "^3.2.0",
@@ -77,7 +76,7 @@
     "drizzle-orm": "^0.31.2",
     "layerchart": "^0.34.0",
     "postgres": "^3.4.4",
-    "ws": "^8.16.0"
+    "uplc-web": "^0.0.3"
   },
   "browser": {
     "fs": false,
