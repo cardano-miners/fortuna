@@ -52,6 +52,7 @@
     "typescript": "^5.0.0",
     "unplugin-icons": "^0.18.5",
     "vite": "^5.2.8",
+    "vite-plugin-node-polyfills": "^0.22.0",
     "vite-plugin-wasm": "^3.3.0",
     "vitest": "^1.4.0",
     "wrangler": "^3.63.1"
