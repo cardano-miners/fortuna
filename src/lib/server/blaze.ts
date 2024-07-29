@@ -1,34 +1,4 @@
-import { Provider } from '@blaze-cardano/query';
-
 import { BLOCKFROST_URL } from '$env/static/private';
-import {
-  Address,
-  CostModels,
-  ProtocolParameters,
-  TransactionUnspentOutput,
-  AssetId,
-  TransactionInput,
-  PlutusData,
-  DatumHash,
-  HexBlob,
-  TransactionId,
-  Transaction,
-  fromHex,
-  Redeemers,
-  Redeemer,
-  ExUnits,
-  ScriptHash,
-  Script,
-  PlutusV1Script,
-  PlutusV2Script,
-  TokenMap,
-  TransactionOutput,
-  Value,
-  Datum,
-  Hash28ByteBase16,
-  RedeemerTag,
-  PlutusLanguageVersion,
-} from '@blaze-cardano/core';
 
 export function newProvider() {
   const provider = new Blockfrost(BLOCKFROST_URL);
@@ -36,7 +6,7 @@ export function newProvider() {
   return provider;
 }
 
-export class Blockfrost implements Provider {
+export class Blockfrost {
   url: string;
 
   constructor(url: string) {
@@ -50,66 +20,10 @@ export class Blockfrost implements Provider {
    * If the response is not in the expected format, an error is thrown.
    * @returns A Promise that resolves to a ProtocolParameters object.
    */
-  async getParameters(): Promise<ProtocolParameters> {
+  async getParameters(): Promise<Response> {
     const query = '/epochs/latest/parameters';
-    const json = await fetch(`${this.url}${query}`).then((resp) => resp.json());
 
-    if (!json) {
-      throw new Error('getParameters: Could not parse response json');
-    }
-
-    const response = json as BlockfrostResponse<BlockfrostProtocolParametersResponse>;
-
-    if ('message' in response) {
-      throw new Error(`getParameters: Blockfrost threw "${response.message}"`);
-    }
-    // Build cost models
-    const costModels: CostModels = new Map();
-    for (const cm of Object.keys(response.cost_models) as BlockfrostLanguageVersions[]) {
-      const costModel: number[] = [];
-      const keys = Object.keys(response.cost_models[cm]).sort();
-      for (const key of keys) {
-        costModel.push(response.cost_models[cm][key]!);
-      }
-      costModels.set(fromBlockfrostLanguageVersion(cm), costModel);
-    }
-
-    return {
-      coinsPerUtxoByte: response.coins_per_utxo_size,
-      maxTxSize: response.max_tx_size,
-      minFeeCoefficient: response.min_fee_a,
-      minFeeConstant: response.min_fee_b,
-      maxBlockBodySize: response.max_block_size,
-      maxBlockHeaderSize: response.max_block_header_size,
-      stakeKeyDeposit: response.key_deposit,
-      poolDeposit: response.pool_deposit,
-      poolRetirementEpochBound: response.e_max,
-      desiredNumberOfPools: response.n_opt,
-      poolInfluence: response.a0,
-      monetaryExpansion: response.rho,
-      treasuryExpansion: response.tau,
-      minPoolCost: response.min_pool_cost,
-      protocolVersion: {
-        major: response.protocol_major_ver,
-        minor: response.protocol_minor_ver,
-      },
-      maxValueSize: response.max_val_size,
-      collateralPercentage: response.collateral_percent / 100,
-      maxCollateralInputs: response.max_collateral_inputs,
-      costModels: costModels,
-      prices: {
-        memory: parseFloat(response.price_mem),
-        steps: parseFloat(response.price_step),
-      },
-      maxExecutionUnitsPerTransaction: {
-        memory: response.max_tx_ex_mem,
-        steps: response.max_tx_ex_steps,
-      },
-      maxExecutionUnitsPerBlock: {
-        memory: response.max_block_ex_mem,
-        steps: response.max_block_ex_steps,
-      },
-    };
+    return fetch(`${this.url}${query}`);
   }
 
   /**
@@ -120,16 +34,12 @@ export class Blockfrost implements Provider {
    * @param address - The Address or Payment Credential
    * @returns A Promise that resolves to TransactionUnspentOutput[].
    */
-  async getUnspentOutputs(address: Address): Promise<TransactionUnspentOutput[]> {
+  async getUnspentOutputs(bech32: string): Promise<BlockfrostUTxO[]> {
     // 100 per page is max allowed by Blockfrost
     const maxPageCount = 100;
     let page = 1;
 
-    const bech32 = address.toBech32();
-
-    const buildTxUnspentOutput = this.buildTransactionUnspentOutput(Address.fromBech32(bech32));
-
-    const results: Set<TransactionUnspentOutput> = new Set();
+    const results: Set<BlockfrostUTxO> = new Set();
 
     for (;;) {
       const pagination = `count=${maxPageCount}&page=${page}`;
@@ -147,7 +57,11 @@ export class Blockfrost implements Provider {
       }
 
       for (const blockfrostUTxO of response) {
-        results.add(await buildTxUnspentOutput(blockfrostUTxO));
+        if (blockfrostUTxO.reference_script_hash) {
+          blockfrostUTxO.script_ref = await this.getScriptRef(blockfrostUTxO.reference_script_hash);
+        }
+
+        results.add(blockfrostUTxO);
       }
 
       if (response.length < maxPageCount) {
@@ -170,21 +84,12 @@ export class Blockfrost implements Provider {
    * @param unit - The AssetId
    * @returns A Promise that resolves to TransactionUnspentOutput[].
    */
-  async getUnspentOutputsWithAsset(
-    address: Address,
-    unit: AssetId,
-  ): Promise<TransactionUnspentOutput[]> {
+  async getUnspentOutputsWithAsset(bech32: string, asset: string): Promise<BlockfrostUTxO[]> {
     // 100 per page is max allowed by Blockfrost
     const maxPageCount = 100;
     let page = 1;
 
-    const bech32 = address.toBech32();
-
-    const buildTxUnspentOutput = this.buildTransactionUnspentOutput(Address.fromBech32(bech32));
-
-    const asset = AssetId.getPolicyId(unit) + AssetId.getAssetName(unit);
-
-    const results: Set<TransactionUnspentOutput> = new Set();
+    const results: Set<BlockfrostUTxO> = new Set();
 
     for (;;) {
       const pagination = `count=${maxPageCount}&page=${page}`;
@@ -202,7 +107,11 @@ export class Blockfrost implements Provider {
       }
 
       for (const blockfrostUTxO of response) {
-        results.add(await buildTxUnspentOutput(blockfrostUTxO));
+        if (blockfrostUTxO.reference_script_hash) {
+          blockfrostUTxO.script_ref = await this.getScriptRef(blockfrostUTxO.reference_script_hash);
+        }
+
+        results.add(blockfrostUTxO);
       }
 
       if (response.length < maxPageCount) {
@@ -224,8 +133,7 @@ export class Blockfrost implements Provider {
    * @param nft - The AssetId for the NFT
    * @returns A Promise that resolves to TransactionUnspentOutput.
    */
-  async getUnspentOutputByNFT(nft: AssetId): Promise<TransactionUnspentOutput> {
-    const asset = AssetId.getPolicyId(nft) + AssetId.getAssetName(nft);
+  async getUnspentOutputByNFT(asset: string): Promise<BlockfrostUTxO> {
     // Fetch addresses holding the asset. Since it's an NFT, a single
     // address is expected to be returned
     const query = `/assets/${asset}/addresses`;
@@ -248,9 +156,9 @@ export class Blockfrost implements Provider {
     }
 
     const utxo = response[0] as BlockfrostAssetAddress;
-    const address = Address.fromBech32(utxo.address);
     // A second call to Blockfrost is needed in order to fetch utxo information
-    const utxos = await this.getUnspentOutputsWithAsset(address, nft);
+    const utxos = await this.getUnspentOutputsWithAsset(utxo.address, asset);
+
     // Ensures a single UTxO holds the asset
     if (utxos.length !== 1) {
       throw new Error(
@@ -270,11 +178,13 @@ export class Blockfrost implements Provider {
    * @param txIns - A list of TransactionInput
    * @returns A Promise that resolves to TransactionUnspentOutput[].
    */
-  async resolveUnspentOutputs(txIns: TransactionInput[]): Promise<TransactionUnspentOutput[]> {
-    const results: Set<TransactionUnspentOutput> = new Set();
+  async resolveUnspentOutputs(
+    txIns: { transactionId: string; index: number }[],
+  ): Promise<BlockfrostUTxO[]> {
+    const results: Set<BlockfrostUTxO> = new Set();
 
     for (const txIn of txIns) {
-      const query = `/txs/${txIn.transactionId()}/utxos`;
+      const query = `/txs/${txIn.transactionId}/utxos`;
       const json = await fetch(`${this.url}${query}`).then((resp) => resp.json());
 
       if (!json) {
@@ -287,7 +197,7 @@ export class Blockfrost implements Provider {
         throw new Error(`resolveUnspentOutputs: Blockfrost threw "${response.message}"`);
       }
 
-      const txIndex = BigInt(txIn.index());
+      const txIndex = BigInt(txIn.index);
 
       for (const blockfrostUTxO of response.outputs) {
         if (BigInt(blockfrostUTxO.output_index) !== txIndex) {
@@ -295,14 +205,15 @@ export class Blockfrost implements Provider {
           // the index we are looking for
           continue;
         }
+
         // Blockfrost API does not return tx hash, so it must be manually set
-        blockfrostUTxO.tx_hash = txIn.transactionId();
+        blockfrostUTxO.tx_hash = txIn.transactionId;
 
-        const buildTxUnspentOutput = this.buildTransactionUnspentOutput(
-          Address.fromBech32(blockfrostUTxO.address),
-        );
+        if (blockfrostUTxO.reference_script_hash) {
+          blockfrostUTxO.script_ref = await this.getScriptRef(blockfrostUTxO.reference_script_hash);
+        }
 
-        results.add(await buildTxUnspentOutput(blockfrostUTxO));
+        results.add(blockfrostUTxO);
       }
     }
 
@@ -316,7 +227,7 @@ export class Blockfrost implements Provider {
    * @param datumHash - The hash of a datum
    * @returns A Promise that resolves to PlutusData
    */
-  async resolveDatum(datumHash: DatumHash): Promise<PlutusData> {
+  async resolveDatum(datumHash: string): Promise<string> {
     const query = `/scripts/datum/${datumHash}/cbor`;
     const json = await fetch(`${this.url}${query}`).then((resp) => resp.json());
 
@@ -330,7 +241,7 @@ export class Blockfrost implements Provider {
       throw new Error(`resolveDatum: Blockfrost threw "${response.message}"`);
     }
 
-    return PlutusData.fromCbor(HexBlob(response.cbor));
+    return response.cbor;
   }
 
   /**
@@ -346,39 +257,12 @@ export class Blockfrost implements Provider {
    * value should be greater than average block time of 20000 ms
    * @returns A Promise that resolves to a boolean
    */
-  async awaitTransactionConfirmation(txId: TransactionId, timeout?: number): Promise<boolean> {
-    const averageBlockTime = 20_000;
-
-    if (timeout && timeout < averageBlockTime) {
-      console.log('Warning: timeout given is less than average block time.');
-    }
-
+  async awaitTransactionConfirmation(txId: string): Promise<boolean> {
     const query = `/txs/${txId}/metadata/cbor`;
-    const startTime = Date.now();
 
-    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const response = await fetch(`${this.url}${query}`);
 
-    const checkConfirmation = async () => {
-      const response = await fetch(`${this.url}${query}`);
-
-      return response.ok;
-    };
-
-    if (await checkConfirmation()) {
-      return true;
-    }
-
-    if (timeout) {
-      while (Date.now() - startTime < timeout) {
-        await delay(averageBlockTime);
-
-        if (await checkConfirmation()) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+    return response.ok;
   }
 
   /**
@@ -386,7 +270,7 @@ export class Blockfrost implements Provider {
    * @param tx - The Transaction
    * @returns A Promise that resolves to a TransactionId type
    */
-  async postTransactionToChain(tx: Transaction): Promise<TransactionId> {
+  async postTransactionToChain(tx: string): Promise<string> {
     const query = '/tx/submit';
     const response = await fetch(`${this.url}${query}`, {
       method: 'POST',
@@ -394,7 +278,7 @@ export class Blockfrost implements Provider {
         'Content-Type': 'application/cbor',
         Accept: 'text/plain',
       },
-      body: fromHex(tx.toCbor()),
+      body: tx,
     });
 
     if (!response.ok) {
@@ -406,7 +290,8 @@ export class Blockfrost implements Provider {
     }
 
     const txId = await response.text();
-    return TransactionId(txId);
+
+    return txId;
   }
 
   /**
@@ -420,41 +305,17 @@ export class Blockfrost implements Provider {
    * @returns A Promise that resolves to a Redeemers type
    */
   async evaluateTransaction(
-    tx: Transaction,
-    additionalUtxos?: TransactionUnspentOutput[],
-  ): Promise<Redeemers> {
-    const currentRedeemers = tx.witnessSet().redeemers()?.values();
-    if (!currentRedeemers || currentRedeemers.length === 0) {
-      throw new Error(`evaluateTransaction: No Redeemers found in transaction"`);
-    }
-
-    const additionalUtxoSet = new Set();
-    for (const utxo of additionalUtxos || []) {
-      const txIn = {
-        txId: utxo.input().transactionId(),
-        index: utxo.input().index(),
-      };
-
-      const output = utxo.output();
-      const value = output.amount();
-
-      const txOut = {
-        address: output.address(),
-        value: {
-          coins: value.coin(),
-          assets: value.multiasset(),
-        },
-        datum_hash: output.datum()?.asDataHash(),
-        datum: output.datum()?.asInlineData()?.toCbor(),
-        script: output.scriptRef()?.toCbor(),
-      };
-
-      additionalUtxoSet.add([txIn, txOut]);
-    }
-
+    tx: string,
+    additionalUtxos?: string[],
+  ): Promise<{
+    [key: string]: {
+      memory: number;
+      steps: number;
+    };
+  }> {
     const payload = {
-      cbor: tx.toCbor(),
-      additionalUtxoset: Array.from(additionalUtxoSet),
+      cbor: tx,
+      additionalUtxoset: additionalUtxos ?? [],
     };
 
     const query = '/utils/txs/evaluate/utxos';
@@ -481,40 +342,16 @@ export class Blockfrost implements Provider {
       throw new Error(`evaluateTransaction: Blockfrost threw "${json.message}"`);
     }
 
-    const evaledRedeemers: Set<Redeemer> = new Set();
-
     if (!('EvaluationResult' in json.result)) {
       throw new Error(`evaluateTransaction: Blockfrost endpoint returned evaluation failure.`);
     }
-    const result = json.result.EvaluationResult;
-    for (const redeemerPointer in result) {
-      const [pTag, pIndex] = redeemerPointer.split(':');
-      const purpose = purposeFromTag(pTag!);
-      const index = BigInt(pIndex!);
-      const data = result[redeemerPointer]!;
-      const exUnits = ExUnits.fromCore({
-        memory: data.memory,
-        steps: data.steps,
-      });
 
-      const redeemer = currentRedeemers!.find(
-        (x: Redeemer) => x.tag() == purpose && x.index() == index,
-      );
-
-      if (!redeemer) {
-        throw new Error('evaluateTransaction: Blockfrost endpoint had extraneous redeemer data');
-      }
-      // Manually set exUnits for redeemer
-      redeemer.setExUnits(exUnits);
-      // Add redeemer to result set
-      evaledRedeemers.add(redeemer);
-    }
-
-    // Build return value from evaluated result set
-    return Redeemers.fromCore(Array.from(evaledRedeemers).map((x) => x.toCore()));
+    return json.result.EvaluationResult;
   }
 
-  private async getScriptRef(scriptHash: ScriptHash): Promise<Script> {
+  private async getScriptRef(
+    scriptHash: string,
+  ): Promise<{ type: 'plutusV1' | 'plutusV2'; cbor: string }> {
     const typeQuery = `/scripts/${scriptHash}`;
     const typeJson = await fetch(`${this.url}${typeQuery}`).then((resp) => resp.json());
 
@@ -550,86 +387,13 @@ export class Blockfrost implements Provider {
       throw new Error(`getScriptRef: Blockfrost threw "${cborResponse.message}"`);
     }
 
-    const cbor = HexBlob(cborResponse.cbor);
+    const cbor = cborResponse.cbor;
 
-    switch (type) {
-      case 'plutusV1':
-        return Script.newPlutusV1Script(new PlutusV1Script(cbor));
-      case 'plutusV2':
-        return Script.newPlutusV2Script(new PlutusV2Script(cbor));
-    }
-  }
-
-  // Partially applies address in order to avoid sending it
-  // as argument repeatedly when building TransactionUnspentOutput
-  private buildTransactionUnspentOutput(
-    address: Address,
-  ): (blockfrostUTxO: BlockfrostUTxO) => Promise<TransactionUnspentOutput> {
-    return async (blockfrostUTxO) => {
-      const txIn = new TransactionInput(
-        TransactionId(blockfrostUTxO.tx_hash),
-        BigInt(blockfrostUTxO.output_index),
-      );
-      // No tx output CBOR available from Blockfrost,
-      // so TransactionOutput must be manually constructed.
-      const tokenMap: TokenMap = new Map<AssetId, bigint>();
-      let lovelace = 0n;
-      for (const { unit, quantity } of blockfrostUTxO.amount) {
-        if (unit === 'lovelace') {
-          lovelace = BigInt(quantity);
-        } else {
-          tokenMap.set(unit as AssetId, BigInt(quantity));
-        }
-      }
-      const txOut = new TransactionOutput(address, new Value(lovelace, tokenMap));
-      const datum = blockfrostUTxO.inline_datum
-        ? Datum.newInlineData(PlutusData.fromCbor(HexBlob(blockfrostUTxO.inline_datum)))
-        : blockfrostUTxO.data_hash
-          ? Datum.newDataHash(DatumHash(blockfrostUTxO.data_hash))
-          : undefined;
-      if (datum) txOut.setDatum(datum);
-      if (blockfrostUTxO.reference_script_hash)
-        txOut.setScriptRef(
-          await this.getScriptRef(Hash28ByteBase16(blockfrostUTxO.reference_script_hash)),
-        );
-      return new TransactionUnspentOutput(txIn, txOut);
-    };
-  }
-}
-
-// builds proper type from string result from Blockfrost API
-function purposeFromTag(tag: string): RedeemerTag {
-  const tagMap: { [key: string]: RedeemerTag } = {
-    spend: RedeemerTag.Spend,
-    mint: RedeemerTag.Mint,
-    cert: RedeemerTag.Cert,
-    reward: RedeemerTag.Reward,
-    voting: RedeemerTag.Voting,
-    proposing: RedeemerTag.Proposing,
-  };
-
-  const normalizedTag = tag.toLowerCase();
-
-  if (normalizedTag in tagMap) {
-    return tagMap[normalizedTag]!;
-  } else {
-    throw new Error(`Invalid tag: ${tag}.`);
+    return { type, cbor };
   }
 }
 
 type BlockfrostLanguageVersions = 'PlutusV1' | 'PlutusV2' | 'PlutusV3';
-export const fromBlockfrostLanguageVersion = (
-  x: BlockfrostLanguageVersions,
-): PlutusLanguageVersion => {
-  if (x == 'PlutusV1') {
-    return PlutusLanguageVersion.V1;
-  } else if (x == 'PlutusV2') {
-    return PlutusLanguageVersion.V2;
-  } else if (x == 'PlutusV3') {
-    return PlutusLanguageVersion.V3;
-  }
-  throw new Error('fromBlockfrostLanguageVersion: Unreachable!');
-};
 
 export interface BlockfrostProtocolParametersResponse {
   epoch: number;
@@ -679,6 +443,7 @@ interface BlockfrostUTxO {
   data_hash?: string;
   inline_datum?: string;
   reference_script_hash?: string;
+  script_ref?: { type: 'plutusV1' | 'plutusV2'; cbor: string };
 }
 
 interface BlockfrostAssetAddress {

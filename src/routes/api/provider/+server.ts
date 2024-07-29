@@ -3,30 +3,20 @@ import { json } from '@sveltejs/kit';
 import { RequestEvent } from './$types';
 
 import { newProvider } from '$lib/server/blaze';
-import {
-  Address,
-  AssetId,
-  DatumHash,
-  HexBlob,
-  Transaction,
-  TransactionInput,
-  TransactionUnspentOutput,
-  TxCBOR,
-} from '@blaze-cardano/core';
 
 type ProviderRequest =
   | { method: 'getParameters' }
   | { method: 'getUnspentOutputs'; address: string }
   | { method: 'getUnspentOutputsWithAsset'; address: string; unit: string }
   | { method: 'getUnspentOutputByNFT'; unit: string }
-  | { method: 'resolveUnspentOutputs'; inputs: string[] }
+  | { method: 'resolveUnspentOutputs'; inputs: { transactionId: string; index: number }[] }
   | { method: 'resolveDatum'; datumHash: string }
-  | { method: 'awaitTransactionConfirmation'; txId: string; timeout?: number }
+  | { method: 'awaitTransactionConfirmation'; txId: string }
   | { method: 'postTransactionToChain'; tx: string }
   | { method: 'evaluateTransaction'; tx: string; additionalUtxos: string[] };
 
 export async function POST({ request }: RequestEvent) {
-  const allowedOrigin = 'http://localhost:5173';
+  const allowedOrigin = 'https://minefortuna.com';
   const origin = request.headers.get('origin');
 
   if (origin !== allowedOrigin) {
@@ -42,63 +32,47 @@ export async function POST({ request }: RequestEvent) {
 
   switch (payload.method) {
     case 'getParameters': {
-      const parameters = await provider.getParameters();
-
-      return json({ parameters });
+      return provider.getParameters();
     }
     case 'getUnspentOutputs': {
-      const address = Address.fromBech32(payload.address);
-
-      const utxos = await provider.getUnspentOutputs(address);
+      const utxos = await provider.getUnspentOutputs(payload.address);
 
       return json({ utxos });
     }
     case 'getUnspentOutputsWithAsset': {
-      const address = Address.fromBech32(payload.address);
-      const unit = AssetId(payload.unit);
-
-      const utxos = await provider.getUnspentOutputsWithAsset(address, unit);
+      const utxos = await provider.getUnspentOutputsWithAsset(payload.address, payload.unit);
 
       return json({ utxos });
     }
     case 'getUnspentOutputByNFT': {
-      const unit = AssetId(payload.unit);
-
-      const utxo = await provider.getUnspentOutputByNFT(unit);
+      const utxo = await provider.getUnspentOutputByNFT(payload.unit);
 
       return json({ utxo });
     }
     case 'resolveUnspentOutputs': {
-      const inputs = payload.inputs.map((input) => TransactionInput.fromCbor(HexBlob(input)));
-
-      const utxos = await provider.resolveUnspentOutputs(inputs);
+      const utxos = await provider.resolveUnspentOutputs(payload.inputs);
 
       return json({ utxos });
     }
     case 'resolveDatum': {
-      const datum = await provider.resolveDatum(DatumHash(payload.datumHash));
+      const datum = await provider.resolveDatum(payload.datumHash);
 
-      return json({ datum: datum.toCbor().toString() });
+      return json({ datum });
     }
     case 'awaitTransactionConfirmation': {
-      return json({});
+      const answer = await provider.awaitTransactionConfirmation(payload.txId);
+
+      return json({ answer });
     }
     case 'postTransactionToChain': {
-      const tx = Transaction.fromCbor(TxCBOR(payload.tx));
-
-      const txId = await provider.postTransactionToChain(tx);
+      const txId = await provider.postTransactionToChain(payload.tx);
 
       return json({ txId: txId.toString() });
     }
     case 'evaluateTransaction': {
-      const tx = Transaction.fromCbor(TxCBOR(payload.tx));
-      const additionalUtxos = payload.additionalUtxos.map((utxo) =>
-        TransactionUnspentOutput.fromCbor(HexBlob(utxo)),
-      );
+      const redeemers = await provider.evaluateTransaction(payload.tx, payload.additionalUtxos);
 
-      const redeemers = await provider.evaluateTransaction(tx, additionalUtxos);
-
-      return json({ redeemers: redeemers.toCbor().toString() });
+      return json({ redeemers });
     }
     default:
       return json({ error: 'Method not found' });
