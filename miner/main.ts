@@ -79,7 +79,7 @@ type GenesisV3 = {
 
 const delay = (ms: number | undefined) => new Promise((res) => setTimeout(res, ms));
 const epochNumber = 50n;
-const twoWeeks = 1_209_600_000n;
+const twoWeeks = 30_000_000n;
 const halvingNumber = 210000n;
 
 const app = new Command();
@@ -1138,8 +1138,8 @@ app
       },
     });
     let nextToken: BlockRef | undefined = new BlockRef({
-      index: 54103735n,
-      hash: fromHex('f21e511c723cda05afca8dddf9338577eb65d953f3cfdca1e604d202e1451c1d'),
+      index: 55194964n,
+      hash: fromHex('125ff4eb8168a03e34ed003975ed95b8844b1e751274fd5ce1b5abd8ca5b9908'),
     });
 
     const headerHashes = JSON.parse(
@@ -1366,8 +1366,6 @@ app
       console.log('here2');
 
       const readUtxos = await lucid.utxosAt(forkValidatorAddress);
-
-      console.log(lucid.currentSlot());
 
       const nominateTx = await lucid
         .newTx()

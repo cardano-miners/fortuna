@@ -38,4 +38,4 @@ pub const miner_threshold = 850
 
 /// Number of blocks where voters can vote for a particular script
 /// as they mine Fortuna
-pub const miner_voting_period = 2016
+pub const miner_voting_period = 30
