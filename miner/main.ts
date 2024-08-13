@@ -5,29 +5,36 @@ import { BlockRef } from '@utxorpc/spec/lib/utxorpc/v1alpha/sync/sync_pb.js';
 import crypto from 'crypto';
 import 'dotenv/config';
 import fs from 'fs';
+import * as plutus from '../src/lib/plutus';
+import { Constr, Data } from '@blaze-cardano/tx';
 import {
-  Constr,
-  Data,
-  Kupmios,
-  Lucid,
-  UTxO,
-  applyParamsToScript,
-  fromHex,
-  fromText,
-  generateSeedPhrase,
+  Address,
+  AssetId,
+  HexBlob,
+  wordlist,
+  mnemonicToEntropy,
+  Bip32PrivateKey,
+  PolicyId,
+  AssetName,
   toHex,
-  type Script,
-  Blockfrost,
-  Assets,
-} from 'lucid-cardano';
-import { WebSocket } from 'ws';
+  fromHex,
+  Slot,
+  Script,
+  PlutusV2Script,
+  SLOT_CONFIG_NETWORK,
+  TransactionInput,
+  Credential,
+  addressFromValidator,
+  NetworkId,
+  sha2_256,
+} from '@blaze-cardano/core';
+import { makeValue, Kupmios, Blaze, HotWallet, applyParamsToScript } from '@blaze-cardano/sdk';
 
 import {
   blake256,
   calculateDifficultyNumber,
   getDifficulty,
   getDifficultyAdjustement,
-  incrementNonce,
   incrementNonceV2,
   readValidator,
   readValidators,
@@ -37,8 +44,10 @@ import {
 } from './utils';
 
 import { Store, Trie } from '@aiken-lang/merkle-patricia-forestry';
+import { Unwrapped } from '@blaze-cardano/ogmios';
 
-Object.assign(global, { WebSocket });
+// import { Blockfrost } from '@blaze-cardano/query';
+import { Blockfrost } from './blockfrost';
 
 // Excludes datum field because it is not needed
 // and it's annoying to type.
@@ -106,6 +115,32 @@ const previewOption = new Option('-p, --preview', 'Use testnet').default(false);
 
 const useV2History = new Option('-h, --useHistory', 'Use history of V2').default(false);
 
+export interface InterlinkHash {
+  hash: string;
+}
+
+const blazeInitOg = async (kupoUrl: string, ogmiosUrl: string) => {
+  const provider = new Kupmios(kupoUrl, await Unwrapped.Ogmios.new(ogmiosUrl));
+  const mnemonic = fs.readFileSync('seed.txt', { encoding: 'utf8' });
+  const entropy = mnemonicToEntropy(mnemonic, wordlist);
+  const masterkey = Bip32PrivateKey.fromBip39Entropy(Buffer.from(entropy), '');
+  const wallet = await HotWallet.fromMasterkey(masterkey.hex(), provider);
+  return await Blaze.from(provider, wallet);
+};
+
+const blazeInit = async () => {
+  const provider = new Blockfrost({
+    network: 'cardano-preview',
+    projectId: 'previewty2mM5pfSKV4NnMQUhOZl6nzX37xP9Qb',
+  });
+
+  const mnemonic = fs.readFileSync('seed.txt', { encoding: 'utf8' });
+  const entropy = mnemonicToEntropy(mnemonic, wordlist);
+  const masterkey = Bip32PrivateKey.fromBip39Entropy(Buffer.from(entropy), '');
+  const wallet = await HotWallet.fromMasterkey(masterkey.hex(), provider);
+  return await Blaze.from(provider, wallet);
+};
+
 app
   .command('mineV1')
   .description('Start the miner')
@@ -121,39 +156,37 @@ app
         }),
       );
 
-      const provider = new Kupmios(kupoUrl, ogmiosUrl);
-      const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+      const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
+      const ogmios = (await blazeInitOg(kupoUrl, ogmiosUrl)).provider.ogmios;
+      console.log('Starting ...');
+      let validatorUTXO = await blaze.provider.getUnspentOutputByNFT(
+        AssetId.fromParts(
+          PolicyId(validatorHash),
+          AssetName(Buffer.from('lord tuna', 'ascii').toString('hex')),
+        ),
+      );
 
-      lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
+      let validatorState = validatorUTXO.output().datum()!;
 
-      let validatorUTXOs = await lucid.utxosAt(validatorAddress);
-
-      let validatorOutRef = validatorUTXOs.find(
-        (u) => u.assets[validatorHash + fromText('lord tuna')],
-      )!;
-
-      let validatorState = validatorOutRef.datum!;
-
-      let state = Data.from(validatorState) as Constr<string | bigint | string[]>;
+      let state = Data.from(validatorState.asInlineData()!, plutus.Tunav1Spend.state);
 
       let nonce = new Uint8Array(16);
 
       crypto.getRandomValues(nonce);
 
-      let targetState = new Constr(0, [
-        // nonce: ByteArray
-        toHex(nonce),
-        // block_number: Int
-        state.fields[0] as bigint,
-        // current_hash: ByteArray
-        state.fields[1] as bigint,
-        // leading_zeros: Int
-        state.fields[2] as bigint,
-        // difficulty_number: Int
-        state.fields[3] as bigint,
-        //epoch_time: Int
-        state.fields[4] as bigint,
-      ]);
+      let targetState = fromHex(
+        Data.to(
+          {
+            nonce: toHex(nonce),
+            blockNumber: state.blockNumber,
+            currentHash: state.currentHash,
+            leadingZeros: state.leadingZeros,
+            targetNumber: state.targetNumber,
+            epochTime: state.epochTime,
+          },
+          plutus.Tunav1Dummy._state,
+        ).toCbor(),
+      );
 
       let targetHash: Uint8Array;
 
@@ -169,142 +202,160 @@ app
         if (new Date().valueOf() - timer > 5000) {
           console.log('New block not found in 5 seconds, updating state');
           timer = new Date().valueOf();
-          validatorUTXOs = await lucid.utxosAt(validatorAddress);
+          validatorUTXO = await blaze.provider.getUnspentOutputByNFT(
+            AssetId.fromParts(
+              PolicyId(validatorHash),
+              AssetName(Buffer.from('lord tuna', 'ascii').toString('hex')),
+            ),
+          );
+          validatorState = validatorUTXO.output().datum()!;
 
-          validatorOutRef = validatorUTXOs.find(
-            (u) => u.assets[validatorHash + fromText('lord tuna')],
-          )!;
-
-          if (validatorState !== validatorOutRef.datum!) {
-            validatorState = validatorOutRef.datum!;
-
-            state = Data.from(validatorState) as Constr<string | bigint | string[]>;
+          if (state !== Data.from(validatorState.asInlineData()!, plutus.Tunav1Spend.state)) {
+            state = Data.from(validatorState.asInlineData()!, plutus.Tunav1Spend.state);
 
             nonce = new Uint8Array(16);
 
             crypto.getRandomValues(nonce);
 
-            targetState = new Constr(0, [
-              // nonce: ByteArray
-              toHex(nonce),
-              // block_number: Int
-              state.fields[0] as bigint,
-              // current_hash: ByteArray
-              state.fields[1] as bigint,
-              // leading_zeros: Int
-              state.fields[2] as bigint,
-              // difficulty_number: Int
-              state.fields[3] as bigint,
-              //epoch_time: Int
-              state.fields[4] as bigint,
-            ]);
+            targetState = fromHex(
+              Data.to(
+                {
+                  nonce: toHex(nonce),
+                  blockNumber: state.blockNumber,
+                  currentHash: state.currentHash,
+                  leadingZeros: state.leadingZeros,
+                  targetNumber: state.targetNumber,
+                  epochTime: state.epochTime,
+                },
+                plutus.Tunav1Dummy._state,
+              ).toCbor(),
+            );
           }
         }
 
-        targetHash = await sha256(await sha256(fromHex(Data.to(targetState))));
-
+        targetHash = await sha256(await sha256(targetState));
         difficulty = getDifficulty(targetHash);
 
         const { leadingZeros, difficultyNumber } = difficulty;
 
         if (
-          leadingZeros > (state.fields[2] as bigint) ||
-          (leadingZeros == (state.fields[2] as bigint) &&
-            difficultyNumber < (state.fields[3] as bigint))
+          leadingZeros > (state.leadingZeros as bigint) ||
+          (leadingZeros == (state.leadingZeros as bigint) &&
+            difficultyNumber < (state.targetNumber as bigint))
         ) {
+          nonce = targetState.slice(4, 20);
           break;
         }
 
-        incrementNonce(nonce);
-
-        targetState.fields[0] = toHex(nonce);
+        incrementNonceV2(targetState);
       }
 
-      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+      console.log(toHex(targetState));
+
+      const current_slot = (await ogmios.queryNetworkTip().then((point) => {
+        if (point === 'origin') {
+          return undefined;
+        }
+
+        return point.slot;
+      }))!;
 
       const interlink = calculateInterlink(
         toHex(targetHash),
         difficulty,
         {
-          leadingZeros: state.fields[2] as bigint,
-          difficultyNumber: state.fields[3] as bigint,
+          leadingZeros: state.leadingZeros,
+          difficultyNumber: state.targetNumber,
         },
-        state.fields[7] as string[],
-      );
+        state.interlink.map((x) => Data.from(x)),
+      ).map((x) => Data.to(x, undefined));
 
-      let epoch_time =
-        (state.fields[4] as bigint) + BigInt(90000 + realTimeNow) - (state.fields[5] as bigint);
+      console.log(SLOT_CONFIG_NETWORK);
 
-      let difficulty_number = state.fields[3] as bigint;
-      let leading_zeros = state.fields[2] as bigint;
+      const networkSlotConfig = SLOT_CONFIG_NETWORK.Preview;
 
-      if ((state.fields[0] as bigint) % epochNumber === 0n && (state.fields[0] as bigint) > 0) {
-        const adjustment = getDifficultyAdjustement(epoch_time, twoWeeks);
+      const currentPosixTime =
+        BigInt(
+          (current_slot - networkSlotConfig.zeroSlot) * networkSlotConfig.slotLength +
+            networkSlotConfig.zeroTime,
+        ) + 45000n;
 
-        epoch_time = 0n;
+      let epochTime = state.epochTime + currentPosixTime - state.currentPosixTime;
+
+      let difficulty_number = state.targetNumber as bigint;
+      let leadingZeros = state.leadingZeros as bigint;
+
+      if (state.blockNumber % epochNumber === 0n && state.blockNumber > 0) {
+        const adjustment = getDifficultyAdjustement(epochTime, twoWeeks);
+
+        epochTime = 0n;
 
         const new_difficulty = calculateDifficultyNumber(
           {
-            leadingZeros: state.fields[2] as bigint,
-            difficultyNumber: state.fields[3] as bigint,
+            leadingZeros: state.leadingZeros,
+            difficultyNumber: state.targetNumber,
           },
           adjustment.numerator,
           adjustment.denominator,
         );
 
         difficulty_number = new_difficulty.difficultyNumber;
-        leading_zeros = new_difficulty.leadingZeros;
+        leadingZeros = new_difficulty.leadingZeros;
       }
+      console.log('here2');
 
-      // calculateDifficultyNumber();
+      const postDatum = Data.to(
+        {
+          blockNumber: state.blockNumber + 1n,
+          currentHash: toHex(targetHash),
+          leadingZeros,
+          targetNumber: difficulty_number,
+          epochTime,
+          currentPosixTime,
+          extra: Data.to(Buffer.from('AlL HaIl tUnA', 'ascii').toString('hex'), undefined),
+          interlink,
+        },
+        plutus.Tunav1Spend.state,
+      );
 
-      const postDatum = new Constr(0, [
-        (state.fields[0] as bigint) + 1n,
-        toHex(targetHash),
-        leading_zeros,
-        difficulty_number,
-        epoch_time,
-        BigInt(90000 + realTimeNow),
-        fromText('AlL HaIl tUnA'),
-        interlink,
-      ]);
+      console.log(`Found next datum: ${postDatum.toCbor()}`);
 
-      const outDat = Data.to(postDatum);
+      const masterToken: [string, bigint] = [
+        validatorHash + Buffer.from('lord tuna', 'ascii').toString('hex'),
+        1n,
+      ];
+      console.log(postDatum.toCbor());
+      console.log(Data.to('Mine', plutus.Tunav1Mint.state).toCbor());
+      console.log(Data.to({ wrapper: toHex(nonce) }, plutus.Tunav1Spend.nonce).toCbor());
 
-      console.log(`Found next datum: ${outDat}`);
-
-      const mintTokens = {
-        [validatorHash + fromText('TUNA')]:
-          5000000000n / 2n ** ((state.fields[0] as bigint) / halvingNumber),
-      };
-      const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
       try {
-        const readUtxo = await lucid.utxosByOutRef([
-          {
-            txHash: '01751095ea408a3ebe6083b4de4de8a24b635085183ab8a2ac76273ef8fff5dd',
-            outputIndex: 0,
-          },
-        ]);
-        const txMine = await lucid
-          .newTx()
-          .collectFrom([validatorOutRef], Data.to(new Constr(1, [toHex(nonce)])))
-          .payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
-          .mintAssets(mintTokens, Data.to(new Constr(0, [])))
-          .readFrom(readUtxo)
-          .validTo(realTimeNow + 180000)
-          .validFrom(realTimeNow)
-          .attachSpendingValidator({ script: validator, type: 'PlutusV2' })
+        const txMine = await blaze
+          .newTransaction()
+          .provideScript(Script.newPlutusV2Script(new PlutusV2Script(HexBlob(validator))))
+          .addInput(validatorUTXO, Data.to({ wrapper: toHex(nonce) }, plutus.Tunav1Spend.nonce))
+          .lockAssets(Address.fromBech32(validatorAddress), makeValue(0n, masterToken), postDatum)
+          .addMint(
+            PolicyId(validatorHash),
+            new Map([
+              [
+                AssetName(Buffer.from('TUNA', 'ascii').toString('hex')),
+                5000000000n / 2n ** (state.blockNumber / halvingNumber),
+              ],
+            ]),
+            Data.to('Mine', plutus.Tunav1Mint.state),
+          )
+          .setValidFrom(Slot(current_slot))
+          .setValidUntil(Slot(current_slot + 90000))
           .complete();
 
-        const signed = await txMine.sign().complete();
+        const signed = await blaze.signTransaction(txMine);
 
-        await signed.submit();
+        await blaze.submitTransaction(signed);
 
-        console.log(`TX HASH: ${signed.toHash()}`);
+        console.log(`TX HASH: ${signed.getId()}`);
         console.log('Waiting for confirmation...');
 
-        // // await lucid.awaitTx(signed.toHash());
-        await delay(5000);
+        await blaze.provider.awaitTransactionConfirmation(signed.getId());
       } catch (e) {
         console.log(e);
       }
@@ -596,92 +647,103 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const unAppliedValidator = readValidator();
+    const blaze = await blazeInit();
+    const ogmios = (await blazeInitOg(kupoUrl, ogmiosUrl)).provider.ogmios;
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
-    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+    const utxo = (await blaze.wallet.getUnspentOutputs())[0];
 
-    const utxos = await lucid.wallet.getUtxos();
-
-    if (utxos.length === 0) {
-      throw new Error('No UTXOs Found');
-    }
-
-    const initOutputRef = new Constr(0, [
-      new Constr(0, [utxos[0].txHash]),
-      BigInt(utxos[0].outputIndex),
+    const initOutputRef = utxo.input();
+    const inputAsData = new Constr(0, [
+      new Constr(0, [initOutputRef.transactionId().toString()]),
+      initOutputRef.index(),
     ]);
 
-    const appliedValidator = applyParamsToScript(unAppliedValidator.script, [initOutputRef]);
+    const appliedValidator = new plutus.Tunav1Spend({
+      transactionId: { hash: initOutputRef.transactionId().toString() },
+      outputIndex: initOutputRef.index(),
+    });
 
-    const validator: Script = {
-      type: 'PlutusV2',
-      script: appliedValidator,
-    };
+    console.log('here');
+    console.log(Data.to(inputAsData));
+    console.log('ohter');
 
-    const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(initOutputRef)))));
+    const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(inputAsData).toCbor()))));
+    console.log('not here');
 
-    const validatorAddress = lucid.utils.validatorToAddress(validator);
+    const validatorAddress = addressFromValidator(NetworkId.Testnet, appliedValidator);
 
-    const validatorHash = lucid.utils.validatorToScriptHash(validator);
+    const validatorHash = appliedValidator.hash();
 
-    const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
+    const masterToken: [string, bigint] = [
+      validatorHash + Buffer.from('lord tuna', 'ascii').toString('hex'),
+      1n,
+    ];
 
-    const timeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+    const lastSlot = (await ogmios.queryNetworkTip().then((point) => {
+      if (point === 'origin') {
+        return undefined;
+      }
+
+      return point.slot;
+    }))!;
+
+    console.log('super here');
+
+    const slotToTime =
+      (lastSlot - SLOT_CONFIG_NETWORK.Preview.zeroSlot) * SLOT_CONFIG_NETWORK.Preview.slotLength +
+      SLOT_CONFIG_NETWORK.Preview.zeroTime;
 
     // State
-    const preDatum = new Constr(0, [
-      // block_number: Int
-      0n,
-      // current_hash: ByteArray
-      bootstrapHash,
-      // leading_zeros: Int
-      5n,
-      // difficulty_number: Int
-      65535n,
-      // epoch_time: Int
-      0n,
-      // current_posix_time: Int
-      BigInt(90000 + timeNow),
-      // extra: Data
-      0n,
-      // interlink: List<Data>
-      [],
-    ]);
+    //
+    const datum = Data.to(
+      {
+        blockNumber: 0n,
+        currentHash: bootstrapHash,
+        leadingZeros: 5n,
+        targetNumber: 65535n,
+        epochTime: 0n,
+        currentPosixTime: BigInt(slotToTime + 45000),
+        extra: Data.to(0n, undefined),
+        interlink: [],
+      },
+      plutus.Tunav1Spend.state,
+    );
 
-    const datum = Data.to(preDatum);
+    const tx = await blaze
+      .newTransaction()
+      .addInput(utxo)
+      .lockAssets(validatorAddress, makeValue(0n, masterToken), datum)
+      .addMint(
+        PolicyId(validatorHash),
+        new Map([[AssetName(Buffer.from('lord tuna', 'ascii').toString('hex')), 1n]]),
+        Data.to('Genesis', plutus.Tunav1Mint.state),
+      )
 
-    const tx = await lucid
-      .newTx()
-      .collectFrom(utxos)
-      .payToContract(validatorAddress, { inline: datum }, masterToken)
-      .mintAssets(masterToken, Data.to(new Constr(1, [])))
-      .attachMintingPolicy(validator)
-      .validFrom(timeNow)
-      .validTo(timeNow + 180000)
+      .provideScript(appliedValidator)
+      .setValidFrom(Slot(lastSlot))
+      .setValidUntil(Slot(lastSlot + 90))
       .complete();
 
-    const signed = await tx.sign().complete();
+    const signed = await blaze.signTransaction(tx);
 
     try {
-      await signed.submit();
+      await blaze.submitTransaction(signed);
 
-      console.log(`TX Hash: ${signed.toHash()}`);
+      console.log(`TX Hash: ${signed.getId()}`);
 
-      await lucid.awaitTx(signed.toHash());
+      await blaze.provider.awaitTransactionConfirmation(signed.getId());
 
       console.log(`Completed and saving genesis file.`);
 
       fs.writeFileSync(
         `genesis/${preview ? 'preview' : 'mainnet'}.json`,
         JSON.stringify({
-          validator: validator.script,
+          validator: appliedValidator.toCbor(),
           validatorHash,
           validatorAddress,
           bootstrapHash,
           datum,
-          outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
+          outRef: Data.to(inputAsData, undefined).toCbor(),
         }),
         { encoding: 'utf-8' },
       );
@@ -730,7 +792,7 @@ app
 
     const fortunaV1Address = fortunaV1.validatorAddress;
 
-    const forkValidatorApplied: Script = {
+    const forkValidatorApplied: Cardano.Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
     };
@@ -745,7 +807,7 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const tunaV2MintApplied: Script = {
+    const tunaV2MintApplied: Cardano.Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
     };
@@ -756,7 +818,7 @@ app
 
     console.log(tunaV2MintAppliedHash);
 
-    const tunaV2SpendApplied: Script = {
+    const tunaV2SpendApplied: Cardano.Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
     };
@@ -1036,7 +1098,7 @@ app
 
     const fortunaV1Hash = fortunaV1.validatorHash;
 
-    const forkValidatorApplied: Script = {
+    const forkValidatorApplied: Cardano.Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
     };
@@ -1047,14 +1109,14 @@ app
 
     const forkValidatorRewardAddress = lucid.utils.validatorToRewardAddress(forkValidatorApplied);
 
-    const tunaV2MintApplied: Script = {
+    const tunaV2MintApplied: Cardano.Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
     };
 
     const tunaV2MintAppliedHash = lucid.utils.validatorToScriptHash(tunaV2MintApplied);
 
-    const tunaV2SpendApplied: Script = {
+    const tunaV2SpendApplied: Cardano.Script = {
       type: 'PlutusV2',
       script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
     };
@@ -1314,7 +1376,7 @@ app
       new Constr(0, [new Constr(0, [utxoRef.txHash]), BigInt(utxoRef.outputIndex)]),
     ]);
 
-    const newSpendScript: Script = { script: newSpendApplied, type: 'PlutusV2' };
+    const newSpendScript: Cardano.Script = { script: newSpendApplied, type: 'PlutusV2' };
 
     const newSpendAddress = lucid.utils.validatorToAddress(newSpendScript);
     const newSpendHash = lucid.utils.validatorToScriptHash(newSpendScript);

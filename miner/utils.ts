@@ -1,12 +1,20 @@
 import colors from 'colors/safe';
-import { type SpendingValidator, toHex, TxSigned } from 'lucid-cardano';
 import crypto from 'crypto';
 import blake from 'blakejs';
 
 import blueprint from '../plutus.json' assert { type: 'json' };
+import {
+  HexBlob,
+  PlutusData,
+  PlutusV2Script,
+  Script,
+  toHex,
+  Transaction,
+} from '@blaze-cardano/core';
+import { Data } from '@blaze-cardano/tx';
 
-const MAX_TX_EX_STEPS = 10000000000;
-const MAX_TX_EX_MEM = 14000000;
+const MAX_TX_EX_STEPS = 10000000000n;
+const MAX_TX_EX_MEM = 14000000n;
 const MAX_TX_SIZE = 16384;
 
 export async function sha256(input: Uint8Array): Promise<Uint8Array> {
@@ -22,61 +30,45 @@ export function blake256(input: Uint8Array): Uint8Array {
   return hash;
 }
 
-export function readValidator(): SpendingValidator {
+export function readValidator(): Script {
   const validator = blueprint.validators.filter((v) => v.title === 'tunav1.mint')[0];
 
-  return {
-    type: 'PlutusV2',
-    script: validator.compiledCode,
-  };
+  return Script.newPlutusV2Script(new PlutusV2Script(HexBlob(validator.compiledCode)));
 }
 
-export function readValidators(): SpendingValidator[] {
+export function readValidators(): Script[] {
   const forkValidator = blueprint.validators.filter((v) => v.title === 'simplerfork.fork')[0];
   const fortunaV2Mint = blueprint.validators.filter((v) => v.title === 'tunav2.tuna')[0];
   const fortunaV2Spend = blueprint.validators.filter((v) => v.title === 'tunav2.mine')[0];
 
   return [
-    {
-      type: 'PlutusV2',
-      script: forkValidator.compiledCode,
-    },
-    {
-      type: 'PlutusV2',
-      script: fortunaV2Mint.compiledCode,
-    },
-    {
-      type: 'PlutusV2',
-      script: fortunaV2Spend.compiledCode,
-    },
+    Script.newPlutusV2Script(new PlutusV2Script(HexBlob(forkValidator.compiledCode))),
+    Script.newPlutusV2Script(new PlutusV2Script(HexBlob(fortunaV2Mint.compiledCode))),
+    Script.newPlutusV2Script(new PlutusV2Script(HexBlob(fortunaV2Spend.compiledCode))),
   ];
 }
 
-export function readNewSpendValidator(): SpendingValidator {
+export function readNewSpendValidator(): Script {
   const spendValidator = blueprint.validators.filter((v) => v.title === 'new_spend.mine')[0];
 
-  return {
-    type: 'PlutusV2',
-    script: spendValidator.compiledCode,
-  };
+  return Script.newPlutusV2Script(new PlutusV2Script(HexBlob(spendValidator.compiledCode)));
 }
 
-export function printExecutionDetails(tx: TxSigned, name: string) {
-  const redeemers = tx.txSigned.witness_set().redeemers()!;
-  let steps = 0;
-  let mem = 0;
+export function printExecutionDetails(tx: Transaction, name: string) {
+  const redeemers = tx.witnessSet().redeemers()!.values();
+  let steps = 0n;
+  let mem = 0n;
 
-  for (let i = 0; i < redeemers.len(); i++) {
-    const red = redeemers.get(i);
-    steps += parseInt(red.ex_units().steps().toString(), 10);
-    mem += parseInt(red.ex_units().mem().toString(), 10);
+  for (const red of redeemers) {
+    steps += red.exUnits().steps();
+    mem += red.exUnits().mem();
   }
 
   const remainingMem = MAX_TX_EX_MEM - mem;
   const remainingSteps = MAX_TX_EX_STEPS - steps;
-  const txBytes = tx.txSigned.to_bytes().length;
+  const txBytes = tx.toCbor().length / 2;
   const remainingTxBytes = MAX_TX_SIZE - txBytes;
-  const fee = tx.txSigned.body().fee().toString();
+  const fee = tx.body().fee();
 
   const text = `
   ${colors.bold(colors.magenta(name))} - ${colors.green('passed')}
@@ -90,7 +82,7 @@ export function printExecutionDetails(tx: TxSigned, name: string) {
     ${colors.bold(colors.blue('tx size'))}:   ${colors.green(txBytes.toString())}
     ${colors.bold(colors.blue('remaining'))}: ${colors.cyan(remainingTxBytes.toString())}
 
-    ${colors.bold(colors.blue('fee'))}: ${colors.green(fee.toUpperCase())}`;
+    ${colors.bold(colors.blue('fee'))}: ${colors.green(fee.toString())}`;
 
   console.log(text);
 
@@ -240,11 +232,11 @@ export function calculateInterlink(
   currentHash: string,
   a: { leadingZeros: bigint; difficultyNumber: bigint },
   b: { leadingZeros: bigint; difficultyNumber: bigint },
-  currentInterlink: string[],
-): string[] {
+  currentInterlink: Data[],
+): Data[] {
   let b_half = halfDifficultyNumber(b);
 
-  const interlink: string[] = currentInterlink;
+  const interlink: Data[] = currentInterlink;
 
   let currentIndex = 0;
 
