@@ -647,7 +647,7 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const blaze = await blazeInit();
+    const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
     const ogmios = (await blazeInitOg(kupoUrl, ogmiosUrl)).provider.ogmios;
 
     const utxo = (await blaze.wallet.getUnspentOutputs())[0];
@@ -703,7 +703,7 @@ app
         targetNumber: 65535n,
         epochTime: 0n,
         currentPosixTime: BigInt(slotToTime + 45000),
-        extra: Data.to(0n, undefined),
+        extra: Data.to(0n),
         interlink: [],
       },
       plutus.Tunav1Spend.state,
@@ -725,6 +725,7 @@ app
       .complete();
 
     const signed = await blaze.signTransaction(tx);
+    console.log('HERE??');
 
     try {
       await blaze.submitTransaction(signed);

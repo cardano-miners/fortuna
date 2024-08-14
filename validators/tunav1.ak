@@ -64,7 +64,7 @@ validator(utxo_ref: OutputReference) {
             lower_is_inclusive?,
             (upper_range - lower_range <= 180000)?,
           }
-        //  
+        //
         let averaged_current_time =
           ( upper_range - lower_range ) / 2 + lower_range
 
@@ -163,7 +163,7 @@ validator(utxo_ref: OutputReference) {
 
     let Output { datum: out_datum, value: out_value, .. } = own_output
 
-    // Time Range Span is 3 minutes or less 
+    // Time Range Span is 3 minutes or less
     let Interval {
       upper_bound: IntervalBound {
         bound_type: upper_range,
@@ -247,7 +247,7 @@ validator(utxo_ref: OutputReference) {
     expect
       fortuna.value_has_only_master_and_lovelace(out_value, own_validator_hash)?
     // Check output datum contains correct epoch time, block number, hash, and leading zeros
-    // Check for every divisible by 2016 block: 
+    // Check for every divisible by 2016 block:
     // - Epoch time resets
     // - leading zeros is adjusted based on percent of hardcoded target time for 2016 blocks vs epoch time
     expect InlineDatum(output_datum) = out_datum
@@ -289,7 +289,7 @@ validator(utxo_ref: OutputReference) {
       } else {
         let new_epoch_time =
           epoch_time + averaged_current_time - current_posix_time
-        // 
+        //
         and {
           (leading_zeros == out_leading_zeros)?,
           (target_number == out_target_number)?,
@@ -300,7 +300,7 @@ validator(utxo_ref: OutputReference) {
     // Spend(9) requirement: Output posix time is the averaged current time
     expect (out_current_posix_time == averaged_current_time)?
     //
-    // Spend(10) requirement: Output block number is the input block number + 1 
+    // Spend(10) requirement: Output block number is the input block number + 1
     // Spend(11) requirement: Output current hash is the target hash
     expect
       (block_number + 1 == out_block_number && out_current_hash == found_bytearray)?
@@ -315,5 +315,11 @@ validator(utxo_ref: OutputReference) {
       target_number,
       leading_zeros,
     ) == out_interlink)?
+  }
+}
+
+validator {
+  fn dummy(_state: TargetState, _rdmr: ByteArray, _ctx) -> Bool {
+    False
   }
 }

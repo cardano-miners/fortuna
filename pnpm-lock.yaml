@@ -18,26 +18,26 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rxjs@7.8.1)
       '@blaze-cardano/ogmios':
-        specifier: ^0.0.2
-        version: 0.0.2(ws@7.5.10)
+        specifier: ^0.0.3
+        version: 0.0.3(ws@7.5.10)
       '@blaze-cardano/query':
-        specifier: ^0.2.4
-        version: 0.2.4(rxjs@7.8.1)
+        specifier: ^0.2.5
+        version: 0.2.5(rxjs@7.8.1)
       '@blaze-cardano/sdk':
-        specifier: ^0.1.5
-        version: 0.1.5(rxjs@7.8.1)
+        specifier: ^0.1.6
+        version: 0.1.6(rxjs@7.8.1)
       '@blaze-cardano/tx':
-        specifier: ^0.3.0
-        version: 0.3.0(rxjs@7.8.1)
+        specifier: ^0.3.1
+        version: 0.3.1(rxjs@7.8.1)
       '@blaze-cardano/uplc':
-        specifier: ^0.1.3
-        version: 0.1.3(rxjs@7.8.1)
+        specifier: ^0.1.4
+        version: 0.1.4(rxjs@7.8.1)
       '@blaze-cardano/vm':
         specifier: ^0.0.33
         version: 0.0.33(rxjs@7.8.1)
       '@blaze-cardano/wallet':
-        specifier: ^0.1.24
-        version: 0.1.24(rxjs@7.8.1)
+        specifier: ^0.1.25
+        version: 0.1.25(rxjs@7.8.1)
       '@utxorpc/sdk':
         specifier: ^0.1.0
         version: 0.1.0(@bufbuild/protobuf@1.10.0)
@@ -231,26 +231,26 @@ packages:
   '@blaze-cardano/jest-config@0.0.1':
     resolution: {integrity: sha512-q/0BzXoN+PP4kcwmqthJEYrQ1ee3pZ1Y2dV7X7levyccX8yVMxgMUvJjXhZKl0Bb9g8JidoxanVaBW0d0Y0mSw==}
 
-  '@blaze-cardano/ogmios@0.0.2':
-    resolution: {integrity: sha512-BFAJANRpwFg79QyCNMHdj9BdrRGKRbJgeQ71QHU+theoVaw2C9bQapgP8NyOamB2efPmmNXQ0Xsy+XxVTEaX5Q==}
+  '@blaze-cardano/ogmios@0.0.3':
+    resolution: {integrity: sha512-fhKpqq8v/dR2r1C9DTL0UQ7zFgYQDR/1eNAzOOvewfVZWxj5kn0HdYPmX8AgyNrpf1e+jiXDLtni+xQhanbEnQ==}
 
-  '@blaze-cardano/query@0.2.4':
-    resolution: {integrity: sha512-eifuLpE5NRp7f5d97nYZ+Kc9FUWVJfQDktn4UZ4AR2PNv//tbZ4X0QSSjDLFSccJzXgVfYCQPX4hkxPt1RkpEg==}
+  '@blaze-cardano/query@0.2.5':
+    resolution: {integrity: sha512-nfylGcsOuvCOb7eoNgSTXTX8eI20grOt90xKeUZU4G8okY4uQd5Oh4XVdxkOh9XFmEV0kW1xkyBbZBVO5q6MKg==}
 
-  '@blaze-cardano/sdk@0.1.5':
-    resolution: {integrity: sha512-I+8sy8Trtu6hlAgIM4eWKQRD2yVYaccCZyKMtbuRJ8xnsV6aokr4E8GIBczhrHjJL47vcEE09o+MNTYgYUHyUQ==}
+  '@blaze-cardano/sdk@0.1.6':
+    resolution: {integrity: sha512-80vACAlJ6YYmEXpqh27rU0rY6I4RrFjq5YIIQF3pur6uMSCjc9p71PErNS76zf4cLMGh/36NlQfPJJR2vgo35Q==}
 
-  '@blaze-cardano/tx@0.3.0':
-    resolution: {integrity: sha512-KK/grB8oOgHGL8D7FW47QMPWJG84Yc0Rn2WEWK4fvyJx8hdmHCjdCC5iXpsGMAGBgofuGUqJ6M6RkfMCi8vDYQ==}
+  '@blaze-cardano/tx@0.3.1':
+    resolution: {integrity: sha512-Wo5XVa1VPaFSgNN2Qr9MdyVkmEs7GxzGJyYqNCPYuilqlyeoKJYxkJfWS/NzEVI5Vp7ozXFD/SWJSu/xXYKNHw==}
 
-  '@blaze-cardano/uplc@0.1.3':
-    resolution: {integrity: sha512-nLquOnrr8Gz+BUOnIliWBFX65QU/ulM41W18+vi1aIgR0h5pBLC2guzJUsOKLrSquEYn7Er894Fa7s9gDzhONw==}
+  '@blaze-cardano/uplc@0.1.4':
+    resolution: {integrity: sha512-LNMLJp/c38Stnc5FGCgacDzFLiQpvN+NZxmWQBUcX0N6cNcJkB0zgFqgf6b3Srqxy0CdAPVruOiFH32ZDRXOOg==}
 
   '@blaze-cardano/vm@0.0.33':
     resolution: {integrity: sha512-gqKzyQ79IKJffk+u6oogdrbYipDmwBPyl4dTHlZ56eaCuHNBnS/qfkRlnd4gsT84Ha89XQBhjih8nHYVMsbrEw==}
 
-  '@blaze-cardano/wallet@0.1.24':
-    resolution: {integrity: sha512-PgCZ38+LQmhfqKmTfUUVjO+BWQgGHeN2cpLUqd4WcESlrAftn9DxQw8VYJM+c/HjcvB9wIkBZIB+Co7SaI1mBA==}
+  '@blaze-cardano/wallet@0.1.25':
+    resolution: {integrity: sha512-5FVAJZaw4ij0jGOpQpd1Bm0dQDsfpJ82Kf6gIyFNTHCl5Sz8WCXY6HrZKgMUBxAykpf8egfePRZ8uy8UDXAwKg==}
 
   '@bufbuild/protobuf@1.10.0':
     resolution: {integrity: sha512-QDdVFLoN93Zjg36NoQPZfsVH9tZew7wKDKyV5qRdj8ntT4wQCOradQjRaTdwMhWUYsgKsvCINKKm87FdEk96Ag==}
@@ -4227,23 +4227,26 @@ snapshots:
 
   '@blaze-cardano/jest-config@0.0.1': {}
 
-  '@blaze-cardano/ogmios@0.0.2(ws@7.5.10)':
+  '@blaze-cardano/ogmios@0.0.3(ws@7.5.10)':
     dependencies:
+      '@cardano-ogmios/schema': 6.5.0
       isomorphic-ws: 5.0.0(ws@7.5.10)
     transitivePeerDependencies:
       - ws
 
-  '@blaze-cardano/ogmios@0.0.2(ws@8.18.0)':
+  '@blaze-cardano/ogmios@0.0.3(ws@8.18.0)':
     dependencies:
+      '@cardano-ogmios/schema': 6.5.0
       isomorphic-ws: 5.0.0(ws@8.18.0)
     transitivePeerDependencies:
       - ws
 
-  '@blaze-cardano/query@0.2.4(rxjs@7.8.1)':
+  '@blaze-cardano/query@0.2.5(rxjs@7.8.1)':
     dependencies:
       '@blaze-cardano/core': 0.4.0(rxjs@7.8.1)
       '@blaze-cardano/jest-config': 0.0.1
-      '@blaze-cardano/ogmios': 0.0.2(ws@8.18.0)
+      '@blaze-cardano/ogmios': 0.0.3(ws@8.18.0)
+      '@cardano-ogmios/schema': 6.5.0
       ws: 8.18.0
     transitivePeerDependencies:
       - '@dcspark/cardano-multiplatform-lib-asmjs'
@@ -4256,13 +4259,13 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@blaze-cardano/sdk@0.1.5(rxjs@7.8.1)':
+  '@blaze-cardano/sdk@0.1.6(rxjs@7.8.1)':
     dependencies:
       '@blaze-cardano/core': 0.4.0(rxjs@7.8.1)
-      '@blaze-cardano/query': 0.2.4(rxjs@7.8.1)
-      '@blaze-cardano/tx': 0.3.0(rxjs@7.8.1)
-      '@blaze-cardano/uplc': 0.1.3(rxjs@7.8.1)
-      '@blaze-cardano/wallet': 0.1.24(rxjs@7.8.1)
+      '@blaze-cardano/query': 0.2.5(rxjs@7.8.1)
+      '@blaze-cardano/tx': 0.3.1(rxjs@7.8.1)
+      '@blaze-cardano/uplc': 0.1.4(rxjs@7.8.1)
+      '@blaze-cardano/wallet': 0.1.25(rxjs@7.8.1)
     transitivePeerDependencies:
       - '@dcspark/cardano-multiplatform-lib-asmjs'
       - '@dcspark/cardano-multiplatform-lib-browser'
@@ -4274,7 +4277,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@blaze-cardano/tx@0.3.0(rxjs@7.8.1)':
+  '@blaze-cardano/tx@0.3.1(rxjs@7.8.1)':
     dependencies:
       '@blaze-cardano/core': 0.4.0(rxjs@7.8.1)
     transitivePeerDependencies:
@@ -4288,10 +4291,10 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@blaze-cardano/uplc@0.1.3(rxjs@7.8.1)':
+  '@blaze-cardano/uplc@0.1.4(rxjs@7.8.1)':
     dependencies:
       '@blaze-cardano/core': 0.4.0(rxjs@7.8.1)
-      '@blaze-cardano/tx': 0.3.0(rxjs@7.8.1)
+      '@blaze-cardano/tx': 0.3.1(rxjs@7.8.1)
       hex-encoding: 2.0.2
     transitivePeerDependencies:
       - '@dcspark/cardano-multiplatform-lib-asmjs'
@@ -4319,11 +4322,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@blaze-cardano/wallet@0.1.24(rxjs@7.8.1)':
+  '@blaze-cardano/wallet@0.1.25(rxjs@7.8.1)':
     dependencies:
       '@blaze-cardano/core': 0.4.0(rxjs@7.8.1)
-      '@blaze-cardano/query': 0.2.4(rxjs@7.8.1)
-      '@blaze-cardano/tx': 0.3.0(rxjs@7.8.1)
+      '@blaze-cardano/query': 0.2.5(rxjs@7.8.1)
+      '@blaze-cardano/tx': 0.3.1(rxjs@7.8.1)
     transitivePeerDependencies:
       - '@dcspark/cardano-multiplatform-lib-asmjs'
       - '@dcspark/cardano-multiplatform-lib-browser'
