@@ -110,7 +110,7 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
 // Voting and governance functions
 // TODO change back to normal before launch
 pub fn voting_period() -> Int {
-  1000 * 60 * 60 * 24 * voting_days
+  1000 * 60 * 20
 }
 
 /// Flips the bits of a hash

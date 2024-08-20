@@ -8,7 +8,6 @@ import fs from 'fs';
 import {
   Constr,
   Data,
-  Kupmios,
   Lucid,
   UTxO,
   applyParamsToScript,
@@ -86,16 +85,12 @@ const app = new Command();
 
 app.name('fortuna').description('Fortuna miner').version('0.0.2');
 
-const kupoUrlOption = new Option('-k, --kupo-url <string>', 'Kupo URL')
-  .env('KUPO_URL')
-  .makeOptionMandatory(true);
-
-const ogmiosUrlOption = new Option('-o, --ogmios-url <string>', 'Ogmios URL')
-  .env('OGMIOS_URL')
-  .makeOptionMandatory(true);
-
 const utxoRpcUriOption = new Option('-u, --utxo-rpc-uri <string>', 'Utxo RPC URI')
   .env('UTXO_RPC_URI')
+  .makeOptionMandatory(true);
+
+const blockFrostOption = new Option('-b, --blockfrost-key <string>', 'Blockfrost Key')
+  .env('BLOCKFROST_KEY')
   .makeOptionMandatory(true);
 
 const utxoRpcApiKeyOption = new Option('-y, --utxo-rpc-api-key <string>', 'Utxo RPC API Key')
@@ -109,22 +104,24 @@ const useV2History = new Option('-h, --useHistory', 'Use history of V2').default
 app
   .command('mineV1')
   .description('Start the miner')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
     const trueValue = true;
+
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
+
+    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
+
     while (trueValue) {
       const { validatorAddress, validator, validatorHash }: Genesis = JSON.parse(
         fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
           encoding: 'utf8',
         }),
       );
-
-      const provider = new Kupmios(kupoUrl, ogmiosUrl);
-      const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
-
-      lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
 
       let validatorUTXOs = await lucid.utxosAt(validatorAddress);
 
@@ -220,7 +217,7 @@ app
         targetState.fields[0] = toHex(nonce);
       }
 
-      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000 - 60000;
+      const realTimeNow = lucid.utils.slotToUnixTime(lucid.currentSlot() - 90);
 
       const interlink = calculateInterlink(
         toHex(targetHash),
@@ -278,19 +275,13 @@ app
           5000000000n / 2n ** ((state.fields[0] as bigint) / halvingNumber),
       };
       const masterToken = { [validatorHash + fromText('lord tuna')]: 1n };
+
       try {
-        const readUtxo = await lucid.utxosByOutRef([
-          {
-            txHash: '01751095ea408a3ebe6083b4de4de8a24b635085183ab8a2ac76273ef8fff5dd',
-            outputIndex: 0,
-          },
-        ]);
         const txMine = await lucid
           .newTx()
           .collectFrom([validatorOutRef], Data.to(new Constr(1, [toHex(nonce)])))
           .payToAddressWithData(validatorAddress, { inline: outDat }, masterToken)
           .mintAssets(mintTokens, Data.to(new Constr(0, [])))
-          .readFrom(readUtxo)
           .validTo(realTimeNow + 180000)
           .validFrom(realTimeNow)
           .attachSpendingValidator({ script: validator, type: 'PlutusV2' })
@@ -314,10 +305,9 @@ app
 app
   .command('mine')
   .description('Start the miner')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
     const alwaysLoop = true;
 
     // Construct a new trie with on-disk storage under the file path 'db'.
@@ -336,8 +326,10 @@ app
       }),
     );
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
 
     const userPkh = lucid.utils.getAddressDetails(await lucid.wallet.address()).paymentCredential!;
@@ -425,7 +417,7 @@ app
                   toHex(nonce),
                   // miner_cred_hash: ByteArray
                   toHex(minerCredHash),
-                  // block_number: Int
+                  // block_number: In
                   state.fields[0] as bigint,
                   // current_hash: ByteArray
                   state.fields[1] as bigint,
@@ -592,16 +584,16 @@ app
 app
   .command('genesis')
   .description('Create block 0')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
     const unAppliedValidator = readValidator();
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
+    console.log(lucid.wallet.address());
     const utxos = await lucid.wallet.getUtxos();
 
     if (utxos.length === 0) {
@@ -693,10 +685,9 @@ app
 app
   .command('fork')
   .description('Hard fork the v1 tuna to v2 tuna')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
     const fortunaV1: Genesis = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
         encoding: 'utf8',
@@ -709,8 +700,10 @@ app
       encoding: 'utf-8',
     });
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
+
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
     const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
@@ -904,11 +897,12 @@ app
 app
   .command('redeem')
   .description('Lock V1 Tuna and redeem V2 Tuna')
+  .addOption(blockFrostOption)
   .addOption(previewOption)
   .addArgument(
     new Argument('<amount>', 'Amount of V1 Tuna to lock').argParser((val) => BigInt(val)),
   )
-  .action(async (amount, { preview }) => {
+  .action(async (amount, { preview, blockfrostKey }) => {
     const fortunaV1: Genesis = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
         encoding: 'utf8',
@@ -925,11 +919,10 @@ app
     );
 
     // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const provider = new Blockfrost(
-      'https://cardano-preview.blockfrost.io/api/v0/',
-      'previewty2mM5pfSKV4NnMQUhOZl6nzX37xP9Qb',
-    );
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
     const rewardAddress = lucid.utils.credentialToRewardAddress(
@@ -993,10 +986,9 @@ app
 app
   .command('setup')
   .description('Create script refs')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
     const fortunaV1: Genesis = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
         encoding: 'utf8',
@@ -1005,21 +997,25 @@ app
 
     const [forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
+
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
-    const tx_test = await lucid
-      .newTx()
-      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-      .complete();
+    // const tx_test = await lucid
+    //   .newTx()
+    //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
+    //   .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
+    //   .complete();
 
-    const signed_test = await tx_test.sign().complete();
+    // const signed_test = await tx_test.sign().complete();
 
-    await signed_test.submit();
+    // await signed_test.submit();
 
-    await lucid.awaitTx(signed_test.toHash());
+    // console.log(signed_test.toHash());
+
+    // await lucid.awaitTx(signed_test.toHash());
 
     const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
       return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
@@ -1074,6 +1070,10 @@ app
       console.log(`TX Hash: ${signed.toHash()}`);
 
       await lucid.awaitTx(signed.toHash());
+
+      await lucid.awaitTx(signed.toHash());
+
+      await delay(10000);
 
       const tx2 = await lucid
         .newTx()
@@ -1224,12 +1224,13 @@ app
 app
   .command('address')
   .description('Check address balance')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -1278,12 +1279,13 @@ app
 app
   .command('nominate')
   .description('Nominate a new Fortuna Spending Contract')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -1418,12 +1420,13 @@ app
 app
   .command('mintVoteTokens')
   .description('Mint a marker token for Voting')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -1481,12 +1484,13 @@ app
 app
   .command('mintVoteAgainstTokens')
   .description('Mint a marker token for Against Voting')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -1554,12 +1558,13 @@ app
 app
   .command('countForVote')
   .description('count referenced Utxos in Voting')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -1725,12 +1730,13 @@ app
 app
   .command('countForAgainstVotes')
   .description('count referenced Utxos in Voting')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -1957,12 +1963,13 @@ app
 app
   .command('cancelNomination')
   .description('Cancel a nomination that did not pass the vote')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -2039,12 +2046,13 @@ app
 app
   .command('transitionNomination')
   .description('Transition Nomination to the next stage')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
 
@@ -2123,17 +2131,13 @@ app
 app
   .command('activateNomination')
   .description('Transition Nomination to being the active spend contract')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
     // const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    // const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
-    const provider = new Blockfrost(
-      'https://cardano-preview.blockfrost.io/api/v0/',
-      'previewty2mM5pfSKV4NnMQUhOZl6nzX37xP9Qb',
-    );
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
     const {
@@ -2237,12 +2241,13 @@ app
 app
   .command('clearWallet')
   .description('Cancel a nomination that did not pass the vote')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+  .action(async ({ preview, blockfrostKey }) => {
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
 
     const a: Genesis = JSON.parse(
       fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
@@ -2292,10 +2297,9 @@ app
 app
   .command('mineWithNominatedContract')
   .description('Start the miner and allows vote for nominated contract')
-  .addOption(kupoUrlOption)
-  .addOption(ogmiosUrlOption)
+  .addOption(blockFrostOption)
   .addOption(previewOption)
-  .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
+  .action(async ({ preview, blockfrostKey }) => {
     const alwaysLoop = true;
 
     // Construct a new trie with on-disk storage under the file path 'db'.
@@ -2325,8 +2329,10 @@ app
       }),
     );
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const provider = new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0/', blockfrostKey);
+
+    // const provider = new Kupmios(kupoUrl, ogmiosUrl);
+    const lucid = await Lucid.new(provider, preview ? 'Preprod' : 'Mainnet');
     lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf8' }));
 
     const userPkh = lucid.utils.getAddressDetails(await lucid.wallet.address()).paymentCredential!;

@@ -69,6 +69,7 @@
     "@blaze-cardano/wallet": "^0.1.16",
     "@utxorpc/sdk": "^0.1.0",
     "@utxorpc/spec": "^0.5.1",
+    "blakejs": "^1.2.1",
     "buffer": "^6.0.3",
     "d3-array": "^3.2.4",
     "d3-scale": "^4.0.2",
@@ -76,8 +77,10 @@
     "date-fns": "^3.6.0",
     "drizzle-orm": "^0.31.2",
     "layerchart": "^0.34.0",
+    "lucid-cardano": "^0.10.7",
     "postgres": "^3.4.4",
-    "uplc-web": "^0.0.3"
+    "uplc-web": "^0.0.3",
+    "ws": "^8.18.0"
   },
   "browser": {
     "fs": false,

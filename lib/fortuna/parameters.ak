@@ -3,7 +3,7 @@ pub const halving_number = 210000
 
 pub const initial_payout = 5000000000
 
-// The number of blocks in an epoch. After each epoch the 
+// The number of blocks in an epoch. After each epoch the
 // difficulty changes
 pub const epoch_number = 504
 
@@ -17,7 +17,7 @@ pub const max_difficulty_adjustment = 4
 
 // New Params for V2
 pub const latest_merkle_root =
-  #"4d564ab67ab1594042747cbae9fd17da7c0e4241bad0ad6532dcb5620792eca1"
+  #"d09a444122bdbd3d40fbe4f2fe1e8776e09dd1014ede6b6f4736a626492bd722"
 
 // pub const latest_merkle_root =
 //   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"

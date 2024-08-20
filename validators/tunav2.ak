@@ -129,10 +129,10 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         // Minted amount of TUNA halves every halving number
         let halving_exponent = block_number / halving_number
 
-        // We don't check the output because we expect the spend script to take care of 
+        // We don't check the output because we expect the spend script to take care of
         // transporting the tokens to the next output
         // As a backup in case of a spend script exploit, we still check
-        // that the input has the correct 2 tokens (Lord Tuna and counter) and the payment credential is contained 
+        // that the input has the correct 2 tokens (Lord Tuna and counter) and the payment credential is contained
         // within the Lord Tuna token name.
         let expected_mint = {
           let tail =
@@ -140,8 +140,10 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
               []
             } else {
               [
-                Pair(fortuna.token_name,
-                initial_payout / pow2(halving_exponent)),
+                Pair(
+                  fortuna.token_name,
+                  initial_payout / pow2(halving_exponent),
+                ),
               ]
             }
 
@@ -167,9 +169,9 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
         and {
           // input value check
-          in_token_name == expected_in_token_name,
+          (in_token_name == expected_in_token_name)?,
           // minted counter check
-          minted_names == expected_mint,
+          (minted_names == expected_mint)?,
         }
       }
 
@@ -361,15 +363,19 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
           if builtin.less_than_bytearray(minted, burned) {
             [
-              Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
-              -1),
+              Pair(
+                bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                -1,
+              ),
               Pair(minted, 1),
               Pair(burned, -1),
             ]
           } else {
             [
-              Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
-              -1),
+              Pair(
+                bytearray.concat(fortunav2.nominated_prefix, script_hash),
+                -1,
+              ),
               Pair(burned, -1),
               Pair(minted, 1),
             ]
@@ -665,7 +671,7 @@ validator(tunav2_minting_policy: ByteArray) {
 
         let Output { datum: out_datum, value: out_value, .. } = own_output
 
-        // Time Range Span is 3 minutes or less 
+        // Time Range Span is 3 minutes or less
         // We have a constant expectation of the transaction time range
         expect Interval {
           upper_bound: IntervalBound {
@@ -705,7 +711,7 @@ validator(tunav2_minting_policy: ByteArray) {
           fortuna.format_found_bytearray(found_bytearray)
 
         // Check output datum contains correct epoch time, block number, hash, and leading zeros
-        // Check for every divisible by 2016 block: 
+        // Check for every divisible by 2016 block:
         // - Epoch time resets
         // - leading zeros is adjusted based on percent of hardcoded target time for 2016 blocks vs epoch time
         // Spend(8) requirement: Expect Output Datum to be of type Statev2
@@ -811,7 +817,7 @@ validator(tunav2_minting_policy: ByteArray) {
           },
           // Spend(10) requirement: Output posix time is the averaged current time
           out_current_posix_time == averaged_current_time,
-          // Spend(11) requirement: Output block number is the input block number + 1 
+          // Spend(11) requirement: Output block number is the input block number + 1
           block_number + 1 == out_block_number,
           // Spend(12) requirement: Output current hash is the found hash
           out_current_hash == found_bytearray,
