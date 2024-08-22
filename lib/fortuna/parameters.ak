@@ -17,7 +17,7 @@ pub const max_difficulty_adjustment = 4
 
 // New Params for V2
 pub const latest_merkle_root =
-  #"d09a444122bdbd3d40fbe4f2fe1e8776e09dd1014ede6b6f4736a626492bd722"
+  #"dd7c16581d8d48dcf382f2f1e0a050e2502461b3d0d8862c89f984869fd70916"
 
 // pub const latest_merkle_root =
 //   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
@@ -38,4 +38,5 @@ pub const miner_threshold = 850
 
 /// Number of blocks where voters can vote for a particular script
 /// as they mine Fortuna
+/// TODO: this should be set to 2016
 pub const miner_voting_period = 30
