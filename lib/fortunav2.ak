@@ -34,7 +34,8 @@ pub fn genesis_v2(tx, own_policy, fortuna_v1_hash: Data, fork_script_hash: Data)
   expect fork_script_hash: ByteArray = fork_script_hash
 
   // 2 tokens minted
-  expect [Pair(_, 1), Pair(_, 1)] =
+  expect [Pair(_, 1),
+    Pair(_, 1)] =
     mint
       |> value.from_minted_value
       |> tokens(own_policy)

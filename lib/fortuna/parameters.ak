@@ -16,18 +16,18 @@ pub const padding = 16
 pub const max_difficulty_adjustment = 4
 
 // New Params for V2
-pub const latest_merkle_root =
-  #"4d564ab67ab1594042747cbae9fd17da7c0e4241bad0ad6532dcb5620792eca1"
-
 // pub const latest_merkle_root =
-//   #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
+//   #"4d564ab67ab1594042747cbae9fd17da7c0e4241bad0ad6532dcb5620792eca1"
+
+pub const latest_merkle_root =
+  #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
 
 // Amount of days for a token holder to vote on a new upgrade contract
 pub const voting_days = 14
 
 /// Minimum supply threshold for the upgrade contract vote to be successful
-/// In thousandth percentage i.e. 250 = 25%
-pub const supply_threshold = 250
+/// In thousandth percentage i.e. 200 = 20%
+pub const supply_threshold = 200
 
 /// Minimum yes votes over no votes for the upgrade contract vote to be successful
 pub const vote_threshold = 666
@@ -38,4 +38,4 @@ pub const miner_threshold = 850
 
 /// Number of blocks where voters can vote for a particular script
 /// as they mine Fortuna
-pub const miner_voting_period = 30
+pub const miner_voting_period = 2016

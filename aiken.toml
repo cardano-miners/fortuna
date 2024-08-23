@@ -1,6 +1,6 @@
 name = "aiken-lang/fortuna"
 version = "0.0.0"
-compiler = "v1.0.29-alpha"
+compiler = "v1.0.31-alpha"
 plutus = "v2"
 license = "Apache-2.0"
 description = "Aiken contracts for pow coin"
