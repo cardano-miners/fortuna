@@ -77,7 +77,7 @@ type GenesisV3 = {
 };
 
 const delay = (ms: number | undefined) => new Promise((res) => setTimeout(res, ms));
-const epochNumber = 50n;
+const epochNumber = 504n;
 const twoWeeks = 30_000_000n;
 const halvingNumber = 210000n;
 
@@ -294,8 +294,8 @@ app
         console.log(`TX HASH: ${signed.toHash()}`);
         console.log('Waiting for confirmation...');
 
-        // // await lucid.awaitTx(signed.toHash());
-        await delay(5000);
+        await lucid.awaitTx(signed.toHash());
+        await delay(20000);
       } catch (e) {
         console.log(e);
       }
@@ -573,7 +573,7 @@ app
         console.log('Waiting for confirmation...');
 
         await lucid.awaitTx(signed.toHash());
-        await delay(3000);
+        await delay(25000);
       } catch (e) {
         console.log(e);
         await trie.delete(Buffer.from(blake256(targetHash)));
@@ -1017,6 +1017,8 @@ app
 
     // await lucid.awaitTx(signed_test.toHash());
 
+    // await delay(10000);
+
     const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
       return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
     });
@@ -1061,7 +1063,7 @@ app
         .collectFrom([utxos.at(1)!])
         .payToAddressWithData(forkValidatorAddress, { scriptRef: forkValidatorApplied }, {})
         .payToAddressWithData(forkValidatorAddress, { scriptRef: tunaV2SpendApplied }, {})
-        .complete({ coinSelection: true, change: { address: await lucid.wallet.address() } });
+        .complete({ coinSelection: true });
 
       const signed = await tx.sign().complete();
 
@@ -1073,7 +1075,7 @@ app
 
       await lucid.awaitTx(signed.toHash());
 
-      await delay(10000);
+      await delay(20000);
 
       const tx2 = await lucid
         .newTx()
@@ -1086,7 +1088,7 @@ app
         ])
         .payToAddressWithData(forkValidatorAddress, { scriptRef: tunaV2MintApplied }, {})
         .registerStake(forkValidatorRewardAddress)
-        .complete({ coinSelection: true, change: { address: await lucid.wallet.address() } });
+        .complete({ coinSelection: true });
 
       const signed2 = await tx2.sign().complete();
 
@@ -1138,8 +1140,8 @@ app
       },
     });
     let nextToken: BlockRef | undefined = new BlockRef({
-      index: 55194964n,
-      hash: fromHex('125ff4eb8168a03e34ed003975ed95b8844b1e751274fd5ce1b5abd8ca5b9908'),
+      index: 68696872n,
+      hash: fromHex('9afa726a18ab749fcb0ffa94e0b6aa52bef33d811d81ea9b57700794c919e15d'),
     });
 
     const headerHashes = JSON.parse(
@@ -1185,7 +1187,7 @@ app
                   );
                 })
               ) {
-                const datum = output.datum!.plutusData.value! as Cardano.Constr;
+                const datum = output.datum!.payload!.plutusData.value! as Cardano.Constr;
 
                 const currentHash = toHex(datum.fields[1].plutusData.value! as Uint8Array);
 
@@ -1361,6 +1363,8 @@ app
 
       await lucid.awaitTx(setupTxSigned.toHash());
 
+      await delay(10000);
+
       console.log(setupTxSigned.toHash());
 
       const contractUtxo = await lucid.utxosAt(newSpendAddress);
@@ -1454,17 +1458,20 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const mintVoteForRedeemer = new Constr(4, [
       new Constr(0, [new Constr(0, [voteStateUtxo.txHash]), BigInt(voteStateUtxo.outputIndex)]),
     ]);
 
+    console.log(tunaV3SpendHash);
+
     try {
       const setupTx = await lucid
         .newTx()
-        .readFrom([voteStateUtxo])
-        .readFrom(readUtxos)
+        .readFrom([voteStateUtxo, ...readUtxos])
         .mintAssets({ [tunav2ValidatorHash + tunaV3SpendHash]: 1n }, Data.to(mintVoteForRedeemer))
         .complete();
       console.log('here');
@@ -1528,7 +1535,9 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const mintVoteForRedeemer = new Constr(4, [
       new Constr(0, [new Constr(0, [voteStateUtxo.txHash]), BigInt(voteStateUtxo.outputIndex)]),
@@ -1612,7 +1621,9 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const [script_hash, for_count, anti_script_hash, against_count, deadline] = (
       Data.from(voteStateUtxo.datum!) as Constr<string | bigint>
@@ -1620,7 +1631,6 @@ app
 
     const voteSpendRedeemer = new Constr(1, [new Constr(0, [])]);
 
-    console.log('HERE222');
     console.log('Input Datum', script_hash, for_count, anti_script_hash, against_count, deadline);
     console.log(totalTuna);
 
@@ -1639,8 +1649,6 @@ app
       deadline,
     ]);
 
-    console.log('HERE333');
-
     try {
       const setupTx = await lucid
         .newTx()
@@ -1658,7 +1666,6 @@ app
           },
         )
         .complete();
-      console.log('here1');
 
       const setupTxSigned = await setupTx.sign().complete();
 
@@ -1668,9 +1675,9 @@ app
 
       await lucid.awaitTx(setupTxSigned.toHash());
 
-      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000;
+      await delay(20000);
 
-      console.log('HERE444');
+      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000;
 
       const tx = await lucid
         .newTx()
@@ -1690,7 +1697,7 @@ app
           { inline: Data.to(voteStateOutputDatum) },
           { [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n },
         )
-        .validTo(realTimeNow + 60000)
+        .validTo(realTimeNow + 80000)
         .complete();
       console.log('here');
 
@@ -1784,7 +1791,9 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const [script_hash, for_count, anti_script_hash, against_count, deadline] = (
       Data.from(voteStateUtxo.datum!) as Constr<string | bigint>
@@ -1793,7 +1802,6 @@ app
     const voteSpendRedeemer = new Constr(1, [new Constr(0, [])]);
     const voteSpendRedeemer2 = new Constr(1, [new Constr(1, [])]);
 
-    console.log('HERE222');
     console.log('Input Datum', script_hash, for_count, anti_script_hash, against_count, deadline);
     console.log('TOTAL TUNA FOUND', totalTuna);
 
@@ -1819,8 +1827,6 @@ app
       (against_count as bigint) + totalTuna / 2n,
       deadline,
     ]);
-
-    console.log('HERE333');
 
     try {
       const setupTx = await lucid
@@ -1851,8 +1857,8 @@ app
             [tunav2ValidatorHash + fromText('TUNA')]: totalTuna / 4n,
           },
         )
+        .payToAddress(await lucid.wallet.address(), { lovelace: 90000000n })
         .complete();
-      console.log('here1');
 
       const setupTxSigned = await setupTx.sign().complete();
 
@@ -1862,9 +1868,9 @@ app
 
       await lucid.awaitTx(setupTxSigned.toHash());
 
-      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000;
+      await delay(20000);
 
-      console.log('HERE444');
+      const realTimeNow = Number((Date.now() / 1000).toFixed(0)) * 1000;
 
       const tx = await lucid
         .newTx()
@@ -1884,7 +1890,7 @@ app
           { inline: Data.to(voteStateOutputDatum) },
           { [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n },
         )
-        .validTo(realTimeNow + 60000)
+        .validTo(realTimeNow + 80000)
         .complete();
 
       console.log('here');
@@ -1895,6 +1901,14 @@ app
 
       console.log(txSigned.toHash());
       await lucid.awaitTx(txSigned.toHash());
+
+      await delay(20000);
+
+      const voteStateUtxo2 = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+        return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+      })[0];
+
+      const realTimeNow2 = Number((Date.now() / 1000).toFixed(0)) * 1000;
 
       const againstTx = await lucid
         .newTx()
@@ -1908,13 +1922,13 @@ app
           ),
         )
         .readFrom(await lucid.wallet.getUtxos())
-        .collectFrom([voteStateUtxo], Data.to(voteSpendRedeemer2))
+        .collectFrom([voteStateUtxo2], Data.to(voteSpendRedeemer2))
         .payToContract(
           tunaV2RealAddress,
           { inline: Data.to(voteStateOutputDatum2) },
           { [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n },
         )
-        .validTo(realTimeNow + 60000)
+        .validTo(realTimeNow2 + 80000)
         .complete();
 
       console.log('here here');
@@ -2003,7 +2017,9 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const lordTunaDatum = Data.from(lordTunaUtxo[0].datum!) as Constr<bigint>;
 
@@ -2086,7 +2102,9 @@ app
 
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const lordTunaDatum = Data.from(lordTunaUtxo[0].datum!) as Constr<bigint>;
 
@@ -2105,7 +2123,7 @@ app
         .payToContract(
           tunaV2RealAddress,
           {
-            inline: Data.to(new Constr(1, [tunaV3SpendHash, 0n, (blockNumber as bigint) + 50n])),
+            inline: Data.to(new Constr(1, [tunaV3SpendHash, 0n, (blockNumber as bigint) + 30n])),
           },
           {
             [tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash]: 1n,
@@ -2174,7 +2192,9 @@ app
     });
     const readUtxos = await lucid.utxosAt(forkValidatorAddress);
 
-    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress))[0];
+    const voteStateUtxo = (await lucid.utxosAt(tunaV2RealAddress)).filter((x) => {
+      return x.assets[tunav2ValidatorHash + fromText('NOMA') + tunaV3SpendHash] === 1n;
+    })[0];
 
     const voteStateUtxoRef = new Constr(0, [
       new Constr(0, [voteStateUtxo.txHash]),
@@ -2572,6 +2592,7 @@ app
 
         const txMine = await lucid
           .newTx()
+          .readFrom(readUtxos)
           .collectFrom([minerOutput], minerRedeemer)
           .collectFrom(mintUtxos, Data.to(spendGovRedeemer))
           .payToContract(tunaV2ValidatorAddress, { inline: outDat }, masterTokens)
@@ -2582,10 +2603,9 @@ app
           )
           .mintAssets(mintTokens, mintRedeemer)
           .addSigner(await lucid.wallet.address())
-          .readFrom(readUtxos)
           .validTo(realTimeNow + 180000)
           .validFrom(realTimeNow)
-          .complete();
+          .complete({ nativeUplc: false });
 
         const signed = await txMine.sign().complete();
 
@@ -2595,7 +2615,7 @@ app
         console.log('Waiting for confirmation...');
 
         await lucid.awaitTx(signed.toHash());
-        await delay(3000);
+        await delay(25000);
       } catch (e) {
         console.log(e);
         await trie.delete(Buffer.from(blake256(targetHash)));

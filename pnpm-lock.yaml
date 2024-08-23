@@ -33,11 +33,11 @@ importers:
         specifier: ^0.1.16
         version: 0.1.16
       '@utxorpc/sdk':
-        specifier: ^0.1.0
-        version: 0.1.0(@bufbuild/protobuf@1.10.0)
+        specifier: ^0.3.0
+        version: 0.3.0(@bufbuild/protobuf@1.10.0)
       '@utxorpc/spec':
-        specifier: ^0.5.1
-        version: 0.5.1
+        specifier: ^0.9.0
+        version: 0.9.0
       blakejs:
         specifier: ^1.2.1
         version: 1.2.1
@@ -1279,6 +1279,9 @@ packages:
   '@types/node@18.19.42':
     resolution: {integrity: sha512-d2ZFc/3lnK2YCYhos8iaNIYu9Vfhr92nHiyJHRltXWjXUBjEE+A4I58Tdbnw4VhggSW+2j5y5gTrLs4biNnubg==}
 
+  '@types/node@20.14.10':
+    resolution: {integrity: sha512-MdiXf+nDuMvY0gJKxyfZ7/6UFsETO7mGKF54MVD/ekJS6HdFtpZFBgrh6Pseu64XTb2MLyFPlbW6hj8HYRQNOQ==}
+
   '@types/node@20.14.12':
     resolution: {integrity: sha512-r7wNXakLeSsGT0H1AU863vS2wa5wBOK4bWMjZz2wj+8nBx+m5PeIn0k8AloSLpRuiwdRQZwarZqHE4FNArPuJQ==}
 
@@ -1355,15 +1358,11 @@ packages:
   '@ungap/structured-clone@1.2.0':
     resolution: {integrity: sha512-zuVdFrMJiuCDQUMCzQaD6KL28MjnqqN8XnAqiEq9PNm/hCPTSGfrXCOfwj1ow4LFb/tNymJPwsNbVePc1xFqrQ==}
 
-  '@utxorpc/sdk@0.1.0':
-    resolution: {integrity: sha512-CksicbgN1oGJ3D1pqW4x3UL58eohtyn9VnoMwFfegBCUm8wK712cKEEfdN6ksVg47jxWokyx/Q9kJ0YwMKXE/g==}
+  '@utxorpc/sdk@0.3.0':
+    resolution: {integrity: sha512-sdm79WsQfa72Oe2stfO8Ecc1vX3xB314jHElpkgElx6y+PsYhCnBGVYRGZqH5cAnds4CXvPX76YkC1Px3Mdcxw==}
 
-  '@utxorpc/spec@0.3.0':
-    resolution: {integrity: sha512-Lw6hV9W5mTLRdlnu+n4V1TOATI1WTcujnZ4a6JX4Su81BWHqgx6qgFXnup88u1Oawa0blAr3+fTSGjHZXuv8KA==}
-    engines: {node: '>=16.0.0'}
-
-  '@utxorpc/spec@0.5.1':
-    resolution: {integrity: sha512-wrL5w1cdjE2SeQ33aqIPs33a6PahNh7q70gnETau6xZJTCjeNAgJks/6vstBezaxJv/oVFCmqI3pCvMJayPBUQ==}
+  '@utxorpc/spec@0.9.0':
+    resolution: {integrity: sha512-MSAbFrYr2dXkuHSDWYMkItYv5anuzeGd50t2+XjBoaI/eCNhviflLpl1i90XB00a1LOuHyS8o2Z+EBgB5i/h/A==}
     engines: {node: '>=16.0.0'}
 
   '@vitest/expect@1.6.0':
@@ -5086,6 +5085,10 @@ snapshots:
     dependencies:
       undici-types: 5.26.5
 
+  '@types/node@20.14.10':
+    dependencies:
+      undici-types: 5.26.5
+
   '@types/node@20.14.12':
     dependencies:
       undici-types: 5.26.5
@@ -5185,20 +5188,16 @@ snapshots:
 
   '@ungap/structured-clone@1.2.0': {}
 
-  '@utxorpc/sdk@0.1.0(@bufbuild/protobuf@1.10.0)':
+  '@utxorpc/sdk@0.3.0(@bufbuild/protobuf@1.10.0)':
     dependencies:
       '@connectrpc/connect': 1.4.0(@bufbuild/protobuf@1.10.0)
       '@connectrpc/connect-node': 1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))
-      '@types/node': 20.14.12
-      '@utxorpc/spec': 0.3.0
+      '@types/node': 20.14.10
+      '@utxorpc/spec': 0.9.0
     transitivePeerDependencies:
       - '@bufbuild/protobuf'
 
-  '@utxorpc/spec@0.3.0':
-    dependencies:
-      '@bufbuild/protobuf': 1.10.0
-
-  '@utxorpc/spec@0.5.1':
+  '@utxorpc/spec@0.9.0':
     dependencies:
       '@bufbuild/protobuf': 1.10.0
 

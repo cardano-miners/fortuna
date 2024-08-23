@@ -26,8 +26,8 @@ pub const latest_merkle_root =
 pub const voting_days = 14
 
 /// Minimum supply threshold for the upgrade contract vote to be successful
-/// In thousandth percentage i.e. 250 = 25%
-pub const supply_threshold = 250
+/// In thousandth percentage i.e. 200 = 20%
+pub const supply_threshold = 200
 
 /// Minimum yes votes over no votes for the upgrade contract vote to be successful
 pub const vote_threshold = 666
@@ -39,4 +39,4 @@ pub const miner_threshold = 850
 /// Number of blocks where voters can vote for a particular script
 /// as they mine Fortuna
 /// TODO: this should be set to 2016
-pub const miner_voting_period = 30
+pub const miner_voting_period = 2016
