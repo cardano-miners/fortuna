@@ -3,7 +3,7 @@ pub const halving_number = 210000
 
 pub const initial_payout = 5000000000
 
-// The number of blocks in an epoch. After each epoch the 
+// The number of blocks in an epoch. After each epoch the
 // difficulty changes
 pub const epoch_number = 504
 
@@ -20,7 +20,7 @@ pub const max_difficulty_adjustment = 4
 //   #"4d564ab67ab1594042747cbae9fd17da7c0e4241bad0ad6532dcb5620792eca1"
 
 pub const latest_merkle_root =
-  #"08f6adda95e55efab85705f7b3313559db6750f5d7385de9b11d932a8db86204"
+  #"f54bf42f82f753f02535fd249e0d0605c2dfa3d5f2f8903c249fafed054ab4d3"
 
 // Amount of days for a token holder to vote on a new upgrade contract
 pub const voting_days = 14

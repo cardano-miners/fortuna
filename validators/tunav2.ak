@@ -61,34 +61,6 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
     // TODO: replace value.tokens with faster function
     when redeemer is {
-      Genesis -> genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash)
-
-      Redeem -> {
-        let Transaction { mint, redeemers, .. } = tx
-
-        let withdraw_purpose =
-          tx.WithdrawFrom(
-            Inline(ScriptCredential(fork_script_hash |> builtin.un_b_data)),
-          )
-
-        // Check fork contract for locked amount of v1 TUNA
-        expect Lock { locking_amount, .. }: NftForkAction =
-          expect_first(redeemers, withdraw_purpose)
-
-        expect [Pair(mint_name, mint_amount)] =
-          mint
-            |> value.from_minted_value
-            |> tokens(own_policy)
-
-        and {
-          mint_name == fortuna.token_name,
-          // Allow for minting that same amount
-          mint_amount == locking_amount,
-          // redundant but cheap enough check that I'll just leave it in
-          mint_amount > 0,
-        }
-      }
-
       MineTuna(input_ref, block_number) -> {
         let Transaction { inputs, mint, .. } = tx
 
@@ -172,6 +144,34 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
           in_token_name == expected_in_token_name,
           // minted counter check
           minted_names == expected_mint,
+        }
+      }
+
+      Genesis -> genesis_v2(tx, own_policy, fortuna_v1_hash, fork_script_hash)
+
+      Redeem -> {
+        let Transaction { mint, redeemers, .. } = tx
+
+        let withdraw_purpose =
+          tx.WithdrawFrom(
+            Inline(ScriptCredential(fork_script_hash |> builtin.un_b_data)),
+          )
+
+        // Check fork contract for locked amount of v1 TUNA
+        expect Lock { locking_amount, .. }: NftForkAction =
+          expect_first(redeemers, withdraw_purpose)
+
+        expect [Pair(mint_name, mint_amount)] =
+          mint
+            |> value.from_minted_value
+            |> tokens(own_policy)
+
+        and {
+          mint_name == fortuna.token_name,
+          // Allow for minting that same amount
+          mint_amount == locking_amount,
+          // redundant but cheap enough check that I'll just leave it in
+          mint_amount > 0,
         }
       }
 
