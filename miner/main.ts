@@ -27,6 +27,9 @@ import {
   addressFromValidator,
   NetworkId,
   sha2_256,
+  RewardAddress,
+  RewardAccount,
+  TransactionOutput,
 } from '@blaze-cardano/core';
 import { makeValue, Kupmios, Blaze, HotWallet, applyParamsToScript } from '@blaze-cardano/sdk';
 
@@ -93,6 +96,8 @@ const halvingNumber = 210000n;
 
 const app = new Command();
 
+const fromText = (text: string) => Buffer.from(text, 'ascii').toString('hex');
+
 app.name('fortuna').description('Fortuna miner').version('0.0.2');
 
 const kupoUrlOption = new Option('-k, --kupo-url <string>', 'Kupo URL')
@@ -125,7 +130,7 @@ const blazeInitOg = async (kupoUrl: string, ogmiosUrl: string) => {
   const entropy = mnemonicToEntropy(mnemonic, wordlist);
   const masterkey = Bip32PrivateKey.fromBip39Entropy(Buffer.from(entropy), '');
   const wallet = await HotWallet.fromMasterkey(masterkey.hex(), provider);
-  return await Blaze.from(provider, wallet);
+  return Blaze.from(provider, wallet);
 };
 
 const blazeInit = async () => {
@@ -149,6 +154,9 @@ app
   .addOption(previewOption)
   .action(async ({ preview, kupoUrl, ogmiosUrl }) => {
     const trueValue = true;
+
+    const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
+    const ogmios = (await blazeInitOg(kupoUrl, ogmiosUrl)).provider.ogmios;
     while (trueValue) {
       const { validatorAddress, validator, validatorHash }: Genesis = JSON.parse(
         fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
@@ -156,14 +164,9 @@ app
         }),
       );
 
-      const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
-      const ogmios = (await blazeInitOg(kupoUrl, ogmiosUrl)).provider.ogmios;
       console.log('Starting ...');
       let validatorUTXO = await blaze.provider.getUnspentOutputByNFT(
-        AssetId.fromParts(
-          PolicyId(validatorHash),
-          AssetName(Buffer.from('lord tuna', 'ascii').toString('hex')),
-        ),
+        AssetId.fromParts(PolicyId(validatorHash), AssetName(fromText('lord tuna'))),
       );
 
       let validatorState = validatorUTXO.output().datum()!;
@@ -203,10 +206,7 @@ app
           console.log('New block not found in 5 seconds, updating state');
           timer = new Date().valueOf();
           validatorUTXO = await blaze.provider.getUnspentOutputByNFT(
-            AssetId.fromParts(
-              PolicyId(validatorHash),
-              AssetName(Buffer.from('lord tuna', 'ascii').toString('hex')),
-            ),
+            AssetId.fromParts(PolicyId(validatorHash), AssetName(fromText('lord tuna'))),
           );
           validatorState = validatorUTXO.output().datum()!;
 
@@ -268,17 +268,14 @@ app
           difficultyNumber: state.targetNumber,
         },
         state.interlink.map((x) => Data.from(x)),
-      ).map((x) => Data.to(x, undefined));
-
-      console.log(SLOT_CONFIG_NETWORK);
+      ).map((x) => Data.to(x));
 
       const networkSlotConfig = SLOT_CONFIG_NETWORK.Preview;
 
-      const currentPosixTime =
-        BigInt(
-          (current_slot - networkSlotConfig.zeroSlot) * networkSlotConfig.slotLength +
-            networkSlotConfig.zeroTime,
-        ) + 45000n;
+      const currentPosixTime = BigInt(
+        (current_slot + 45 - networkSlotConfig.zeroSlot) * networkSlotConfig.slotLength +
+          networkSlotConfig.zeroTime,
+      );
 
       let epochTime = state.epochTime + currentPosixTime - state.currentPosixTime;
 
@@ -312,7 +309,7 @@ app
           targetNumber: difficulty_number,
           epochTime,
           currentPosixTime,
-          extra: Data.to(Buffer.from('AlL HaIl tUnA', 'ascii').toString('hex'), undefined),
+          extra: Data.to(fromText('AlL HaIl tUnA')),
           interlink,
         },
         plutus.Tunav1Spend.state,
@@ -320,32 +317,29 @@ app
 
       console.log(`Found next datum: ${postDatum.toCbor()}`);
 
-      const masterToken: [string, bigint] = [
-        validatorHash + Buffer.from('lord tuna', 'ascii').toString('hex'),
-        1n,
-      ];
-      console.log(postDatum.toCbor());
-      console.log(Data.to('Mine', plutus.Tunav1Mint.state).toCbor());
-      console.log(Data.to({ wrapper: toHex(nonce) }, plutus.Tunav1Spend.nonce).toCbor());
+      const masterToken: [string, bigint] = [validatorHash + fromText('lord tuna'), 1n];
+
+      console.log('Mine', Data.to('Mine', plutus.Tunav1Mint.state).toCbor());
+      console.log('Nonce', Data.to({ wrapper: toHex(nonce) }, plutus.Tunav1Spend.nonce).toCbor());
 
       try {
         const txMine = await blaze
           .newTransaction()
-          .provideScript(Script.newPlutusV2Script(new PlutusV2Script(HexBlob(validator))))
+          .provideScript(Script.fromCbor(HexBlob(validator)))
           .addInput(validatorUTXO, Data.to({ wrapper: toHex(nonce) }, plutus.Tunav1Spend.nonce))
           .lockAssets(Address.fromBech32(validatorAddress), makeValue(0n, masterToken), postDatum)
           .addMint(
             PolicyId(validatorHash),
             new Map([
               [
-                AssetName(Buffer.from('TUNA', 'ascii').toString('hex')),
+                AssetName(fromText('TUNA')),
                 5000000000n / 2n ** (state.blockNumber / halvingNumber),
               ],
             ]),
             Data.to('Mine', plutus.Tunav1Mint.state),
           )
           .setValidFrom(Slot(current_slot))
-          .setValidUntil(Slot(current_slot + 90000))
+          .setValidUntil(Slot(current_slot + 90))
           .complete();
 
         const signed = await blaze.signTransaction(txMine);
@@ -355,7 +349,10 @@ app
         console.log(`TX HASH: ${signed.getId()}`);
         console.log('Waiting for confirmation...');
 
-        await blaze.provider.awaitTransactionConfirmation(signed.getId());
+        console.log(
+          'awaitConfirmation',
+          await blaze.provider.awaitTransactionConfirmation(signed.getId(), 30000),
+        );
       } catch (e) {
         console.log(e);
       }
@@ -663,21 +660,13 @@ app
       outputIndex: initOutputRef.index(),
     });
 
-    console.log('here');
-    console.log(Data.to(inputAsData));
-    console.log('ohter');
-
     const bootstrapHash = toHex(await sha256(await sha256(fromHex(Data.to(inputAsData).toCbor()))));
-    console.log('not here');
 
     const validatorAddress = addressFromValidator(NetworkId.Testnet, appliedValidator);
 
     const validatorHash = appliedValidator.hash();
 
-    const masterToken: [string, bigint] = [
-      validatorHash + Buffer.from('lord tuna', 'ascii').toString('hex'),
-      1n,
-    ];
+    const masterToken: [string, bigint] = [validatorHash + fromText('lord tuna'), 1n];
 
     const lastSlot = (await ogmios.queryNetworkTip().then((point) => {
       if (point === 'origin') {
@@ -686,8 +675,6 @@ app
 
       return point.slot;
     }))!;
-
-    console.log('super here');
 
     const slotToTime =
       (lastSlot - SLOT_CONFIG_NETWORK.Preview.zeroSlot) * SLOT_CONFIG_NETWORK.Preview.slotLength +
@@ -715,7 +702,7 @@ app
       .lockAssets(validatorAddress, makeValue(0n, masterToken), datum)
       .addMint(
         PolicyId(validatorHash),
-        new Map([[AssetName(Buffer.from('lord tuna', 'ascii').toString('hex')), 1n]]),
+        new Map([[AssetName(fromText('lord tuna')), 1n]]),
         Data.to('Genesis', plutus.Tunav1Mint.state),
       )
 
@@ -725,26 +712,27 @@ app
       .complete();
 
     const signed = await blaze.signTransaction(tx);
-    console.log('HERE??');
 
     try {
       await blaze.submitTransaction(signed);
 
       console.log(`TX Hash: ${signed.getId()}`);
 
-      await blaze.provider.awaitTransactionConfirmation(signed.getId());
+      await blaze.provider.awaitTransactionConfirmation(signed.getId(), 30000);
 
       console.log(`Completed and saving genesis file.`);
+
+      console.log('out_ref', Data.to(inputAsData).toCbor());
 
       fs.writeFileSync(
         `genesis/${preview ? 'preview' : 'mainnet'}.json`,
         JSON.stringify({
           validator: appliedValidator.toCbor(),
           validatorHash,
-          validatorAddress,
+          validatorAddress: validatorAddress.toBech32(),
           bootstrapHash,
-          datum,
-          outRef: Data.to(inputAsData, undefined).toCbor(),
+          datum: datum.toCbor(),
+          outRef: Data.to(inputAsData).toCbor(),
         }),
         { encoding: 'utf-8' },
       );
@@ -766,172 +754,172 @@ app
       }),
     );
 
-    const [forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
-
-    const forkMerkleRoot = fs.readFileSync(preview ? 'currentPreviewRoot.txt' : 'currentRoot.txt', {
+    const merkleRoot = fs.readFileSync(preview ? 'currentPreviewRoot.txt' : 'currentRoot.txt', {
       encoding: 'utf-8',
     });
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
-    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+    const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
 
-    const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
-      return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
-    });
+    const utxo = (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
+      return (
+        a.input().transactionId().localeCompare(b.input().transactionId()) ||
+        a.input().index().toString().localeCompare(b.input().index().toString())
+      );
+    })[0];
 
-    if (utxos.length === 0) {
-      throw new Error('No UTXOs Found');
-    }
-
-    const initOutputRef = new Constr(0, [
-      new Constr(0, [utxos[0].txHash]),
-      BigInt(utxos[0].outputIndex),
-    ]);
+    console.log('utxo', utxo.toCbor());
 
     const fortunaV1Hash = fortunaV1.validatorHash;
 
-    const fortunaV1Address = fortunaV1.validatorAddress;
+    const forkValidatorApplied = new plutus.SimplerforkNftFork(
+      { transactionId: { hash: utxo.input().transactionId() }, outputIndex: utxo.input().index() },
+      fortunaV1Hash,
+    );
 
-    const forkValidatorApplied: Cardano.Script = {
-      type: 'PlutusV2',
-      script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
-    };
-
-    const forkValidatorHash = lucid.utils.validatorToScriptHash(forkValidatorApplied);
+    const forkValidatorHash = forkValidatorApplied.hash();
 
     console.log(forkValidatorHash);
 
-    const forkValidatorRewardAddress = lucid.utils.validatorToRewardAddress(forkValidatorApplied);
+    const forkValidatorAddress = addressFromValidator(NetworkId.Testnet, forkValidatorApplied);
 
-    const forkValidatorAddress = lucid.utils.validatorToAddress(forkValidatorApplied);
+    const readUtxos = await blaze.provider.getUnspentOutputs(forkValidatorAddress);
 
-    const readUtxos = await lucid.utxosAt(forkValidatorAddress);
+    readUtxos.forEach((x) => {
+      console.log('READ INPUT', x.toCbor(), '\n');
+    });
 
-    const tunaV2MintApplied: Cardano.Script = {
-      type: 'PlutusV2',
-      script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
-    };
+    const tunaV2MintApplied = new plutus.Tunav2Tuna(
+      Data.to(fortunaV1Hash),
+      Data.to(forkValidatorHash),
+    );
 
-    const tunaV2MintAppliedHash = lucid.utils.validatorToScriptHash(tunaV2MintApplied);
+    const tunaV2MintHash = tunaV2MintApplied.hash();
 
-    const tunaV2MintAddress = lucid.utils.validatorToAddress(tunaV2MintApplied);
+    const tunaV2MintAddress = addressFromValidator(NetworkId.Testnet, tunaV2MintApplied);
 
-    console.log(tunaV2MintAppliedHash);
+    console.log(tunaV2MintHash);
 
-    const tunaV2SpendApplied: Cardano.Script = {
-      type: 'PlutusV2',
-      script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
-    };
+    const tunaV2SpendApplied = new plutus.Tunav2Mine(tunaV2MintHash);
 
-    const tunaV2SpendAppliedHash = lucid.utils.validatorToScriptHash(tunaV2SpendApplied);
+    const tunaV2SpendHash = tunaV2SpendApplied.hash();
 
-    console.log(tunaV2SpendAppliedHash);
+    console.log(tunaV2SpendHash);
 
-    const fortunaV2Address = lucid.utils.validatorToAddress(tunaV2SpendApplied);
+    const fortunaV2Address = addressFromValidator(NetworkId.Testnet, tunaV2SpendApplied);
 
-    const lastestV1Block: UTxO = (
-      await lucid.utxosAtWithUnit(fortunaV1Address, fortunaV1Hash + fromText('lord tuna'))
-    )[0];
+    const lastestV1Block = await blaze.provider.getUnspentOutputByNFT(
+      AssetId(fortunaV1Hash + fromText('lord tuna')),
+    );
 
-    const lastestV1BlockData = Data.from(lastestV1Block.datum!) as Constr<
-      string | bigint | string[]
-    >;
+    const lastestV1BlockData = Data.from(
+      lastestV1Block.output().datum()!.asInlineData()!,
+      plutus.Tunav1Spend.state,
+    );
 
-    const [bn, current_hash, leading_zeros, target_number, epoch_time, current_posix_time] =
-      lastestV1BlockData.fields;
-
-    const blockNumber = bn as bigint;
+    const { blockNumber, currentHash, leadingZeros, targetNumber, currentPosixTime, epochTime } =
+      lastestV1BlockData;
 
     const blockNumberHex =
       blockNumber.toString(16).length % 2 === 0
         ? blockNumber.toString(16)
         : `0${blockNumber.toString(16)}`;
 
-    const masterTokensV2 = {
-      [tunaV2MintAppliedHash + fromText('TUNA') + tunaV2SpendAppliedHash]: 1n,
-      [tunaV2MintAppliedHash + fromText('COUNTER') + blockNumberHex]: 1n,
-    };
+    const lockState = Data.to(
+      { blockHeight: blockNumber, currentLockedTuna: 0n },
+      plutus.SimplerforkFork._datum,
+    );
 
-    const forkLockToken = {
-      [forkValidatorHash + fromText('lock_state')]: 1n,
-    };
-
-    // LockState { block_height: block_number, current_locked_tuna: 0 }
-    const lockState = Data.to(new Constr(0, [blockNumber, 0n]));
-
-    // HardFork { lock_output_index }
-    const forkRedeemer = Data.to(new Constr(0, [0n]));
+    const forkRedeemer = Data.to(
+      { HardFork: { lockOutputIndex: 0n } },
+      plutus.SimplerforkNftFork.redeemer,
+    );
 
     const forkMintRedeemer = Data.to(0n);
 
-    //  Statev2 {
-    //   block_number,
-    //   current_hash,
-    //   leading_zeros: leading_zeros - 2,
-    //   target_number,
-    //   epoch_time,
-    //   current_posix_time,
-    //   merkle_root: latest_merkle_root,
-    // }
     const fortunaState = Data.to(
-      new Constr(0, [
+      {
         blockNumber,
-        current_hash,
-        (leading_zeros as bigint) - 2n,
-        target_number,
-        epoch_time,
-        current_posix_time,
-        forkMerkleRoot,
-      ]),
+        currentHash,
+        leadingZeros: leadingZeros - 2n,
+        targetNumber,
+        currentPosixTime,
+        epochTime,
+        merkleRoot,
+      },
+      plutus.Tunav2Mine.datum,
     );
 
     console.log(
       'State',
       blockNumber,
-      current_hash,
-      (leading_zeros as bigint) - 2n,
-      target_number,
-      epoch_time,
-      current_posix_time,
-      forkMerkleRoot,
+      currentHash,
+      (leadingZeros as bigint) - 2n,
+      targetNumber,
+      epochTime,
+      currentPosixTime,
+      merkleRoot,
     );
 
-    const fortunaRedeemer = Data.to(new Constr(0, []));
+    const fortunaRedeemer = Data.to('Genesis', plutus.Tunav2Tuna.redeemer);
+
+    console.log('HERE???');
 
     try {
-      // const txRegister = await lucid
-      //   .newTx()
-      //   .collectFrom([utxos.at(5)!])
-      //   .registerStake(forkValidatorRewardAddress)
-      //   .complete({ coinSelection: false });
-
-      // const signedRegister = await txRegister.sign().complete();
-
-      // await signedRegister.submit();
-
-      // console.log(`TX Hash: ${signedRegister.toHash()}`);
-
-      // await lucid.awaitTx(signedRegister.toHash());
-
-      const tx = await lucid
-        .newTx()
-        .collectFrom([utxos.at(0)!])
-        .readFrom([lastestV1Block, ...readUtxos])
-        .withdraw(forkValidatorRewardAddress, 0n, forkRedeemer)
-        .mintAssets(forkLockToken, forkMintRedeemer)
-        .mintAssets(masterTokensV2, fortunaRedeemer)
-        .payToContract(forkValidatorAddress, { inline: lockState }, forkLockToken)
-        .payToContract(fortunaV2Address, { inline: fortunaState }, masterTokensV2)
+      const tx = await blaze
+        .newTransaction()
+        .addInput(utxo)
+        .addReferenceInput(readUtxos[0])
+        .addReferenceInput(readUtxos[1])
+        .addReferenceInput(readUtxos[2])
+        .addWithdrawal(
+          RewardAccount.fromCredential(
+            forkValidatorAddress.asEnterprise()!.getPaymentCredential(),
+            NetworkId.Testnet,
+          ),
+          0n,
+          forkRedeemer,
+        )
+        .addMint(
+          PolicyId(forkValidatorHash),
+          new Map([[AssetName(fromText('lock_state')), 1n]]),
+          forkMintRedeemer,
+        )
+        .addMint(
+          PolicyId(tunaV2MintHash),
+          new Map([
+            [AssetName(fromText('TUNA') + tunaV2SpendHash), 1n],
+            [AssetName(fromText('COUNTER') + blockNumberHex), 1n],
+          ]),
+          fortunaRedeemer,
+        )
+        .lockAssets(
+          forkValidatorAddress,
+          makeValue(0n, [forkValidatorHash + fromText('lock_state'), 1n]),
+          lockState,
+        )
+        .lockAssets(
+          fortunaV2Address,
+          makeValue(
+            0n,
+            [tunaV2MintHash + fromText('TUNA') + tunaV2SpendHash, 1n],
+            [tunaV2MintHash + fromText('COUNTER') + blockNumberHex, 1n],
+          ),
+          fortunaState,
+        )
+        .provideScript(tunaV2MintApplied)
+        .provideScript(tunaV2SpendApplied)
+        .provideScript(forkValidatorApplied)
         .complete();
 
-      const signed = await tx.sign().complete();
+      console.log('died before here');
 
-      await signed.submit();
+      const signed = await blaze.signTransaction(tx);
 
-      console.log(`TX Hash: ${signed.toHash()}`);
+      const txHash = await blaze.submitTransaction(signed);
 
-      await lucid.awaitTx(signed.toHash());
+      console.log(`TX Hash: ${txHash}`);
+
+      await blaze.provider.awaitTransactionConfirmation(txHash);
 
       console.log(`Completed and saving genesis file.`);
 
@@ -939,22 +927,22 @@ app
         `genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`,
         JSON.stringify({
           forkValidator: {
-            validator: forkValidator.script,
+            validator: forkValidatorApplied.toCbor(),
             validatorHash: forkValidatorHash,
             validatorAddress: forkValidatorAddress,
-            datum: lockState,
-            outRef: { txHash: utxos[0].txHash, index: utxos[0].outputIndex },
+            datum: lockState.toCbor(),
+            outRef: { txHash: utxo.input().transactionId(), index: utxo.input().index },
           },
           tunaV2MintValidator: {
-            validator: tunaV2MintApplied.script,
-            validatorHash: tunaV2MintAppliedHash,
+            validator: tunaV2MintApplied.toCbor(),
+            validatorHash: tunaV2MintHash,
             validatorAddress: tunaV2MintAddress,
           },
           tunaV2SpendValidator: {
-            validator: tunaV2SpendApplied.script,
-            validatorHash: tunaV2SpendAppliedHash,
+            validator: tunaV2SpendApplied.toCbor(),
+            validatorHash: tunaV2SpendHash,
             validatorAddress: fortunaV2Address,
-            datum: fortunaState,
+            datum: fortunaState.toCbor(),
           },
         }),
         { encoding: 'utf-8' },
@@ -1066,98 +1054,118 @@ app
       }),
     );
 
-    const [forkValidator, fortunaV2Mint, fortunaV2Spend] = readValidators();
+    const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
 
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
-    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+    // const tx_test = await blaze
+    //   .newTransaction()
+    //   .addInput(
+    //     (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
+    //       return (
+    //         a.input().transactionId().localeCompare(b.input().transactionId()) ||
+    //         a.input().index().toString().localeCompare(b.input().index().toString())
+    //       );
+    //     })[0],
+    //   )
+    //   .payLovelace(blaze.wallet.address, 800000000n)
+    //   .payLovelace(blaze.wallet.address, 800000000n)
+    //   .complete();
 
-    const tx_test = await lucid
-      .newTx()
-      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-      .payToAddress(await lucid.wallet.address(), { lovelace: 800000000n })
-      .complete();
+    // const signed_test = await blaze.signTransaction(tx_test);
 
-    const signed_test = await tx_test.sign().complete();
+    // const signed_hash = await blaze.submitTransaction(signed_test);
 
-    await signed_test.submit();
+    // console.log('test tx', signed_hash);
 
-    await lucid.awaitTx(signed_test.toHash());
+    // await blaze.provider.awaitTransactionConfirmation(signed_hash, 25000);
+    // await delay(30000);
 
-    const utxos = (await lucid.wallet.getUtxos()).sort((a, b) => {
-      return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
+    const utxos = (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
+      return (
+        a.input().transactionId().localeCompare(b.input().transactionId()) ||
+        a.input().index().toString().localeCompare(b.input().index().toString())
+      );
     });
 
     if (utxos.length === 0) {
       throw new Error('No UTXOs Found');
     }
 
-    const initOutputRef = new Constr(0, [
-      new Constr(0, [utxos[0].txHash]),
-      BigInt(utxos[0].outputIndex),
-    ]);
-
     const fortunaV1Hash = fortunaV1.validatorHash;
 
-    const forkValidatorApplied: Cardano.Script = {
-      type: 'PlutusV2',
-      script: applyParamsToScript(forkValidator.script, [initOutputRef, fortunaV1Hash]),
-    };
+    const forkValidatorApplied = new plutus.SimplerforkNftFork(
+      {
+        transactionId: { hash: utxos[0].input().transactionId() },
+        outputIndex: utxos[0].input().index(),
+      },
+      fortunaV1Hash,
+    );
 
-    const forkValidatorHash = lucid.utils.validatorToScriptHash(forkValidatorApplied);
+    const forkValidatorHash = forkValidatorApplied.hash();
 
-    const forkValidatorAddress = lucid.utils.validatorToAddress(forkValidatorApplied);
+    const forkValidatorAddress = addressFromValidator(NetworkId.Testnet, forkValidatorApplied);
 
-    const forkValidatorRewardAddress = lucid.utils.validatorToRewardAddress(forkValidatorApplied);
+    const tunaV2MintApplied = new plutus.Tunav2Tuna(
+      Data.to(fortunaV1Hash),
+      Data.to(forkValidatorHash),
+    );
 
-    const tunaV2MintApplied: Cardano.Script = {
-      type: 'PlutusV2',
-      script: applyParamsToScript(fortunaV2Mint.script, [fortunaV1Hash, forkValidatorHash]),
-    };
+    const tunaV2MintAppliedHash = tunaV2MintApplied.hash();
 
-    const tunaV2MintAppliedHash = lucid.utils.validatorToScriptHash(tunaV2MintApplied);
+    const tunaV2SpendApplied = new plutus.Tunav2Mine(tunaV2MintAppliedHash);
 
-    const tunaV2SpendApplied: Cardano.Script = {
-      type: 'PlutusV2',
-      script: applyParamsToScript(fortunaV2Spend.script, [tunaV2MintAppliedHash]),
-    };
+    const output1 = new TransactionOutput(forkValidatorAddress, makeValue(0n));
+    output1.setScriptRef(forkValidatorApplied);
+
+    const output2 = new TransactionOutput(forkValidatorAddress, makeValue(0n));
+    output2.setScriptRef(tunaV2SpendApplied);
 
     try {
-      const tx = await lucid
-        .newTx()
-        .collectFrom([utxos.at(1)!])
-        .payToAddressWithData(forkValidatorAddress, { scriptRef: forkValidatorApplied }, {})
-        .payToAddressWithData(forkValidatorAddress, { scriptRef: tunaV2SpendApplied }, {})
-        .complete({ coinSelection: true, change: { address: await lucid.wallet.address() } });
+      const tx = await blaze
+        .newTransaction()
+        .addInput(utxos[1])
+        .addOutput(output1)
+        .addOutput(output2)
+        .complete();
 
-      const signed = await tx.sign().complete();
+      const signed = await blaze.signTransaction(tx);
 
-      await signed.submit();
+      const txHash = await blaze.submitTransaction(signed);
 
-      console.log(`TX Hash: ${signed.toHash()}`);
+      console.log(`TX Hash: ${txHash}`);
 
-      await lucid.awaitTx(signed.toHash());
+      await blaze.provider.awaitTransactionConfirmation(txHash, 40000);
 
-      const tx2 = await lucid
-        .newTx()
-        .collectFrom([
-          (await lucid.wallet.getUtxos())
-            .sort((a, b) => {
-              return a.txHash.localeCompare(b.txHash) || a.outputIndex - b.outputIndex;
-            })
-            .at(1)!,
-        ])
-        .payToAddressWithData(forkValidatorAddress, { scriptRef: tunaV2MintApplied }, {})
-        .registerStake(forkValidatorRewardAddress)
-        .complete({ coinSelection: true, change: { address: await lucid.wallet.address() } });
+      await delay(40000);
 
-      const signed2 = await tx2.sign().complete();
+      const input = (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
+        return (
+          a.input().transactionId().localeCompare(b.input().transactionId()) ||
+          a.input().index().toString().localeCompare(b.input().index().toString())
+        );
+      })[1];
 
-      await signed2.submit();
+      console.log('Input', input.toCbor());
 
-      console.log(`TX Hash: ${signed2.toHash()}`);
+      const output3 = new TransactionOutput(forkValidatorAddress, makeValue(0n));
+      output3.setScriptRef(tunaV2MintApplied);
 
-      await lucid.awaitTx(signed2.toHash());
+      const tx2 = await blaze
+        .newTransaction()
+        .addInput(input)
+        .addOutput(output3)
+        .addRegisterStake(
+          Credential.fromCore(forkValidatorAddress.asEnterprise()!.getPaymentCredential()),
+        )
+        .complete();
+
+      const signed2 = await blaze.signTransaction(tx2);
+
+      const txHash2 = await blaze.submitTransaction(signed2);
+
+      console.log(`TX Hash: ${txHash2}`);
+
+      await blaze.provider.awaitTransactionConfirmation(txHash2, 25000);
+      console.log('done');
     } catch (e) {
       console.log(e);
     }
@@ -1291,20 +1299,17 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const provider = new Kupmios(kupoUrl, ogmiosUrl);
-    const lucid = await Lucid.new(provider, preview ? 'Preview' : 'Mainnet');
+    const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
 
-    lucid.selectWalletFromSeed(fs.readFileSync('seed.txt', { encoding: 'utf-8' }));
+    const address = blaze.wallet.address;
 
-    const address = await lucid.wallet.address();
-
-    const utxos = await lucid.wallet.getUtxos();
+    const utxos = await blaze.wallet.getUnspentOutputs();
 
     const balance = utxos.reduce((acc, u) => {
-      return acc + u.assets.lovelace;
+      return acc + u.output().amount().coin();
     }, 0n);
 
-    console.log(`Address: ${address}`);
+    console.log(`Address: ${address.toBech32()}`);
     console.log(`ADA Balance: ${balance / 1_000_000n}`);
 
     try {
@@ -1322,11 +1327,29 @@ app
       }: GenesisV2 = JSON.parse(genesisFileV2);
 
       const tunaBalance = utxos.reduce((acc, u) => {
-        return acc + (u.assets[validatorHash + fromText('TUNA')] ?? 0n);
+        return (
+          acc +
+          (u.output().amount().multiasset()
+            ? (u
+                .output()
+                .amount()
+                .multiasset()!
+                .get(AssetId(validatorHash + fromText('TUNA'))) ?? 0n)
+            : 0n)
+        );
       }, 0n);
 
       const tunaV2Balance = utxos.reduce((acc, u) => {
-        return acc + (u.assets[validatorHashV2 + fromText('TUNA')] ?? 0n);
+        return (
+          acc +
+          (u.output().amount().multiasset()
+            ? (u
+                .output()
+                .amount()
+                .multiasset()!
+                .get(AssetId(validatorHashV2 + fromText('TUNA'))) ?? 0n)
+            : 0n)
+        );
       }, 0n);
 
       console.log(`TUNA Balance: ${Number(tunaBalance) / 100_000_000}`);
