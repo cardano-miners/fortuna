@@ -1082,84 +1082,44 @@ app
   .addOption(ogmiosUrlOption)
   .addOption(previewOption)
   .action(async ({ preview, ogmiosUrl, kupoUrl }) => {
-    const fortunaV1: Genesis = JSON.parse(
-      fs.readFileSync(`genesis/${preview ? 'preview' : 'mainnet'}.json`, {
+    const {
+      forkValidator: { validator: forkScript },
+      tunaV2MintValidator: { validator: mintScript },
+      tunaV2SpendValidator: { validator: spendScript },
+    }: GenesisV2 = JSON.parse(
+      fs.readFileSync(`genesis/${preview ? 'previewV2' : 'mainnetV2'}.json`, {
         encoding: 'utf8',
       }),
     );
 
-    const blaze = await blazeInitOg(kupoUrl, ogmiosUrl);
+    const blaze = await blazeInit();
 
-    // const tx_test = await blaze
-    //   .newTransaction()
-    //   .addInput(
-    //     (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
-    //       return (
-    //         a.input().transactionId().localeCompare(b.input().transactionId()) ||
-    //         a.input().index().toString().localeCompare(b.input().index().toString())
-    //       );
-    //     })[0],
-    //   )
-    //   .payLovelace(blaze.wallet.address, 800000000n)
-    //   .payLovelace(blaze.wallet.address, 800000000n)
-    //   .complete();
-
-    // const signed_test = await blaze.signTransaction(tx_test);
-
-    // const signed_hash = await blaze.submitTransaction(signed_test);
-
-    // console.log('test tx', signed_hash);
-
-    // await blaze.provider.awaitTransactionConfirmation(signed_hash, 25000);
-    // await delay(30000);
-
-    const utxos = (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
-      return (
-        a.input().transactionId().localeCompare(b.input().transactionId()) ||
-        a.input().index().toString().localeCompare(b.input().index().toString())
-      );
-    });
-
-    if (utxos.length === 0) {
-      throw new Error('No UTXOs Found');
-    }
-
-    const fortunaV1Hash = fortunaV1.validatorHash;
-
-    const forkValidatorApplied = new plutus.SimplerforkNftFork(
-      {
-        transactionId: { hash: utxos[0].input().transactionId() },
-        outputIndex: utxos[0].input().index(),
-      },
-      fortunaV1Hash,
+    const output1 = new TransactionOutput(
+      Address.fromBech32(
+        'addr1qytemxekk4mtad3jta9kwdu5ymgpzrn54250s79zqqeslpcdj23fymx8ledsa2nakuqzd6tad5le4x8yuefzfrsumv2sn0ada5',
+      ),
+      makeValue(0n),
     );
+    output1.setScriptRef(Script.fromCbor(HexBlob(forkScript)));
 
-    const forkValidatorHash = forkValidatorApplied.hash();
-
-    const forkValidatorAddress = addressFromValidator(NetworkId.Testnet, forkValidatorApplied);
-
-    const tunaV2MintApplied = new plutus.Tunav2Tuna(
-      Data.to(fortunaV1Hash),
-      Data.to(forkValidatorHash),
+    const output2 = new TransactionOutput(
+      Address.fromBech32(
+        'addr1qytemxekk4mtad3jta9kwdu5ymgpzrn54250s79zqqeslpcdj23fymx8ledsa2nakuqzd6tad5le4x8yuefzfrsumv2sn0ada5',
+      ),
+      makeValue(0n),
     );
+    output2.setScriptRef(Script.fromCbor(HexBlob(mintScript)));
 
-    const tunaV2MintAppliedHash = tunaV2MintApplied.hash();
-
-    const tunaV2SpendApplied = new plutus.Tunav2Mine(tunaV2MintAppliedHash);
-
-    const output1 = new TransactionOutput(forkValidatorAddress, makeValue(0n));
-    output1.setScriptRef(forkValidatorApplied);
-
-    const output2 = new TransactionOutput(forkValidatorAddress, makeValue(0n));
-    output2.setScriptRef(tunaV2SpendApplied);
+    const output3 = new TransactionOutput(
+      Address.fromBech32(
+        'addr1qytemxekk4mtad3jta9kwdu5ymgpzrn54250s79zqqeslpcdj23fymx8ledsa2nakuqzd6tad5le4x8yuefzfrsumv2sn0ada5',
+      ),
+      makeValue(0n),
+    );
+    output3.setScriptRef(Script.fromCbor(HexBlob(spendScript)));
 
     try {
-      const tx = await blaze
-        .newTransaction()
-        .addInput(utxos[1])
-        .addOutput(output1)
-        .addOutput(output2)
-        .complete();
+      const tx = await blaze.newTransaction().addOutput(output1).complete();
 
       const signed = await blaze.signTransaction(tx);
 
@@ -1171,26 +1131,7 @@ app
 
       await delay(40000);
 
-      const input = (await blaze.wallet.getUnspentOutputs()).sort((a, b) => {
-        return (
-          a.input().transactionId().localeCompare(b.input().transactionId()) ||
-          a.input().index().toString().localeCompare(b.input().index().toString())
-        );
-      })[1];
-
-      console.log('Input', input.toCbor());
-
-      const output3 = new TransactionOutput(forkValidatorAddress, makeValue(0n));
-      output3.setScriptRef(tunaV2MintApplied);
-
-      const tx2 = await blaze
-        .newTransaction()
-        .addInput(input)
-        .addOutput(output3)
-        .addRegisterStake(
-          Credential.fromCore(forkValidatorAddress.asEnterprise()!.getPaymentCredential()),
-        )
-        .complete();
+      const tx2 = await blaze.newTransaction().addOutput(output2).addOutput(output3).complete();
 
       const signed2 = await blaze.signTransaction(tx2);
 
