@@ -7,6 +7,8 @@ import {
   ScriptHash,
   TokenMap,
   Transaction,
+} from '@blaze-cardano/core';
+import {
   Address,
   AddressType,
   AssetId,
@@ -14,6 +16,7 @@ import {
   DatumHash,
   ExUnits,
   fromHex,
+  hardCodedProtocolParams,
   Hash28ByteBase16,
   HexBlob,
   PlutusData,
@@ -26,10 +29,9 @@ import {
   TransactionOutput,
   TransactionUnspentOutput,
   Value,
-  PlutusLanguageVersion,
 } from '@blaze-cardano/core';
-
-import { purposeToTag, type Provider } from '@blaze-cardano/sdk';
+import { PlutusLanguageVersion } from '@blaze-cardano/core';
+import { purposeToTag, type Provider } from '@blaze-cardano/query';
 
 export class Blockfrost implements Provider {
   url: string;
@@ -118,6 +120,12 @@ export class Blockfrost implements Provider {
         memory: response.max_block_ex_mem,
         steps: response.max_block_ex_steps,
       },
+      minFeeReferenceScripts: response.min_fee_ref_script_cost_per_byte
+        ? {
+            ...hardCodedProtocolParams.minFeeReferenceScripts!,
+            base: response.min_fee_ref_script_cost_per_byte,
+          }
+        : undefined,
     };
   }
 
@@ -425,7 +433,6 @@ export class Blockfrost implements Provider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/cbor',
-        Accept: 'text/plain',
         ...this.headers(),
       },
       body: fromHex(tx.toCbor()),
@@ -438,7 +445,7 @@ export class Blockfrost implements Provider {
       );
     }
 
-    const txId = await response.text();
+    const txId = (await response.json()) as string;
     return TransactionId(txId);
   }
 
@@ -485,6 +492,8 @@ export class Blockfrost implements Provider {
       additionalUtxoSet.add([txIn, txOut]);
     }
 
+    console.log(tx.toCbor());
+
     const payload = {
       cbor: tx.toCbor(),
       additionalUtxoset: Array.from(additionalUtxoSet),
@@ -518,9 +527,7 @@ export class Blockfrost implements Provider {
     const evaledRedeemers: Set<Redeemer> = new Set();
 
     if (!('EvaluationResult' in json.result)) {
-      console.log(await response.text());
       console.log(json);
-      console.log(json.result['EvaluationFailure']['ScriptFailures'].data);
       throw new Error(`evaluateTransaction: Blockfrost endpoint returned evaluation failure.`);
     }
     const result = json.result.EvaluationResult;
@@ -684,6 +691,7 @@ export interface BlockfrostProtocolParametersResponse {
   collateral_percent: number;
   max_collateral_inputs: number;
   coins_per_utxo_size: number;
+  min_fee_ref_script_cost_per_byte?: number;
 }
 
 type BlockfrostResponse<SomeResponse> = SomeResponse | { message: string };

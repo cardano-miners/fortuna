@@ -62,7 +62,8 @@ pub fn value_has_nft_and_lovelace(
   policy: PolicyId,
   asset_name: AssetName,
 ) -> Bool {
-  expect [Pair(policy1, amount1), Pair(policy2, amount2)] =
+  expect [Pair(policy1, amount1),
+    Pair(policy2, amount2)] =
     val
       |> value.to_dict()
       |> dict.to_pairs()
@@ -147,4 +148,8 @@ test integer_to_bytes_1() {
 
 test integer_to_bytes_2() {
   integer_to_bytes(700, #[]) == #"02bc"
+}
+
+test integer_to_bytes_3() {
+  integer_to_bytes(30512, #[]) == #"7730"
 }
