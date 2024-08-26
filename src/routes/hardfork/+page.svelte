@@ -93,7 +93,7 @@
         plutus.SimplerforkFork._datum,
       );
 
-      const currentLockedTuna = lockDatum.currentLockedTuna + $v1TunaAmount;
+      const currentLockedTuna = lockDatum.currentLockedTuna + amountToRedeemNat;
       const outputLockDatum = Data.to(
         {
           blockHeight: lockDatum.blockHeight,
@@ -106,16 +106,16 @@
         .newTransaction()
         .addReferenceInput(refOutputs[0])
         .addReferenceInput(refOutputs[1])
-        .addMint(
-          AssetId.getPolicyId(tunaV2AssetId),
-          new Map([[AssetId.getAssetName(tunaV2AssetId), $v1TunaAmount]]),
-          tunaV2Redeem,
-        )
         .addInput(lockUtxo, lockRedeemer)
         .lockAssets(
           forkValidatorAddress,
           makeValue(0n, [lockStateAssetId, 1n], [tunaV1AssetId, currentLockedTuna]),
           outputLockDatum,
+        )
+        .addMint(
+          AssetId.getPolicyId(tunaV2AssetId),
+          new Map([[AssetId.getAssetName(tunaV2AssetId), amountToRedeemNat]]),
+          tunaV2Redeem,
         )
         .addWithdrawal(rewardAccount, 0n, hardforkRedeem)
         .complete();
