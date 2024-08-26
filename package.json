@@ -80,7 +80,8 @@
     "drizzle-orm": "^0.31.4",
     "layerchart": "^0.34.0",
     "postgres": "^3.4.4",
-    "uplc-web": "^0.0.3"
+    "uplc-web": "^0.0.3",
+    "ws": "^8.18.0"
   },
   "browser": {
     "fs": false,

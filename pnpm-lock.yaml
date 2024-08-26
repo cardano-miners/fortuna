@@ -19,7 +19,7 @@ importers:
         version: 0.4.1(rxjs@7.8.1)
       '@blaze-cardano/ogmios':
         specifier: latest
-        version: 0.0.4(ws@7.5.10)
+        version: 0.0.4(ws@8.18.0)
       '@blaze-cardano/query':
         specifier: latest
         version: 0.2.10(rxjs@7.8.1)
@@ -74,6 +74,9 @@ importers:
       uplc-web:
         specifier: ^0.0.3
         version: 0.0.3
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.0
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240806.0
@@ -4229,13 +4232,6 @@ snapshots:
 
   '@blaze-cardano/jest-config@0.0.1': {}
 
-  '@blaze-cardano/ogmios@0.0.4(ws@7.5.10)':
-    dependencies:
-      '@cardano-ogmios/schema': 6.5.0
-      isomorphic-ws: 5.0.0(ws@7.5.10)
-    transitivePeerDependencies:
-      - ws
-
   '@blaze-cardano/ogmios@0.0.4(ws@8.18.0)':
     dependencies:
       '@cardano-ogmios/schema': 6.5.0
@@ -6833,10 +6829,6 @@ snapshots:
   isomorphic-timers-promises@1.0.1: {}
 
   isomorphic-ws@4.0.1(ws@7.5.10):
-    dependencies:
-      ws: 7.5.10
-
-  isomorphic-ws@5.0.0(ws@7.5.10):
     dependencies:
       ws: 7.5.10
 
