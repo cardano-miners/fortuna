@@ -3,20 +3,16 @@ import { Unwrapped } from '@blaze-cardano/ogmios';
 import { BLOCKFROST_URL, OGMIOS_URL } from '$env/static/private';
 
 export async function newProvider() {
-  const __ogmios = await Unwrapped.Ogmios.new(OGMIOS_URL);
-
-  const provider = new Blockfrost(BLOCKFROST_URL, __ogmios);
+  const provider = new Blockfrost(BLOCKFROST_URL);
 
   return provider;
 }
 
 export class Blockfrost {
   url: string;
-  ogmios: Unwrapped.Ogmios;
 
-  constructor(url: string, ogmios: Unwrapped.Ogmios) {
+  constructor(url: string) {
     this.url = `${url}`;
-    this.ogmios = ogmios;
   }
 
   /**
@@ -311,7 +307,9 @@ export class Blockfrost {
    * @returns A Promise that resolves to a Redeemers type
    */
   async evaluateTransaction(tx: string): Promise<unknown> {
-    return await this.ogmios.evaluateTransaction({ cbor: tx });
+    const ogmios = await Unwrapped.Ogmios.new(OGMIOS_URL);
+
+    return await ogmios.evaluateTransaction({ cbor: tx });
   }
 
   private async getScriptRef(
