@@ -1,50 +1,18 @@
 [
   {
-    "name": "Fortuna Miner",
-    "description": "This is a dummy repository",
-    "repoLink": "#",
-    "author": "Author",
+    "name": "bluefin",
+    "description": "A Fortuna (TUNA) miner, written in Go",
+    "repoLink": "https://github.com/blinklabs-io/bluefin",
+    "author": "https://blinklabs.io/",
     "category": "tool",
     "toolLink": "#"
   },
   {
-    "name": "Repo 2",
-    "description": "This is another dummy repository",
-    "repoLink": "#",
-    "author": "Author",
+    "name": "Reference",
+    "description": "Low performance implementation reference of a miner",
+    "repoLink": "https://github.com/cardano-miners/fortuna/tree/main/miner",
+    "author": "https://twitter.com/microproofs",
     "category": "tool",
-    "toolLink": ""
-  },
-  {
-    "name": "Repo 3",
-    "description": "This is another dummy repository",
-    "repoLink": "#",
-    "author": "Author",
-    "category": "miner",
-    "toolLink": ""
-  },
-  {
-    "name": "Repo 4",
-    "description": "This is another dummy repository",
-    "repoLink": "#",
-    "author": "Author",
-    "category": "explorer",
-    "toolLink": ""
-  },
-  {
-    "name": "Repo 5",
-    "description": "This is another dummy repository",
-    "repoLink": "#",
-    "author": "Author",
-    "category": "tool",
-    "toolLink": ""
-  },
-  {
-    "name": "Repo 6",
-    "description": "This is another dummy repository",
-    "repoLink": "#",
-    "author": "Author",
-    "category": "miner",
     "toolLink": ""
   }
 ]
