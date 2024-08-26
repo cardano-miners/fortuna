@@ -9,6 +9,8 @@
     NetworkId,
     CredentialType,
     Hash28ByteBase16,
+    TransactionInput,
+    TransactionId,
   } from '@blaze-cardano/core';
   import { makeValue } from '@blaze-cardano/sdk';
 
@@ -47,8 +49,20 @@
 
     const tunaV2Redeem = Data.to('Redeem', plutus.Tunav2Tuna.redeemer);
 
+    const amountToRedeemNat = amountToRedeem * 100_000_000n;
+
+    const forkScriptRef = new TransactionInput(
+      TransactionId('55897091192254abbe6501bf4fd63f4d9346e9c2f5300cadfcbe2cda25fd6351'),
+      0n,
+    );
+
+    const mintScriptRef = new TransactionInput(
+      TransactionId('80874829afb2cb34e23d282d763b419e26e9fb976fe8a7044eebbdf6531214b7'),
+      0n,
+    );
+
     const hardforkRedeem = Data.to(
-      { Lock: { lockOutputIndex: 0n, lockingAmount: $v1TunaAmount } },
+      { Lock: { lockOutputIndex: 0n, lockingAmount: amountToRedeemNat } },
       plutus.SimplerforkNftFork.redeemer,
     );
 
@@ -64,14 +78,11 @@
       plutus.SimplerforkFork._redeemer,
     );
 
+    const refOutputs = await $blaze.provider.resolveUnspentOutputs([forkScriptRef, mintScriptRef]);
+
     const lockDatum = Data.from(
       lockUtxo.output().datum()!.asInlineData()!,
       plutus.SimplerforkFork._datum,
-    );
-
-    const inputUtxos = await $blaze.provider.getUnspentOutputsWithAsset(
-      $userAddress,
-      tunaV1AssetId,
     );
 
     const currentLockedTuna = lockDatum.currentLockedTuna + $v1TunaAmount;
@@ -85,13 +96,14 @@
 
     const lockTx = await $blaze
       .newTransaction()
+      .addReferenceInput(refOutputs[0])
+      .addReferenceInput(refOutputs[1])
       .addMint(
         AssetId.getPolicyId(tunaV2AssetId),
         new Map([[AssetId.getAssetName(tunaV2AssetId), $v1TunaAmount]]),
         tunaV2Redeem,
       )
       .addInput(lockUtxo, lockRedeemer)
-      .addInput(inputUtxos[0])
       .lockAssets(
         forkValidatorAddress,
         makeValue(0n, [lockStateAssetId, 1n], [tunaV1AssetId, currentLockedTuna]),
