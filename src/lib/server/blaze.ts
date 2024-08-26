@@ -2,12 +2,8 @@ import { Unwrapped } from '@blaze-cardano/ogmios';
 
 import { BLOCKFROST_URL, OGMIOS_URL } from '$env/static/private';
 
-let __ogmios: Unwrapped.Ogmios | undefined = undefined;
-
 export async function newProvider() {
-  if (!__ogmios) {
-    __ogmios = await Unwrapped.Ogmios.new(OGMIOS_URL);
-  }
+  const __ogmios = await Unwrapped.Ogmios.new(OGMIOS_URL);
 
   const provider = new Blockfrost(BLOCKFROST_URL, __ogmios);
 
