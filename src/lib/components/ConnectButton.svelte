@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { makeUplcEvaluator } from '@blaze-cardano/vm';
 
   import geroIcon from '$lib/assets/geroicon.png';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
@@ -49,6 +50,8 @@
     $walletApi = await $walletOption?.enable();
 
     $blaze = await createBlaze($walletApi!);
+
+    $blaze.provider.evaluateTransaction = makeUplcEvaluator($blaze.params, 2, 2);
 
     open = false;
   }
