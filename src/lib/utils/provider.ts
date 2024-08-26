@@ -173,9 +173,9 @@ export class BrowserProvider implements Provider {
       method: 'POST',
       body: JSON.stringify({
         method: 'resolveUnspentOutputs',
-        txIns: txIns.map((txIn) => ({
+        inputs: txIns.map((txIn) => ({
           transactionId: txIn.transactionId(),
-          index: txIn.index(),
+          index: Number(txIn.index()),
         })),
       }),
     });
@@ -215,7 +215,7 @@ export class BrowserProvider implements Provider {
     const averageBlockTime = 20_000;
 
     if (timeout && timeout < averageBlockTime) {
-      console.log('Warning: timeout given is less than average block time.');
+      console.warn('Warning: timeout given is less than average block time.');
     }
 
     const startTime = Date.now();

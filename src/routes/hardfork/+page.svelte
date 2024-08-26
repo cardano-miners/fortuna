@@ -30,98 +30,106 @@
   } from '$lib/constants';
 
   let lockTxHash: string | undefined = $state(undefined);
+  let buttonDisabled = $state(false);
   let amountToRedeem = $state(0n);
 
-  $effect(() => {
-    console.log(BigInt(amountToRedeem));
-  });
-
   const tunaTx = async () => {
-    if (!$blaze || !$userAddress) {
-      return;
+    buttonDisabled = true;
+
+    try {
+      if (!$blaze || !$userAddress) {
+        return;
+      }
+
+      const forkValidatorAddress = Address.fromBech32(
+        'addr1wye5g0txzw8evz0gddc5lad6x5rs9ttaferkun96gr9wd9sj5y20t',
+      );
+      const rewardAccount = RewardAccount.fromCredential(
+        {
+          type: CredentialType.ScriptHash,
+          hash: Hash28ByteBase16(HARD_FORK_HASH),
+        },
+        NetworkId.Mainnet,
+      );
+
+      const tunaV2Redeem = Data.to('Redeem', plutus.Tunav2Tuna.redeemer);
+
+      const amountToRedeemNat = amountToRedeem * 100_000_000n;
+
+      const forkScriptRef = new TransactionInput(
+        TransactionId('55897091192254abbe6501bf4fd63f4d9346e9c2f5300cadfcbe2cda25fd6351'),
+        0n,
+      );
+
+      const mintScriptRef = new TransactionInput(
+        TransactionId('80874829afb2cb34e23d282d763b419e26e9fb976fe8a7044eebbdf6531214b7'),
+        0n,
+      );
+
+      const hardforkRedeem = Data.to(
+        { Lock: { lockOutputIndex: 0n, lockingAmount: amountToRedeemNat } },
+        plutus.SimplerforkNftFork.redeemer,
+      );
+
+      // lock_state
+      const lockStateAssetId = AssetId(HARD_FORK_HASH + '6c6f636b5f7374617465');
+
+      const tunaV1AssetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
+      const tunaV2AssetId = AssetId(V2_TUNA_POLICY_ID + TUNA_ASSET_NAME);
+
+      const lockUtxo = await $blaze.provider.getUnspentOutputByNFT(lockStateAssetId);
+      const lockRedeemer = Data.to(
+        { wrapper: PlutusData.fromCbor(HexBlob('00')) },
+        plutus.SimplerforkFork._redeemer,
+      );
+
+      const refOutputs = await $blaze.provider.resolveUnspentOutputs([
+        forkScriptRef,
+        mintScriptRef,
+      ]);
+
+      const lockDatum = Data.from(
+        lockUtxo.output().datum()!.asInlineData()!,
+        plutus.SimplerforkFork._datum,
+      );
+
+      const currentLockedTuna = lockDatum.currentLockedTuna + $v1TunaAmount;
+      const outputLockDatum = Data.to(
+        {
+          blockHeight: lockDatum.blockHeight,
+          currentLockedTuna,
+        },
+        plutus.SimplerforkFork._datum,
+      );
+
+      const lockTx = await $blaze
+        .newTransaction()
+        .addReferenceInput(refOutputs[0])
+        .addReferenceInput(refOutputs[1])
+        .addMint(
+          AssetId.getPolicyId(tunaV2AssetId),
+          new Map([[AssetId.getAssetName(tunaV2AssetId), $v1TunaAmount]]),
+          tunaV2Redeem,
+        )
+        .addInput(lockUtxo, lockRedeemer)
+        .lockAssets(
+          forkValidatorAddress,
+          makeValue(0n, [lockStateAssetId, 1n], [tunaV1AssetId, currentLockedTuna]),
+          outputLockDatum,
+        )
+        .addWithdrawal(rewardAccount, 0n, hardforkRedeem)
+        .complete();
+
+      const signedLockTx = await $blaze.signTransaction(lockTx);
+
+      const lockTxId = await $blaze.wallet.postTransaction(signedLockTx);
+
+      lockTxHash = lockTxId;
+    } catch (e) {
+      console.log(e);
     }
 
-    const forkValidatorAddress = Address.fromBech32(
-      'addr1wye5g0txzw8evz0gddc5lad6x5rs9ttaferkun96gr9wd9sj5y20t',
-    );
-    const rewardAccount = RewardAccount.fromCredential(
-      {
-        type: CredentialType.ScriptHash,
-        hash: Hash28ByteBase16(HARD_FORK_HASH),
-      },
-      NetworkId.Mainnet,
-    );
-
-    const tunaV2Redeem = Data.to('Redeem', plutus.Tunav2Tuna.redeemer);
-
-    const amountToRedeemNat = amountToRedeem * 100_000_000n;
-
-    const forkScriptRef = new TransactionInput(
-      TransactionId('55897091192254abbe6501bf4fd63f4d9346e9c2f5300cadfcbe2cda25fd6351'),
-      0n,
-    );
-
-    const mintScriptRef = new TransactionInput(
-      TransactionId('80874829afb2cb34e23d282d763b419e26e9fb976fe8a7044eebbdf6531214b7'),
-      0n,
-    );
-
-    const hardforkRedeem = Data.to(
-      { Lock: { lockOutputIndex: 0n, lockingAmount: amountToRedeemNat } },
-      plutus.SimplerforkNftFork.redeemer,
-    );
-
-    // lock_state
-    const lockStateAssetId = AssetId(HARD_FORK_HASH + '6c6f636b5f7374617465');
-
-    const tunaV1AssetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
-    const tunaV2AssetId = AssetId(V2_TUNA_POLICY_ID + TUNA_ASSET_NAME);
-
-    const lockUtxo = await $blaze.provider.getUnspentOutputByNFT(lockStateAssetId);
-    const lockRedeemer = Data.to(
-      { wrapper: PlutusData.fromCbor(HexBlob('00')) },
-      plutus.SimplerforkFork._redeemer,
-    );
-
-    const refOutputs = await $blaze.provider.resolveUnspentOutputs([forkScriptRef, mintScriptRef]);
-
-    const lockDatum = Data.from(
-      lockUtxo.output().datum()!.asInlineData()!,
-      plutus.SimplerforkFork._datum,
-    );
-
-    const currentLockedTuna = lockDatum.currentLockedTuna + $v1TunaAmount;
-    const outputLockDatum = Data.to(
-      {
-        blockHeight: lockDatum.blockHeight,
-        currentLockedTuna,
-      },
-      plutus.SimplerforkFork._datum,
-    );
-
-    const lockTx = await $blaze
-      .newTransaction()
-      .addReferenceInput(refOutputs[0])
-      .addReferenceInput(refOutputs[1])
-      .addMint(
-        AssetId.getPolicyId(tunaV2AssetId),
-        new Map([[AssetId.getAssetName(tunaV2AssetId), $v1TunaAmount]]),
-        tunaV2Redeem,
-      )
-      .addInput(lockUtxo, lockRedeemer)
-      .lockAssets(
-        forkValidatorAddress,
-        makeValue(0n, [lockStateAssetId, 1n], [tunaV1AssetId, currentLockedTuna]),
-        outputLockDatum,
-      )
-      .addWithdrawal(rewardAccount, 0n, hardforkRedeem)
-      .complete();
-
-    const signedLockTx = await $blaze.signTransaction(lockTx);
-
-    const lockTxId = await $blaze.wallet.postTransaction(signedLockTx);
-
-    lockTxHash = lockTxId;
+    buttonDisabled = false;
   };
 </script>
 
@@ -174,7 +182,17 @@
 
         <div class="relative"></div>
 
-        <button class="btn btn-primary" onclick={tunaTx}><UisPadlock />Redeem</button>
+        <button
+          class="btn btn-primary"
+          class:btn-disabled={buttonDisabled}
+          disabled={buttonDisabled}
+          onclick={tunaTx}>
+          <UisPadlock />Redeem
+        </button>
+
+        {#if lockTxHash}
+          <a href={`https://cexplorer.io/tx/${lockTxHash}`}>View Transaction</a>
+        {/if}
       </div>
     </div>
   </div>
