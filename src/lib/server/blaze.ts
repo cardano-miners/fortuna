@@ -1,16 +1,26 @@
-import { BLOCKFROST_URL } from '$env/static/private';
+import { Unwrapped } from '@blaze-cardano/ogmios';
 
-export function newProvider() {
-  const provider = new Blockfrost(BLOCKFROST_URL);
+import { BLOCKFROST_URL, OGMIOS_URL } from '$env/static/private';
+
+let __ogmios: Unwrapped.Ogmios | undefined = undefined;
+
+export async function newProvider() {
+  if (!__ogmios) {
+    __ogmios = await Unwrapped.Ogmios.new(OGMIOS_URL);
+  }
+
+  const provider = new Blockfrost(BLOCKFROST_URL, __ogmios);
 
   return provider;
 }
 
 export class Blockfrost {
   url: string;
+  ogmios: Unwrapped.Ogmios;
 
-  constructor(url: string) {
+  constructor(url: string, ogmios: Unwrapped.Ogmios) {
     this.url = `${url}`;
+    this.ogmios = ogmios;
   }
 
   /**
@@ -304,49 +314,8 @@ export class Blockfrost {
    * @param additionalUtxos - Optional utxos to be added to the evaluation.
    * @returns A Promise that resolves to a Redeemers type
    */
-  async evaluateTransaction(
-    tx: string,
-    additionalUtxos?: string[],
-  ): Promise<{
-    [key: string]: {
-      memory: number;
-      steps: number;
-    };
-  }> {
-    const payload = {
-      cbor: tx,
-      additionalUtxoset: additionalUtxos ?? [],
-    };
-
-    const query = '/utils/txs/evaluate/utxos';
-    const response = await fetch(`${this.url}${query}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(payload, (_, value) =>
-        typeof value === 'bigint' ? value.toString() : value,
-      ),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `evaluateTransaction: failed to evaluate transaction with additional UTxO set in Blockfrost endpoint.\nError ${error}`,
-      );
-    }
-
-    const json = (await response.json()) as BlockfrostResponse<BlockfrostRedeemer>;
-    if ('message' in json) {
-      throw new Error(`evaluateTransaction: Blockfrost threw "${json.message}"`);
-    }
-
-    if (!('EvaluationResult' in json.result)) {
-      throw new Error(`evaluateTransaction: Blockfrost endpoint returned evaluation failure.`);
-    }
-
-    return json.result.EvaluationResult;
+  async evaluateTransaction(tx: string): Promise<unknown> {
+    return await this.ogmios.evaluateTransaction({ cbor: tx });
   }
 
   private async getScriptRef(
@@ -457,19 +426,4 @@ interface BlockfrostUnspentOutputResolution {
 
 interface BlockfrostDatumHashResolution {
   cbor: string;
-}
-
-interface BlockfrostRedeemer {
-  result:
-    | {
-        EvaluationResult: {
-          [key: string]: {
-            memory: number;
-            steps: number;
-          };
-        };
-      }
-    | {
-        CannotCreateEvaluationContext: string;
-      };
 }

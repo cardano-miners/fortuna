@@ -269,36 +269,12 @@ export class BrowserProvider implements Provider {
 
   async evaluateTransaction(
     tx: Transaction,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     additionalUtxos: TransactionUnspentOutput[],
   ): Promise<Redeemers> {
     const currentRedeemers = tx.witnessSet().redeemers()?.values();
     if (!currentRedeemers || currentRedeemers.length === 0) {
       throw new Error(`evaluateTransaction: No Redeemers found in transaction"`);
-    }
-
-    const additionalUtxoSet = new Set();
-
-    for (const utxo of additionalUtxos || []) {
-      const txIn = {
-        txId: utxo.input().transactionId(),
-        index: utxo.input().index(),
-      };
-
-      const output = utxo.output();
-      const value = output.amount();
-
-      const txOut = {
-        address: output.address(),
-        value: {
-          coins: value.coin(),
-          assets: value.multiasset(),
-        },
-        datum_hash: output.datum()?.asDataHash(),
-        datum: output.datum()?.asInlineData()?.toCbor(),
-        script: output.scriptRef()?.toCbor(),
-      };
-
-      additionalUtxoSet.add([txIn, txOut]);
     }
 
     const res = await fetch(this.baseUrl, {
@@ -307,31 +283,27 @@ export class BrowserProvider implements Provider {
         {
           method: 'evaluateTransaction',
           tx: tx.toCbor().toString(),
-          additionalUtxos: Array.from(additionalUtxoSet),
         },
-        (_, value) => (typeof value === 'bigint' ? value.toString() : value),
+        (_, value) => (typeof value === 'bigint' ? Number(value) : value),
       ),
     });
 
-    const { redeemers } = await res.json<{
-      redeemers: {
-        [key: string]: {
-          memory: number;
-          steps: number;
-        };
-      };
-    }>();
+    const result = await res.json<
+      {
+        budget: { memory: number; cpu: number };
+        validator: { index: number; purpose: string };
+      }[]
+    >();
 
     const evaledRedeemers: Set<Redeemer> = new Set();
 
-    for (const redeemerPointer in redeemers) {
-      const [pTag, pIndex] = redeemerPointer.split(':');
-      const purpose = purposeFromTag(pTag!);
-      const index = BigInt(pIndex!);
-      const data = redeemers[redeemerPointer]!;
+    for (const evalResult of result) {
+      const purpose = purposeFromTag(evalResult.validator.purpose);
+      const index = BigInt(evalResult.validator.index);
+
       const exUnits = ExUnits.fromCore({
-        memory: data.memory,
-        steps: data.steps,
+        memory: evalResult.budget.memory,
+        steps: evalResult.budget.cpu,
       });
 
       const redeemer = currentRedeemers!.find(
@@ -341,8 +313,10 @@ export class BrowserProvider implements Provider {
       if (!redeemer) {
         throw new Error('evaluateTransaction: Blockfrost endpoint had extraneous redeemer data');
       }
+
       // Manually set exUnits for redeemer
       redeemer.setExUnits(exUnits);
+
       // Add redeemer to result set
       evaledRedeemers.add(redeemer);
     }
@@ -421,7 +395,7 @@ function purposeFromTag(tag: string): RedeemerTag {
     spend: RedeemerTag.Spend,
     mint: RedeemerTag.Mint,
     cert: RedeemerTag.Cert,
-    reward: RedeemerTag.Reward,
+    withdraw: RedeemerTag.Reward,
     voting: RedeemerTag.Voting,
     proposing: RedeemerTag.Proposing,
   };

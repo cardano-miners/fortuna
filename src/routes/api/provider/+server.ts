@@ -26,7 +26,7 @@ export async function POST({ request }: RequestEvent) {
   //   });
   // }
 
-  const provider = newProvider();
+  const provider = await newProvider();
 
   const payload = await request.json<ProviderRequest>();
 
@@ -70,9 +70,9 @@ export async function POST({ request }: RequestEvent) {
       return json({ txId: txId.toString() });
     }
     case 'evaluateTransaction': {
-      const redeemers = await provider.evaluateTransaction(payload.tx, payload.additionalUtxos);
+      const redeemers = await provider.evaluateTransaction(payload.tx);
 
-      return json({ redeemers });
+      return json(redeemers);
     }
     default:
       return json({ error: 'Method not found' });
