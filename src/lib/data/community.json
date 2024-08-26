@@ -3,16 +3,24 @@
     "name": "bluefin",
     "description": "A Fortuna (TUNA) miner, written in Go",
     "repoLink": "https://github.com/blinklabs-io/bluefin",
-    "author": "https://blinklabs.io/",
+    "author": "blinklabs",
     "category": "tool",
-    "toolLink": "#"
+    "toolLink": "https://blinklabs.io/"
+  },
+  {
+    "name": "fortuna-cpu-miner",
+    "description": "Multithreaded rust CPU miner to mine fortuna",
+    "repoLink": "https://github.com/mgpai22/fortuna-cpu-miner",
+    "author": "MGPai",
+    "category": "tool",
+    "toolLink": "https://x.com/shishirpai"
   },
   {
     "name": "Reference",
     "description": "Low performance implementation reference of a miner",
     "repoLink": "https://github.com/cardano-miners/fortuna/tree/main/miner",
-    "author": "https://twitter.com/microproofs",
+    "author": "microproofs",
     "category": "tool",
-    "toolLink": ""
+    "toolLink": "https://twitter.com/microproofs"
   }
 ]
