@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Data } from '@blaze-cardano/tx';
   import {
     Address,
@@ -12,12 +11,15 @@
     Hash28ByteBase16,
   } from '@blaze-cardano/core';
   import { makeValue } from '@blaze-cardano/sdk';
-  import MaterialSymbolsAddShoppingCartSharp from '~icons/material-symbols/add-shopping-cart-sharp';
 
-  import { blaze, v1TunaAmount, userAddress } from '$lib/store';
-  import * as plutus from '$lib/plutus';
+  // Icons
   import UisPadlock from '~icons/uis/padlock';
   import IonFishOutline from '~icons/ion/fish-outline';
+
+  import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
+
+  import { blaze, v1TunaAmount, v2TunaAmount, userAddress } from '$lib/store';
+  import * as plutus from '$lib/plutus';
   import {
     HARD_FORK_HASH,
     TUNA_ASSET_NAME,
@@ -25,45 +27,11 @@
     V2_TUNA_POLICY_ID,
   } from '$lib/constants';
 
-  // types
-  interface TimeLeft {
-    days: number;
-    hours: number;
-    minutes: number;
-    seconds: number;
-  }
-  let timeLeft: TimeLeft;
-  let lockTxHash: string | undefined;
+  let lockTxHash: string | undefined = $state(undefined);
+  let amountToRedeem = $state(0n);
 
-  // parse address transactions / mint transactions or any other data to check how many tuna was sent already
-  let lockedTuna = 89400;
-
-  // unix timestamp and timer
-  let targetTime = 1718719528 * 1000; // convert to milliseconds
-
-  // get the minted %, can pass real data but a static value is ok tho
-  const totalAssets = 21000000;
-  const circulatingAssets = 1525600;
-  const circulatingPercentage = (circulatingAssets / totalAssets) * 100;
-
-  // minswap buy add
-  let tunaMinswap =
-    'https://app.minswap.org/pt-BR/swap?currencySymbolA=&tokenNameA=&currencySymbolB=279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a&tokenNameB=54554e41';
-
-  onMount(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const distance = targetTime - now;
-
-      timeLeft = {
-        days: Math.floor(distance / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((distance % (1000 * 60)) / 1000),
-      };
-    }, 1000);
-
-    return () => clearInterval(interval);
+  $effect(() => {
+    console.log(BigInt(amountToRedeem));
   });
 
   const tunaTx = async () => {
@@ -140,88 +108,56 @@
   };
 </script>
 
-<div class="grid grid-cols-1 xl:grid-cols-2 justify-center m-4 items-center">
+<div class="grid grid-cols-1 justify-center p-4">
   <div class="card max-w-full xl:max-w-[35vw] justify-center shadow-xl mt-5 bg-base-300">
     <div class="card-body">
-      <h2 class="card-title text-3xl font-bold text-white">$TUNA V1 Metrics</h2>
-      <div class="grid grid-cols-1 xl:grid-cols-3 xl:grid-rows-2 gap-4 my-6">
-        <div class="stat border border-base-100 border-l-8 border-l-secondary">
-          <div class="stat-title">Circulating Supply</div>
-          <div class="stat-value text-secondary">1.5M</div>
-        </div>
+      <h2 class="card-title text-3xl font-bold text-white">Redeem Your V1 $TUNA</h2>
+      <div class="grid grid-cols-1 gap-8 py-6">
+        <div class="grid grid-cols-3 items-center">
+          <div class="col-span-1">
+            <div class="stat-title text-error">$TUNA V1</div>
+            <div class="stat-value text-white">
+              {($v1TunaAmount / 100_000_000n).toLocaleString('en-US')}
+            </div>
+          </div>
 
-        <div class="stat border border-base-100 border-l-8 border-l-red-600">
-          <div class="stat-title">Max Supply</div>
-          <div class="stat-value text-red-500">21M</div>
-        </div>
+          <div class="col-span-1 flex justify-center">
+            <button
+              class="btn btn-accent btn-outline btn-circle"
+              onclick={(e) => {
+                e.preventDefault();
 
-        <div class="stat border border-base-100 border-l-8 border-l-purple-500">
-          <div class="stat-title">Minted</div>
-          <div class="stat-value text-purple-500">{circulatingPercentage.toFixed(2)}%</div>
-        </div>
+                amountToRedeem = $v1TunaAmount / 100_000_000n;
+              }}><IonFishOutline /></button>
+          </div>
 
-        <div class="stat border border-base-100 border-l-8 border-l-lime-300">
-          <div class="stat-title">Total Locked v2</div>
-          <div class="stat-value text-white items-center">
-            0 <span class="text-2xl text-lime-300">$TUNA</span>
+          <div class="col-span-1 text-right">
+            <div class="stat-title text-success">$TUNA V2</div>
+            <div class="stat-value text-white">
+              {($v2TunaAmount / 100_000_000n).toLocaleString('en-US')}
+            </div>
           </div>
         </div>
 
-        <div class="stat border border-base-100 border-l-8 border-l-orange-500">
-          <div class="stat-title">Locked %</div>
-          <div class="stat-value text-orange-500">0%</div>
-        </div>
+        <label class="input input-bordered flex items-center gap-2">
+          <img src={fortunaIconBlack} alt="fortuna icon" class="w-6 h-6 -ml-2 opacity-70" />
 
-        <div
-          class="stat border border-base-100 border-l-8 border-l-green-500 row-start-1 xl:row-start-auto">
-          <div class="stat-figure text-primary"></div>
-          <div class="stat-title">Time left</div>
+          <input
+            value={amountToRedeem.toLocaleString('en-US')}
+            oninput={(e) => {
+              amountToRedeem = BigInt(e.currentTarget.value.replace(/\D/g, ''));
 
-          <div class="stat-value text-white">
-            {#if timeLeft && timeLeft.days !== undefined && timeLeft.hours !== undefined && timeLeft.minutes !== undefined && timeLeft.seconds !== undefined}
-              <span class="countdown font-mono text-lg">
-                {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
-              </span>
-            {:else}
-              <span class="loading loading-dots loading-xs"></span>
-            {/if}
-            <div class="text-sm font-light mt-2">TEST DATA ONLY</div>
-          </div>
-        </div>
-      </div>
-      <div class="card-actions justify-end"></div>
-    </div>
-  </div>
+              e.currentTarget.value = amountToRedeem.toLocaleString('en-US');
+            }}
+            type="text"
+            placeholder="0"
+            inputmode="decimal"
+            class="grow" />
+        </label>
 
-  <div
-    class="col-start-1 row-start-1 xl:col-start-2 card max-w-full xl:min-w-[40vw] justify-center shadow-xl mt-5 bg-base-300">
-    <div class="stats bg-base-300 stats-vertical lg:stats-horizontal">
-      <div class="stat">
-        <div class="stat-title text-success">$TUNA V1 Available</div>
-        <div class="stat-figure text-primary">
-          {#if $v1TunaAmount > 0}
-            <button class="btn btn-md btn-success" on:click={tunaTx}
-              ><UisPadlock class="text-black" />
-              Lock
-            </button>
-          {:else}
-            <a href={tunaMinswap} target="_blank" class="btn btn-md btn-warning"
-              ><span class="hidden md:flex">Get v1 $TUNA</span>
-              <span class="md:hidden">Buy Some</span>
-              <MaterialSymbolsAddShoppingCartSharp class="text-black" /></a>
-          {/if}
-        </div>
-        <div class="stat-value text-white">{$v1TunaAmount.toLocaleString('en-US')}</div>
-        <div class="stat-actions"></div>
-      </div>
+        <div class="relative"></div>
 
-      <div class="stat">
-        <div class="stat-title text-success">My Locked Tuna</div>
-        <div class="stat-figure text-primary">
-          <IonFishOutline class="text-primary text-3xl" />
-        </div>
-        <div class="stat-value text-white">{lockedTuna.toLocaleString('en-US')}</div>
-        <div class="stat-actions"></div>
+        <button class="btn btn-primary" onclick={tunaTx}><UisPadlock />Redeem</button>
       </div>
     </div>
   </div>

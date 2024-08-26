@@ -3,8 +3,16 @@
 
   import geroIcon from '$lib/assets/geroicon.png';
   import fortunaIconBlack from '$lib/assets/fortunaIconBlack.png';
-  import { v1TunaAmount, wallet, walletApi, walletOption, userAddress, blaze } from '$lib/store';
-  import { TUNA_ASSET_NAME, V1_TUNA_POLICY_ID } from '$lib/constants';
+  import {
+    v1TunaAmount,
+    v2TunaAmount,
+    wallet,
+    walletApi,
+    walletOption,
+    userAddress,
+    blaze,
+  } from '$lib/store';
+  import { TUNA_ASSET_NAME, V1_TUNA_POLICY_ID, V2_TUNA_POLICY_ID } from '$lib/constants';
   import { createBlaze } from '$lib/utils/provider';
   import { AssetId } from '@blaze-cardano/core';
   import type { Cardano } from '../../app';
@@ -54,11 +62,16 @@
 
         if ($userAddress) {
           const assetId = AssetId(V1_TUNA_POLICY_ID + TUNA_ASSET_NAME);
+          const assetIdV2 = AssetId(V2_TUNA_POLICY_ID + TUNA_ASSET_NAME);
 
           const utxos = await $blaze.provider.getUnspentOutputsWithAsset($userAddress, assetId);
 
           $v1TunaAmount = utxos.reduce((acc, u) => {
             return acc + (u.output().amount().multiasset()?.get(assetId) ?? 0n);
+          }, 0n);
+
+          $v2TunaAmount = utxos.reduce((acc, u) => {
+            return acc + (u.output().amount().multiasset()?.get(assetIdV2) ?? 0n);
           }, 0n);
         }
       }
@@ -86,7 +99,7 @@
 </script>
 
 {#if $walletOption}
-  <div class="dropdown dropdown-hover dropdown-left md:dropdown-right md:dropdown-bottom">
+  <div class="dropdown dropdown-hover md:dropdown-bottom">
     <div tabIndex={0} role="button" class="btn btn-accent btn-outline">
       <img
         src={$walletOption.name === 'GeroWallet' ? geroIcon : $walletOption.icon}
@@ -96,28 +109,31 @@
     <ul
       tabIndex={0}
       class="dropdown-content bg-slate-800 z-[1] menu md:-ml-36 p-2 shadow rounded-box w-52 gap-1">
-      {#if $v1TunaAmount > 0}
+      {#if $v1TunaAmount > 0n}
         <li class="mt-2">
           <button class="indicator w-full btn btn-sm btn-accent">
-            <img src={fortunaIconBlack} alt="fortuna icon" class="w-4 h-4 justify-center" />
+            V1 <img src={fortunaIconBlack} alt="fortuna icon" class="w-4 h-4 justify-center" />
             {($v1TunaAmount / 100_000_000n).toLocaleString('en-US')}
           </button>
         </li>
-      {:else}
+      {/if}
+
+      {#if $v2TunaAmount > 0n}
         <li class="mt-2">
           <button class="indicator w-full btn btn-sm btn-accent">
-            <img src={fortunaIconBlack} alt="fortuna icon" class="w-6 h-6 justify-center" /> You have
-            no Tuna
+            V2 <img src={fortunaIconBlack} alt="fortuna icon" class="w-4 h-4 justify-center" />
+            {($v2TunaAmount / 100_000_000n).toLocaleString('en-US')}
           </button>
         </li>
       {/if}
-      {#if $v1TunaAmount > 0}
+
+      {#if $v1TunaAmount > 0n}
         <li class="mt-2">
           <a href="/hardfork" class="indicator w-full btn btn-sm">
             <span class="indicator-item indicator-top indicator-end badge badge-secondary">
               TUNA V2
             </span>
-            Lock Tuna
+            Redeem
           </a>
         </li>
       {:else}

@@ -16,15 +16,15 @@ type ProviderRequest =
   | { method: 'evaluateTransaction'; tx: string; additionalUtxos: string[] };
 
 export async function POST({ request }: RequestEvent) {
-  const allowedOrigin = 'https://minefortuna.com';
-  const origin = request.headers.get('origin');
+  // const allowedOrigin = 'https://minefortuna.com';
+  // const origin = request.headers.get('origin');
 
-  if (origin !== allowedOrigin) {
-    return json({
-      status: 403,
-      body: 'Forbidden: Cross-origin requests are not allowed',
-    });
-  }
+  // if (origin !== allowedOrigin) {
+  //   return json({
+  //     status: 403,
+  //     body: 'Forbidden: Cross-origin requests are not allowed',
+  //   });
+  // }
 
   const provider = newProvider();
 
