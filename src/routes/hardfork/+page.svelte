@@ -41,9 +41,14 @@
       return;
     }
 
-    const forkValidatorAddress = Address.fromBech32('');
+    const forkValidatorAddress = Address.fromBech32(
+      'addr1wye5g0txzw8evz0gddc5lad6x5rs9ttaferkun96gr9wd9sj5y20t',
+    );
     const rewardAccount = RewardAccount.fromCredential(
-      { type: CredentialType['ScriptHash'], hash: Hash28ByteBase16('') },
+      {
+        type: CredentialType.ScriptHash,
+        hash: Hash28ByteBase16(HARD_FORK_HASH),
+      },
       NetworkId.Mainnet,
     );
 
