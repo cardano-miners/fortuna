@@ -43,6 +43,7 @@
         <div class="table-cell p-4">Target</div>
         <div class="table-cell p-4">Hash</div>
         <div class="table-cell p-4">Epoch</div>
+        <div class="table-cell p-4">Cardano Tx</div>
         <div class="table-cell p-4">Time</div>
       </div>
 
@@ -62,8 +63,20 @@
           <div class="table-cell p-4 border-t-2 border-gray-800">
             <div class="badge badge-success">{Math.floor(block.number / 2016 + 1)}</div>
           </div>
+
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            {intlFormat(block.currentPosixTime)}
+            <a class="link" href={`https://cexplorer.io/tx/${block.cardano_tx_hash}`}>view</a>
+          </div>
+
+          <div class="table-cell p-4 border-t-2 border-gray-800">
+            {intlFormat(block.currentPosixTime, {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: 'numeric',
+              second: 'numeric',
+            })}
           </div>
         </div>
       {/each}
