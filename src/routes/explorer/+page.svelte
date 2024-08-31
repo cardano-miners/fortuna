@@ -36,10 +36,6 @@
 </script>
 
 <div class="flex flex-col gap-12 mt-12 md:mx-0 mx-2">
-  <div class="flex justify-center">
-    <span class="text-4xl font-semibold">Blocks ({data.totalCount})</span>
-  </div>
-
   <div class="overflow-x-auto">
     <div class="table w-full text-white overflow-hidden rounded-lg shadow-lg mt-4">
       <div class="table-header-group bg-base-300">
