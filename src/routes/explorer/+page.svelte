@@ -65,7 +65,10 @@
           </div>
 
           <div class="table-cell p-4 border-t-2 border-gray-800">
-            <a class="link" href={`https://cexplorer.io/tx/${block.cardano_tx_hash}`}>view</a>
+            <a
+              class="link"
+              target="_blank"
+              href={`https://cexplorer.io/tx/${block.cardano_tx_hash}`}>view</a>
           </div>
 
           <div class="table-cell p-4 border-t-2 border-gray-800">
