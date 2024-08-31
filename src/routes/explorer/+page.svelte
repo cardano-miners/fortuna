@@ -43,7 +43,7 @@
         <div class="table-cell p-4">Target</div>
         <div class="table-cell p-4">Hash</div>
         <div class="table-cell p-4">Epoch</div>
-        <div class="table-cell p-4">Cardano Tx</div>
+        <div class="table-cell p-4">Tx</div>
         <div class="table-cell p-4">Time</div>
       </div>
 
