@@ -76,8 +76,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
         let big_tuna_name =
           bytearray.concat(fortunav2.big_tuna_prefix, spend_cred)
 
-        expect [Pair(token1, 1),
-          Pair(token2, 1)] = spend_value |> tokens(own_policy)
+        expect [Pair(token1, 1), Pair(token2, 1)] =
+          spend_value |> tokens(own_policy)
 
         let in_token_name =
           // By ledger rules we should only hit this first since token names
@@ -112,10 +112,8 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
               []
             } else {
               [
-                Pair(
-                  fortuna.token_name,
-                  initial_payout / pow2(halving_exponent),
-                ),
+                Pair(fortuna.token_name,
+                initial_payout / pow2(halving_exponent)),
               ]
             }
 
@@ -363,19 +361,15 @@ validator(fortuna_v1_hash: Data, fork_script_hash: Data) {
 
           if builtin.less_than_bytearray(minted, burned) {
             [
-              Pair(
-                bytearray.concat(fortunav2.nominated_prefix, script_hash),
-                -1,
-              ),
+              Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
+              -1),
               Pair(minted, 1),
               Pair(burned, -1),
             ]
           } else {
             [
-              Pair(
-                bytearray.concat(fortunav2.nominated_prefix, script_hash),
-                -1,
-              ),
+              Pair(bytearray.concat(fortunav2.nominated_prefix, script_hash),
+              -1),
               Pair(burned, -1),
               Pair(minted, 1),
             ]

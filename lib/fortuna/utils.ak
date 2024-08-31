@@ -62,8 +62,7 @@ pub fn value_has_nft_and_lovelace(
   policy: PolicyId,
   asset_name: AssetName,
 ) -> Bool {
-  expect [Pair(policy1, amount1),
-    Pair(policy2, amount2)] =
+  expect [Pair(policy1, amount1), Pair(policy2, amount2)] =
     val
       |> value.to_dict()
       |> dict.to_pairs()
