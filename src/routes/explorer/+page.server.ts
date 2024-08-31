@@ -25,7 +25,7 @@ export async function load({ url, platform }: PageServerLoadEvent) {
     offset: (parsedPageNumber - 1) * parsedPageLimit,
   });
 
-  const result = await db.select({ count: count() }).from(schema.blocks);
+  const result = await db.select({ count: count(schema.blocks.number) }).from(schema.blocks);
 
   const totalCount = result[0].count;
 

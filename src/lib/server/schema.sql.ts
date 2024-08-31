@@ -14,4 +14,7 @@ export const blocks = sqliteTable('blocks', {
   paymentCred: text('miner_cred'),
   nftCred: text('nft_cred', { length: 120 }),
   data: text('data'),
+  cardano_tx_hash: text('cardano_tx_hash', { length: 64 }).notNull().unique(),
+  cardano_slot: integer('cardano_slot').notNull(),
+  cardano_hash: text('cardano_hash', { length: 64 }).notNull(),
 });

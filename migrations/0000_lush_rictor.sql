@@ -8,7 +8,11 @@ CREATE TABLE `blocks` (
 	`nonce` text(64),
 	`miner_cred` text,
 	`nft_cred` text(120),
-	`data` text
+	`data` text,
+	`cardano_tx_hash` text(64) NOT NULL,
+	`cardano_slot` integer NOT NULL,
+	`cardano_hash` text(64) NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `blocks_hash_unique` ON `blocks` (`hash`);
+CREATE UNIQUE INDEX `blocks_hash_unique` ON `blocks` (`hash`);--> statement-breakpoint
+CREATE UNIQUE INDEX `blocks_cardano_tx_hash_unique` ON `blocks` (`cardano_tx_hash`);

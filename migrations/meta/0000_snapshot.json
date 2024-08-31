@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b051fed5-1dde-419a-ac35-ca7a3642a698",
+  "id": "16a4f861-0912-436e-9831-6ecf6bdbf614",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "blocks": {
@@ -76,6 +76,27 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "cardano_tx_hash": {
+          "name": "cardano_tx_hash",
+          "type": "text(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cardano_slot": {
+          "name": "cardano_slot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cardano_hash": {
+          "name": "cardano_hash",
+          "type": "text(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -83,6 +104,13 @@
           "name": "blocks_hash_unique",
           "columns": [
             "hash"
+          ],
+          "isUnique": true
+        },
+        "blocks_cardano_tx_hash_unique": {
+          "name": "blocks_cardano_tx_hash_unique",
+          "columns": [
+            "cardano_tx_hash"
           ],
           "isUnique": true
         }
