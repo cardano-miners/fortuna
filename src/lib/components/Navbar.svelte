@@ -64,7 +64,7 @@
       </div>
 
       <div class="md:flex flex-row -mx-2 items-center gap-6 hidden">
-        <a href="https://github.com/aiken-lang/fortuna" target="_blank"
+        <a href="https://github.com/cardano-miners/fortuna" target="_blank"
           ><MdiGithubBox class="size-9 hover:text-primary " /></a>
         <a href="https://discord.gg/Vc3x8N9nz2" target="_blank">
           <MdiDiscord class="size-7 hover:text-primary" /></a>
