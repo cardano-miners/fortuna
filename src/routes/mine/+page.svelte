@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { V2_TUNA_POLICY_ID } from '$lib/constants';
 </script>
 
 <div class="p-10 text-base-900">
@@ -65,6 +66,6 @@
 
   <h2 class="text-3xl mb-2 text-primary">Policy</h2>
   <p class="mb-4">
-    The policy for the TUNA token is 279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a
+    The policy for the TUNA token is {V2_TUNA_POLICY_ID}
   </p>
 </div>
