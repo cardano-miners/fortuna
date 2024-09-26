@@ -26,7 +26,7 @@
         ><span class="text-secondary">Ogmios</span></a>
     </li>
   </ul>
-  <div role="alert" class="alert">
+  <div role="alert" class="alert m-6">
     <svg
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
@@ -47,7 +47,7 @@
   <div class="p-4 bg-base-300 rounded-md mb-4">
     <pre><code
         >KUPO_URL="https://&lt;Kupo URL&gt;"
-  OGMIOS_URL="wss://&lt;Ogmios URL&gt;"</code></pre>
+OGMIOS_URL="wss://&lt;Ogmios URL&gt;"</code></pre>
   </div>
 
   <h2 class="text-3xl mb-2 text-primary">Wallet</h2>
