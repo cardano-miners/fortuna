@@ -7,7 +7,7 @@
     Highlight,
     RectClipPath,
     Tooltip,
-    TooltipItem
+    TooltipItem,
   } from 'layerchart';
   import { format } from 'date-fns';
   import { scaleBand } from 'd3-scale';
@@ -33,22 +33,25 @@
       yDomain={[0, null]}
       yNice={4}
       padding={{ left: 16, bottom: 24 }}
-      tooltip={{ mode: 'band' }}>
+      tooltip={{ mode: 'band' }}
+    >
       <Svg label="Bar Chart">
         <Axis placement="bottom" format={(d) => format(d, 'dd MMM ')} rule />
         <Bars
           radius={4}
           strokeWidth={1}
-          class="fill-white/95  group-hover:fill-base-300 transition-colors" />
+          class="fill-white/95  group-hover:fill-base-300 transition-colors"
+        />
         <Highlight
           area={{
-            class: 'fill-black/15'
+            class: 'fill-black/15',
           }}
           bar={{
             class: 'fill-primary',
             strokeWidth: 1,
-            radius: 4
-          }} />
+            radius: 4,
+          }}
+        />
       </Svg>
       <Tooltip class="bg-base-300" header={(data) => format(data.date, 'eee, MMMM do')} let:data>
         <TooltipItem label="Mined" value={data.value} />

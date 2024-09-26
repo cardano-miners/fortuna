@@ -60,13 +60,17 @@
 
   <div class="w-full flex justify-center mt-5">
     <div class="join">
-      <button class="join-item btn" on:click={() => changePage(-1)} disabled={currentPage === 1}
-        >«</button>
+      <button class="join-item btn" on:click={() => changePage(-1)} disabled={currentPage === 1}>
+        «
+      </button>
       <button class="join-item btn">Page {currentPage}</button>
       <button
         class="join-item btn"
         on:click={() => changePage(1)}
-        disabled={currentPage === Math.ceil(data.length / itemsPerPage)}>»</button>
+        disabled={currentPage === Math.ceil(data.length / itemsPerPage)}
+      >
+        »
+      </button>
     </div>
   </div>
 </div>

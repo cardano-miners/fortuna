@@ -8,7 +8,7 @@
     Legend,
     Tooltip,
     TooltipItem,
-    Highlight
+    Highlight,
   } from 'layerchart';
   import { type CurveFactory } from 'd3-shape';
   import { format } from 'date-fns';
@@ -37,7 +37,8 @@
       y={yValue}
       yNice
       padding={{ left: 16, bottom: 24 }}
-      tooltip={{ mode: 'bisect-x' }}>
+      tooltip={{ mode: 'bisect-x' }}
+    >
       <Svg>
         <Axis tweened placement={placementy} grid rule />
         <Axis tweened placement={placementx} rule />
@@ -46,7 +47,8 @@
           border={false}
           line={{ class: lineClass }}
           tweened
-          class={areaClass} />
+          class={areaClass}
+        />
         {#if isHighlighted}
           <Highlight points lines />
         {/if}

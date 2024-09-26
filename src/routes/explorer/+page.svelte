@@ -68,7 +68,10 @@
             <a
               class="link"
               target="_blank"
-              href={`https://cexplorer.io/tx/${block.cardano_tx_hash}`}>view</a>
+              href={`https://cexplorer.io/tx/${block.cardano_tx_hash}`}
+            >
+              view
+            </a>
           </div>
 
           <div class="table-cell p-4 border-t-2 border-gray-800">
@@ -87,11 +90,13 @@
     </div>
     <div class="w-full flex justify-center mt-5">
       <div class="join">
-        <button class="join-item btn" on:click={() => changePage(-1)} disabled={!data.canPrevPage}
-          >«</button>
+        <button class="join-item btn" on:click={() => changePage(-1)} disabled={!data.canPrevPage}>
+          «
+        </button>
         <button class="join-item btn">Page {$page.url.searchParams.get('page') ?? '1'}</button>
-        <button class="join-item btn" on:click={() => changePage(1)} disabled={!data.canNextPage}
-          >»</button>
+        <button class="join-item btn" on:click={() => changePage(1)} disabled={!data.canNextPage}>
+          »
+        </button>
       </div>
     </div>
   </div>

@@ -23,13 +23,15 @@
               innerRadius={-20}
               cornerRadius={4}
               padAngle={0.02}
-              class={(segmentIndex / segments) * 100 < value ? 'fill-primary' : 'fill-gray-700'}>
+              class={(segmentIndex / segments) * 100 < value ? 'fill-primary' : 'fill-gray-700'}
+            >
               <Text
                 value={Math.round(value)}
                 textAnchor="middle"
                 verticalAnchor="middle"
                 dy={16}
-                class="text-6xl fill-white" />
+                class="text-6xl fill-white"
+              />
             </Arc>
           {/each}
         </Group>

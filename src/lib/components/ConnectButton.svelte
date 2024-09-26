@@ -108,11 +108,13 @@
       <img
         src={$walletOption.name === 'GeroWallet' ? geroIcon : $walletOption.icon}
         alt="logo"
-        class="w-6 h-6 justify-center" />
+        class="w-6 h-6 justify-center"
+      />
     </div>
     <ul
       tabIndex={0}
-      class="dropdown-content bg-slate-800 z-[1] menu md:-ml-36 p-2 shadow rounded-box w-52 gap-1">
+      class="dropdown-content bg-slate-800 z-[1] menu md:-ml-36 p-2 shadow rounded-box w-52 gap-1"
+    >
       {#if $v1TunaAmount > 0n}
         <li class="mt-2">
           <button class="indicator w-full btn btn-sm btn-accent">
@@ -165,7 +167,10 @@
     class="btn btn-primary"
     onclick={() => {
       open = true;
-    }}>Connect</button>
+    }}
+  >
+    Connect
+  </button>
   <dialog id="my_modal_1" class="modal modal-middle" {open}>
     <div class="modal-box flex flex-col border border-gray-700 bg-base-300 gap-4 md:gap-8">
       <h3 class="font-bold text-lg text-center">Select a wallet</h3>
@@ -177,11 +182,13 @@
             e.preventDefault();
 
             connect(key);
-          }}>
+          }}
+        >
           <img
             src={value.name === 'GeroWallet' ? geroIcon : value.icon}
             alt={value.name}
-            class="w-6 h-6" />
+            class="w-6 h-6"
+          />
           <span class="capitalize">{value.name}</span>
         </button>
       {/each}
@@ -192,7 +199,10 @@
             class="btn"
             onclick={() => {
               open = false;
-            }}>Close</button>
+            }}
+          >
+            Close
+          </button>
         </form>
       </div>
     </div>
@@ -200,7 +210,10 @@
       <button
         onclick={() => {
           open = false;
-        }}>close</button>
+        }}
+      >
+        close
+      </button>
     </form>
   </dialog>
 {/if}

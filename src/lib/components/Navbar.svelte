@@ -10,7 +10,8 @@
   <div class="drawer">
     <input id="my-drawer" type="checkbox" class="drawer-toggle" />
     <div
-      class="drawer-content flex flex-col flex-wrap container mx-auto md:flex-row md:items-center md:justify-between">
+      class="drawer-content flex flex-col flex-wrap container mx-auto md:flex-row md:items-center md:justify-between"
+    >
       <div class="flex flex-row flex-wrap justify-between md:hidden">
         <label for="my-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
           <svg
@@ -18,12 +19,14 @@
             fill="none"
             viewBox="0 0 24 24"
             class="inline-block w-6 h-6 stroke-current"
-            ><path
+          >
+            <path
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M4 6h16M4 12h16M4 18h16"></path
-            ></svg>
+              d="M4 6h16M4 12h16M4 18h16"
+            ></path>
+          </svg>
         </label>
         <div class="md:hidden">
           <ConnectButton />
@@ -37,37 +40,52 @@
       </div>
 
       <div
-        class="md:flex flex-col md:flex-row hidden items-center font-medium text-white gap-y-1 md:gap-x-4 md:gap-y-0">
+        class="md:flex flex-col md:flex-row hidden items-center font-medium text-white gap-y-1 md:gap-x-4 md:gap-y-0"
+      >
         <a
           href="/hardfork"
           class="hover:text-primary hover:border-primary"
           class:border-b-2={$page.url.pathname === '/hardfork'}
-          class:border-secondary={$page.url.pathname === '/hardfork'}>Hardfork</a>
+          class:border-secondary={$page.url.pathname === '/hardfork'}
+        >
+          Hardfork
+        </a>
 
         <a
           href="/mine"
           class="hover:text-primary hover:border-primary"
           class:border-b-2={$page.url.pathname === '/mine'}
-          class:border-secondary={$page.url.pathname === '/mine'}>Mine</a>
+          class:border-secondary={$page.url.pathname === '/mine'}
+        >
+          Mine
+        </a>
 
         <a
           href="/explorer"
           class="hover:text-primary hover:border-primary"
           class:border-b-2={$page.url.pathname === '/explorer'}
-          class:border-secondary={$page.url.pathname === '/explorer'}>Explorer</a>
+          class:border-secondary={$page.url.pathname === '/explorer'}
+        >
+          Explorer
+        </a>
 
         <a
           href="/community"
           class="hover:text-primary hover:border-primary"
           class:border-b-2={$page.url.pathname === '/community'}
-          class:border-secondary={$page.url.pathname === '/community'}>Community</a>
+          class:border-secondary={$page.url.pathname === '/community'}
+        >
+          Community
+        </a>
       </div>
 
       <div class="md:flex flex-row -mx-2 items-center gap-6 hidden">
-        <a href="https://github.com/cardano-miners/fortuna" target="_blank"
-          ><MdiGithubBox class="size-9 hover:text-primary " /></a>
+        <a href="https://github.com/cardano-miners/fortuna" target="_blank">
+          <MdiGithubBox class="size-9 hover:text-primary " />
+        </a>
         <a href="https://discord.gg/Vc3x8N9nz2" target="_blank">
-          <MdiDiscord class="size-7 hover:text-primary" /></a>
+          <MdiDiscord class="size-7 hover:text-primary" />
+        </a>
         <ConnectButton />
       </div>
     </div>
@@ -81,31 +99,44 @@
             class="hover:text-primary hover:border-primary"
             class:border-b-2={$page.url.pathname === '/hardfork'}
             class:border-base={$page.url.pathname === '/hardfork'}
-            >Hardfork <span class="badge badge-accent"> TUNA V2 </span></a>
+          >
+            Hardfork <span class="badge badge-accent">TUNA V2</span>
+          </a>
 
           <a
             href="/mine"
             class="hover:text-primary hover:border-primary"
             class:border-b-2={$page.url.pathname === '/mine'}
-            class:border-base={$page.url.pathname === '/mine'}>Mine</a>
+            class:border-base={$page.url.pathname === '/mine'}
+          >
+            Mine
+          </a>
 
           <a
             href="/explorer"
             class="hover:text-primary hover:border-primary"
             class:border-b-2={$page.url.pathname === '/explorer'}
-            class:border-base={$page.url.pathname === '/explorer'}>Explorer</a>
+            class:border-base={$page.url.pathname === '/explorer'}
+          >
+            Explorer
+          </a>
 
           <a
             href="/community"
             class="hover:text-primary hover:border-primary"
             class:border-b-2={$page.url.pathname === '/community'}
-            class:border-base={$page.url.pathname === '/community'}>Community</a>
+            class:border-base={$page.url.pathname === '/community'}
+          >
+            Community
+          </a>
         </div>
         <div class="flex flex-row items-center gap-4 mt-4">
-          <a href="https://github.com/aiken-lang/fortuna" target="_blank" class=""
-            ><MdiGithubBox class="size-10 text-primary " /></a>
+          <a href="https://github.com/aiken-lang/fortuna" target="_blank" class="">
+            <MdiGithubBox class="size-10 text-primary " />
+          </a>
           <a href="https://discord.gg/Vc3x8N9nz2" target="_blank" class="">
-            <MdiDiscord class="size-8 text-primary" /></a>
+            <MdiDiscord class="size-8 text-primary" />
+          </a>
         </div>
       </ul>
     </div>

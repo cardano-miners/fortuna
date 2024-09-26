@@ -153,7 +153,10 @@
                 e.preventDefault();
 
                 amountToRedeem = $v1TunaAmount / 100_000_000n;
-              }}><IonFishOutline /></button>
+              }}
+            >
+              <IonFishOutline />
+            </button>
           </div>
 
           <div class="col-span-1 text-right">
@@ -177,7 +180,8 @@
             type="text"
             placeholder="0"
             inputmode="decimal"
-            class="grow" />
+            class="grow"
+          />
         </label>
 
         <div class="relative"></div>
@@ -186,7 +190,8 @@
           class="btn btn-primary"
           class:btn-disabled={buttonDisabled}
           disabled={buttonDisabled}
-          onclick={tunaTx}>
+          onclick={tunaTx}
+        >
           <UisPadlock />Redeem
         </button>
 

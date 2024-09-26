@@ -7,23 +7,29 @@
   <p class="mb-4">
     The current miner is naive and a better implementation is coming soon, you can learn more <a
       href="https://github.com/aiken-lang/fortuna"
-      target="_blank"><span class="text-secondary">here</span></a
-    >.
+      target="_blank"
+    >
+      <span class="text-secondary">here</span>
+    </a>
+    .
   </p>
 
   <h2 class="text-3xl mb-2 text-primary">Requirements</h2>
   <ul class="list-disc pl-5 mb-4">
     <li>
-      <a href="https://deno.land/manual@v1.36.3/getting_started/installation" target="_blank"
-        ><span class="text-secondary">Deno</span></a>
+      <a href="https://deno.land/manual@v1.36.3/getting_started/installation" target="_blank">
+        <span class="text-secondary">Deno</span>
+      </a>
     </li>
     <li>
-      <a href="https://cardanosolutions.github.io/kupo/" target="_blank"
-        ><span class="text-secondary">Kupo</span></a>
+      <a href="https://cardanosolutions.github.io/kupo/" target="_blank">
+        <span class="text-secondary">Kupo</span>
+      </a>
     </li>
     <li>
-      <a href="https://github.com/CardanoSolutions/ogmios" target="_blank"
-        ><span class="text-secondary">Ogmios</span></a>
+      <a href="https://github.com/CardanoSolutions/ogmios" target="_blank">
+        <span class="text-secondary">Ogmios</span>
+      </a>
     </li>
   </ul>
   <div role="alert" class="alert m-6">
@@ -32,21 +38,23 @@
       fill="none"
       viewBox="0 0 24 24"
       class="stroke-current shrink-0 w-6 h-6"
-      ><path
+    >
+      <path
         stroke-linecap="round"
         stroke-linejoin="round"
         stroke-width="2"
-        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path
-      ></svg>
-    <span
-      >You can easily get access to Kupo and Ogmios with Demeter. Once you have a project in Demeter
+        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      ></path>
+    </svg>
+    <span>
+      You can easily get access to Kupo and Ogmios with Demeter. Once you have a project in Demeter
       you can connect Ogmios and Kupo extensions for mainnet. Make sure to toggle Expose http port
-      in each extensions' settings.</span>
+      in each extensions' settings.
+    </span>
   </div>
   <h2 class="text-3xl mb-2 text-primary">Environment variables</h2>
   <div class="p-4 bg-base-300 rounded-md mb-4">
-    <pre><code
-        >KUPO_URL="https://&lt;Kupo URL&gt;"
+    <pre><code>KUPO_URL="https://&lt;Kupo URL&gt;"
 OGMIOS_URL="wss://&lt;Ogmios URL&gt;"</code></pre>
   </div>
 
