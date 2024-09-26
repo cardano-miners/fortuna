@@ -23,8 +23,8 @@
   let wallets: [string, Cardano['']][] = $state([]);
 
   // change to the sew address later OR just hide/delete this component inside /Navbar.svelte after the hardfork
-  let tunaMinswap =
-    'https://app.minswap.org/pt-BR/swap?currencySymbolA=&tokenNameA=&currencySymbolB=279f842c33eed9054b9e3c70cd6a3b32298259c24b78b895cb41d91a&tokenNameB=54554e41';
+  let tunaButLink =
+    'https://app.dexhunter.io/swap?tokenIdSell=&tokenIdBuy=c981fc98e761e3bb44ae35e7d97ae6227f684bcb6f50a636753da48e54554e41';
 
   const WalletNames = [
     'flint',
@@ -150,7 +150,7 @@
         </li>
 
         <li class="">
-          <a href={tunaMinswap} target="_blank" class=" w-full btn btn-sm">Buy on Minswap</a>
+          <a href={tunaButLink} target="_blank" class=" w-full btn btn-sm">Buy on DexHunter</a>
         </li>
       {/if}
 
