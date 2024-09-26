@@ -68,12 +68,13 @@
           const assetIdV2 = AssetId(V2_TUNA_POLICY_ID + TUNA_ASSET_NAME);
 
           const utxos = await $blaze.provider.getUnspentOutputsWithAsset($userAddress, assetId);
+          const utxosV2 = await $blaze.provider.getUnspentOutputsWithAsset($userAddress, assetIdV2);
 
           $v1TunaAmount = utxos.reduce((acc, u) => {
             return acc + (u.output().amount().multiasset()?.get(assetId) ?? 0n);
           }, 0n);
 
-          $v2TunaAmount = utxos.reduce((acc, u) => {
+          $v2TunaAmount = utxosV2.reduce((acc, u) => {
             return acc + (u.output().amount().multiasset()?.get(assetIdV2) ?? 0n);
           }, 0n);
         }
