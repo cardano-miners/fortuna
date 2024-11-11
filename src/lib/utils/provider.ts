@@ -48,11 +48,16 @@ export class BrowserProvider implements Provider {
 
     // Build cost models
     const costModels: CostModels = new Map();
-    for (const cm of Object.keys(response.cost_models) as BlockfrostLanguageVersions[]) {
+
+    const costModelNoV3 = response.cost_models;
+
+    delete costModelNoV3.PlutusV3;
+
+    for (const cm of Object.keys(costModelNoV3) as BlockfrostLanguageVersions[]) {
       const costModel: number[] = [];
-      const keys = Object.keys(response.cost_models[cm]).sort();
+      const keys = Object.keys(costModelNoV3[cm]).sort();
       for (const key of keys) {
-        costModel.push(response.cost_models[cm][key]!);
+        costModel.push(costModelNoV3[cm][key]!);
       }
 
       costModels.set(fromBlockfrostLanguageVersion(cm), costModel);
